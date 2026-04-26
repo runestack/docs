@@ -1,0 +1,85 @@
+---
+title: Rune
+description: A lightweight, single-binary orchestration platform inspired by Kubernetes and Nomad — built for developers who want to ship fast without operational sprawl.
+template: splash
+hero:
+  tagline: One binary. One YAML file. Production services in 60 seconds.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Quick start
+      link: /start/quick-start/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/runestack/rune
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Why Rune?
+
+Rune sits in the gap between `docker run` and Kubernetes. You get a real control plane — services, instances, scaling, health checks, secrets, RBAC — without an afternoon of YAML and a Helm chart for your Helm chart.
+
+<CardGrid stagger>
+  <Card title="Single binary" icon="rocket">
+    `runed` (server) and `rune` (CLI) are both ~25 MB Go binaries. No etcd, no kubelet, no operator zoo.
+  </Card>
+  <Card title="Container or process" icon="seti:docker">
+    Run Docker containers or native processes side-by-side. The runner abstraction is uniform across both.
+  </Card>
+  <Card title="Declarative YAML" icon="document">
+    A service is a YAML file. Apply with `rune cast`. The orchestrator reconciles the rest.
+  </Card>
+  <Card title="Built-in security" icon="approve-check-circle">
+    Bearer-token auth, policy-based RBAC, AES-256-GCM envelope encryption for secrets.
+  </Card>
+  <Card title="Real lifecycle" icon="setting">
+    Health checks, scaling, restart, exec, log streaming, dependency graphs — all first-class.
+  </Card>
+  <Card title="Runesets" icon="puzzle">
+    Package multi-service applications with templating and values, like a tiny Helm.
+  </Card>
+</CardGrid>
+
+## In 60 seconds
+
+```sh
+# 1. Install
+curl -fsSL https://raw.githubusercontent.com/runestack/rune/master/scripts/install-server.sh | sudo bash
+
+# 2. Bootstrap
+sudo systemctl start runed
+rune admin bootstrap --out-file ~/.rune/token
+
+# 3. Deploy something
+cat > echo.yaml <<EOF
+service:
+  name: echo
+  image: busybox
+  scale: 1
+  command: "/bin/sh"
+  args: ["-c", "while true; do echo hello; sleep 5; done"]
+EOF
+rune cast echo.yaml
+rune logs echo
+```
+
+That's it. You have a reconciled, supervised service.
+
+## Where to next
+
+<CardGrid>
+  <LinkCard title="Quick start →" href="/start/quick-start/" description="Boot a server, deploy a service, watch it run." />
+  <LinkCard title="Concepts →" href="/concepts/architecture/" description="How services, instances, and the orchestrator fit together." />
+  <LinkCard title="CLI reference →" href="/cli/overview/" description="Every command, every flag." />
+  <LinkCard title="Service spec →" href="/reference/service-spec/" description="The full YAML schema with examples." />
+</CardGrid>
+
+---
+
+:::tip[Status]
+Rune is in active development. Release 1 (single-node MVP) is shipping. Multi-node (Raft consensus, agents) is in flight as Release 2. Track progress in [`_docs/ENGINEERING_TICKETS.md`](https://github.com/runestack/rune/blob/master/_docs/ENGINEERING_TICKETS.md).
+:::
