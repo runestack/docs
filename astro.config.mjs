@@ -2,15 +2,11 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
-// Configure the GitHub Pages target via environment variables.
-// In dev (`npm run dev`) we mount at `/` so localhost URLs are clean.
-// In production builds (`npm run build`, CI), set SITE_URL / SITE_BASE.
-//
-//   Project page:        https://<owner>.github.io/<repo>/   →  SITE_BASE=/<repo>
-//   Custom domain/root:  https://docs.example.com/           →  SITE_BASE=/
-const isProd = process.env.NODE_ENV === 'production';
-const SITE = process.env.SITE_URL ?? (isProd ? 'https://runestack.github.io' : 'http://localhost:4321');
-const BASE = process.env.SITE_BASE ?? (isProd ? '/rune' : '/');
+// Deployed at https://runestack.github.io/docs/
+// Override with env vars if moving to a custom domain:
+//   SITE_URL=https://docs.runehq.io SITE_BASE=/
+const SITE = process.env.SITE_URL ?? 'https://runestack.github.io';
+const BASE = process.env.SITE_BASE ?? '/docs';
 
 export default defineConfig({
   site: SITE,
