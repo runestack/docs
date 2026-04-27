@@ -64,6 +64,7 @@ export default defineConfig({
             { label: 'Service dependencies', slug: 'guides/dependencies' },
             { label: 'Package a runeset', slug: 'guides/runesets' },
             { label: 'Process runner', slug: 'guides/process-runner' },
+            { label: 'Deploy on AWS EC2 (Terraform)', slug: 'guides/terraform-ec2' },
           ],
         },
         {
