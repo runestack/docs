@@ -5,8 +5,8 @@ import starlight from '@astrojs/starlight';
 // Deployed at https://runestack.github.io/docs/
 // Override with env vars if moving to a custom domain:
 //   SITE_URL=https://docs.runehq.io SITE_BASE=/
-const SITE = process.env.SITE_URL || 'https://runestack.github.io/docs';
-const BASE = process.env.SITE_BASE || '/docs';
+const SITE = process.env.SITE_URL || 'https://docs.runestack.io';
+const BASE = process.env.SITE_BASE || '/';
 
 export default defineConfig({
   site: SITE,
