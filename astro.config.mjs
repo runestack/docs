@@ -3,10 +3,14 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 // Configure the GitHub Pages target via environment variables.
-//   Project page (default):  https://<owner>.github.io/<repo>/   →  set SITE_BASE=/<repo>
-//   Custom domain or root :  https://docs.example.com/           →  set SITE_BASE=/
-const SITE = process.env.SITE_URL ?? 'https://runestack.github.io';
-const BASE = process.env.SITE_BASE ?? '/rune';
+// In dev (`npm run dev`) we mount at `/` so localhost URLs are clean.
+// In production builds (`npm run build`, CI), set SITE_URL / SITE_BASE.
+//
+//   Project page:        https://<owner>.github.io/<repo>/   →  SITE_BASE=/<repo>
+//   Custom domain/root:  https://docs.example.com/           →  SITE_BASE=/
+const isProd = process.env.NODE_ENV === 'production';
+const SITE = process.env.SITE_URL ?? (isProd ? 'https://runestack.github.io' : 'http://localhost:4321');
+const BASE = process.env.SITE_BASE ?? (isProd ? '/rune' : '/');
 
 export default defineConfig({
   site: SITE,
@@ -16,8 +20,12 @@ export default defineConfig({
       title: 'Rune',
       description:
         'A lightweight, single-binary orchestration platform inspired by Kubernetes and Nomad.',
-      logo: { src: './src/assets/logo.svg', replacesTitle: false },
+      logo: { light: './src/assets/logo-light.svg', dark: './src/assets/logo-dark.svg', replacesTitle: true },
       customCss: ['./src/styles/custom.css'],
+      components: {
+        Pagination: './src/components/Pagination.astro',
+        Sidebar: './src/components/Sidebar.astro',
+      },
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/runestack/rune' },
       ],

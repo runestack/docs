@@ -1,0 +1,72 @@
+---
+import Search from '@astrojs/starlight/components/Search.astro';
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
+import MobileMenuFooter from 'virtual:starlight/components/MobileMenuFooter';
+
+const { sidebar } = Astro.locals.starlightRoute;
+---
+
+<div class="rune-sidebar-search">
+  <Search />
+</div>
+
+<SidebarPersister>
+  <SidebarSublist sublist={sidebar} />
+</SidebarPersister>
+
+<div class="md:sl-hidden">
+  <MobileMenuFooter />
+</div>
+
+<style>
+  .rune-sidebar-search {
+    margin-bottom: 1.5rem;
+  }
+
+  /* Compact, Scalar-style search pill */
+  .rune-sidebar-search :global(site-search) {
+    width: 100%;
+    display: block;
+  }
+  .rune-sidebar-search :global(button[data-open-modal]) {
+    display: flex !important;
+    align-items: center;
+    width: 100%;
+    height: 2.25rem !important;
+    padding: 0 0.75rem !important;
+    gap: 0.5rem !important;
+    border-radius: 8px !important;
+    border: 1px solid var(--sl-color-hairline) !important;
+    background: var(--sl-color-bg) !important;
+    box-shadow: none !important;
+    font-size: 0.8125rem !important;
+    font-weight: 400 !important;
+    color: var(--sl-color-gray-3) !important;
+    transition: border-color 120ms ease, background 120ms ease;
+  }
+  .rune-sidebar-search :global(button[data-open-modal]:hover) {
+    border-color: color-mix(in oklab, var(--sl-color-text) 25%, var(--sl-color-hairline)) !important;
+    background: color-mix(in oklab, var(--sl-color-text) 2%, var(--sl-color-bg)) !important;
+  }
+
+  /* Trim the search icon */
+  .rune-sidebar-search :global(button[data-open-modal] svg) {
+    width: 14px !important;
+    height: 14px !important;
+    flex-shrink: 0;
+    color: var(--sl-color-gray-3);
+  }
+
+  /* Force the placeholder text visible (Starlight hides it under md by default). */
+  .rune-sidebar-search :global(button[data-open-modal] > span) {
+    display: inline !important;
+    flex: 1;
+    text-align: left;
+  }
+
+  /* Hide only the keyboard shortcut hint — keep the placeholder. */
+  .rune-sidebar-search :global(button[data-open-modal] > kbd) {
+    display: none !important;
+  }
+</style>

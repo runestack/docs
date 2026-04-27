@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <style>
+    :root { color-scheme: light dark; }
+    .icon { fill: #1b1b1b; }
+    @media (prefers-color-scheme: dark) {
+      .icon { fill: #ffffff; }
+    }
+  </style>
+
+  <!--
+    Geometric "A" shape inspired by the reference image.
+    Two thick diagonal legs meeting at an apex, with an arch cutout at the base center.
+    Drawn as a single filled path with evenodd rule so the arch punches through.
+
+    Key points (all on a 400x400 canvas, icon centered ~60px margin each side):
+      Apex: (200, 60)
+      Left outer bottom: (60, 340)
+      Right outer bottom: (340, 340)
+      Leg thickness: ~80px
+      Arch: rounded cutout between the two inner legs, near the bottom
+  -->
+
+  <!--
+    Outer "A" silhouette + inner arch cutout (evenodd).
+
+    Outer shell vertices:
+      Apex:                  (200,  58)
+      Right outer bottom-R:  (348, 342)
+      Right inner bottom-R:  (270, 342)
+      Left  inner bottom-L:  (130, 342)
+      Left  outer bottom-L:  ( 52, 342)
+
+    Inner arch subpath (punches hole via evenodd):
+      Bottom-left of arch:   (148, 342)
+      Curve up to arch peak: control (200, 152), apex (252, 342) — single quadratic
+  -->
+  <path class="icon" fill-rule="evenodd" d="
+    M 200 58
+    L 348 342
+    L 270 342
+    L 130 342
+    L 52 342
+    Z
+
+    M 148 342
+    Q 200 152, 252 342
+    Z
+  "/>
+
+</svg>

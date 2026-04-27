@@ -1,0 +1,133 @@
+---
+const { dir, pagination } = Astro.locals.starlightRoute;
+const { prev, next } = pagination;
+const isRtl = dir === 'rtl';
+
+const prevLabel = Astro.locals.t('page.previousLink');
+const nextLabel = Astro.locals.t('page.nextLink');
+---
+
+{
+  (prev || next) && (
+    <nav class="rune-pagination print:hidden" aria-label="Pagination" dir={dir}>
+      <div class="rune-pagination__row">
+        <div class="rune-pagination__cell rune-pagination__cell--prev">
+          {prev && (
+            <a href={prev.href} rel="prev" class="rune-pagination__link">
+              <span class="rune-pagination__label">
+                <span class="rune-pagination__chev" aria-hidden="true">{isRtl ? '›' : '‹'}</span>
+                <span>{prevLabel}</span>
+              </span>
+              <span class="rune-pagination__title">{prev.label}</span>
+            </a>
+          )}
+        </div>
+        <div class="rune-pagination__cell rune-pagination__cell--next">
+          {next && (
+            <a href={next.href} rel="next" class="rune-pagination__link">
+              <span class="rune-pagination__label">
+                <span>{nextLabel}</span>
+                <span class="rune-pagination__chev" aria-hidden="true">{isRtl ? '‹' : '›'}</span>
+              </span>
+              <span class="rune-pagination__title">{next.label}</span>
+            </a>
+          )}
+        </div>
+      </div>
+    </nav>
+  )
+}
+
+<style>
+  .rune-pagination {
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--sl-color-hairline);
+  }
+
+  .rune-pagination__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .rune-pagination__cell {
+    min-width: 0;
+  }
+
+  .rune-pagination__cell--next {
+    text-align: right;
+    justify-self: end;
+  }
+
+  .rune-pagination__link {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    text-decoration: none;
+    color: inherit;
+    transition: color 120ms ease;
+  }
+
+  .rune-pagination__cell--next .rune-pagination__link {
+    align-items: flex-end;
+  }
+
+  .rune-pagination__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--sl-color-gray-3);
+    letter-spacing: 0.005em;
+  }
+
+  .rune-pagination__chev {
+    font-size: 0.95rem;
+    line-height: 1;
+    display: inline-block;
+    transform: translateY(-1px);
+    transition: transform 160ms ease;
+  }
+
+  .rune-pagination__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    color: var(--sl-color-text);
+  }
+
+  .rune-pagination__link:hover .rune-pagination__title {
+    color: var(--sl-color-text-accent);
+  }
+
+  .rune-pagination__link:hover .rune-pagination__label {
+    color: var(--sl-color-text);
+  }
+
+  [rel='prev']:hover .rune-pagination__chev {
+    transform: translate(-3px, -1px);
+  }
+
+  [rel='next']:hover .rune-pagination__chev {
+    transform: translate(3px, -1px);
+  }
+
+  /* Stack on small screens */
+  @media (max-width: 36rem) {
+    .rune-pagination__row {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .rune-pagination__cell--next {
+      text-align: left;
+      justify-self: start;
+    }
+    .rune-pagination__cell--next .rune-pagination__link {
+      align-items: flex-start;
+    }
+  }
+</style>

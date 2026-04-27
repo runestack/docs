@@ -9,13 +9,32 @@
   --rune-brand-3: #06b6d4; /* cyan accent */
   --rune-grad: linear-gradient(135deg, var(--rune-brand-1) 0%, var(--rune-brand-2) 50%, var(--rune-brand-3) 100%);
 
-  /* Typography */
+  /* Typography — tightened to match a Scalar-like rhythm */
   --sl-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --sl-text-h1: 2.75rem;
-  --sl-text-h2: 1.85rem;
-  --sl-text-h3: 1.4rem;
-  --sl-line-height-headings: 1.15;
+  --sl-text-body: 0.9375rem;     /* 15px */
+  --sl-text-body-sm: 0.8125rem;  /* 13px */
+  --sl-text-code: 0.8125rem;
+  --sl-text-h1: 1.5rem;     /* 24px */
+  --sl-text-h2: 1.125rem;   /* 18px */
+  --sl-text-h3: 1rem;       /* 16px */
+  --sl-text-h4: 0.9375rem;  /* 15px */
+  --sl-line-height: 1.65;
+  --sl-line-height-headings: 1.25;
+}
+
+/* Logo size in header */
+.site-title img {
+  height: 28px !important;
+  width: auto !important;
+}
+
+
+
+/* Apply the body size globally — Starlight reads this on .sl-markdown-content */
+.sl-markdown-content {
+  font-size: var(--sl-text-body);
+  line-height: var(--sl-line-height);
 }
 
 /* Light theme */
@@ -65,6 +84,7 @@
 
 /* Sticky nav glass */
 header.header {
+  height: 48px;
   backdrop-filter: saturate(140%) blur(14px);
   -webkit-backdrop-filter: saturate(140%) blur(14px);
   border-bottom: 1px solid var(--sl-color-hairline);
@@ -81,12 +101,18 @@ header .site-title a {
   color: transparent;
 }
 
-/* Headings: tighter tracking */
+/* Headings: tighter tracking + explicit sizes (override Starlight's defaults) */
 h1, h2, h3, h4 {
   letter-spacing: -0.02em;
-  font-weight: 700;
+  font-weight: 500;
 }
-h1 { font-weight: 800; }
+h1 { font-weight: 600; }
+
+.sl-markdown-content h1,
+.content-panel h1 { font-size: var(--sl-text-h1); }
+.sl-markdown-content h2 { font-size: var(--sl-text-h2); margin-top: 2rem; }
+.sl-markdown-content h3 { font-size: var(--sl-text-h3); margin-top: 1.5rem; }
+.sl-markdown-content h4 { font-size: var(--sl-text-h4); }
 
 /* Hero title gradient */
 .hero h1, .hero .title {
@@ -142,33 +168,129 @@ starlight-card:hover {
   border: 1px solid color-mix(in oklab, var(--sl-color-accent) 20%, transparent);
 }
 
-/* Code blocks: a hint of border + shadow */
-.expressive-code, pre {
-  border-radius: 12px !important;
-}
-.expressive-code .frame {
-  border: 1px solid var(--sl-color-hairline);
-  box-shadow: 0 12px 30px -16px rgba(0, 0, 0, 0.45);
+/* Code blocks — drive Expressive Code via its own custom properties. */
+:root {
+  --ec-codeFontSize: 0.8125rem;
+  --ec-codeLineHeight: 1.6;
+  --ec-codePadBlk: 0.95rem;
+  --ec-codePadInln: 1.1rem;
+  --ec-codeBrdRad: 8px;
+  --ec-frm-edBrdRad: 8px;
+  --ec-frm-trmBrdRad: 8px;
+  --ec-brdCol: var(--sl-color-hairline);
+  --ec-codeBg: color-mix(in oklab, var(--sl-color-text) 3%, var(--sl-color-bg));
 }
 
-/* Tables */
-table {
+
+/* Hide every frame header — terminal traffic lights, empty editor tab strip,
+   and titled tab strip alike. Keeps blocks compact regardless of language. */
+.expressive-code .frame .header {
+  display: none !important;
+}
+
+/* With no header, the <pre> is the topmost child — restore its top corners.
+   Selectors match EC's own (.frame.has-title / .frame.is-terminal) so we
+   beat them on source order; bare .frame is for plain editor frames. */
+.expressive-code .frame.has-title pre,
+.expressive-code .frame.has-title code,
+.expressive-code .frame.is-terminal pre,
+.expressive-code .frame pre,
+.expressive-code .frame code {
+  border-radius: 8px !important;
+}
+
+
+.expressive-code .frame.is-terminal code {
+border-top: 1px solid var(--sl-color-hairline) !important;
+}
+
+/* Smaller, more compact copy button. */
+.expressive-code .copy {
+  inset-block-start: 0.5rem !important;
+  inset-inline-end: 0.5rem !important;
+}
+.expressive-code .copy button {
+  width: 1.6rem !important;
+  height: 1.6rem !important;
+  padding: 0 !important;
+  border-radius: 6px !important;
+  --copy-icon-size: 0.85rem;
+}
+.expressive-code .copy button::before,
+.expressive-code .copy button::after {
+  inset: 0 !important;
+  background-size: 0.85rem 0.85rem !important;
+}
+
+/* Tables — Scalar-flavored: airy cell padding, header tint, hairline rows */
+.sl-markdown-content table {
   border-collapse: separate;
   border-spacing: 0;
+  width: 100%;
   overflow: hidden;
   border-radius: 10px;
   border: 1px solid var(--sl-color-hairline);
+  font-size: var(--sl-text-body-sm);
 }
-th, td { border-bottom: 1px solid var(--sl-color-hairline-light) !important; }
-thead th {
+.sl-markdown-content th,
+.sl-markdown-content td {
+  padding: 0.625rem 0.95rem !important;
+  border-bottom: 1px solid var(--sl-color-hairline-light) !important;
+  vertical-align: top;
+  line-height: 1.55;
+}
+.sl-markdown-content tbody tr:last-child th,
+.sl-markdown-content tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+.sl-markdown-content thead th {
   background: var(--sl-color-bg-sidebar);
   font-weight: 600;
+  color: var(--sl-color-text);
+  text-align: left;
 }
 
-/* Sidebar links — subtle highlight */
-.sidebar a[aria-current='page'] {
-  background: linear-gradient(90deg, var(--sl-color-accent-low), transparent);
-  border-left: 2px solid var(--sl-color-accent);
+/* Hide the header search — we render it inside the sidebar instead. */
+header.header > div:nth-child(2) {
+  display: none !important;
+}
+@media (min-width: 50rem) {
+  header.header {
+    grid-template-columns: 1fr auto !important;
+  }
+}
+
+/* Sidebar group labels — small, uppercase, muted (Scalar-style). */
+.sidebar .group-label .large {
+  font-size: 0.7rem !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+  color: var(--sl-color-gray-3);
+}
+
+/* Sidebar leaf links — slightly tighter */
+.sidebar a {
+  font-size: 0.875rem;
+  padding-block: 0.3rem;
+}
+
+/* Sidebar — subtle, neutral active state (Scalar-style). */
+.sidebar a[aria-current='page'],
+.sidebar a[aria-current='page']:hover,
+.sidebar a[aria-current='page']:focus {
+  background: color-mix(in oklab, var(--sl-color-text) 7%, transparent) !important;
+  color: var(--sl-color-text) !important;
+  font-weight: 600 !important;
+  border-left: 0 !important;
+}
+:root[data-theme='dark'] .sidebar a[aria-current='page'],
+:root[data-theme='dark'] .sidebar a[aria-current='page']:hover {
+  background: color-mix(in oklab, var(--sl-color-text) 10%, transparent) !important;
+}
+.sidebar a:hover {
+  background: color-mix(in oklab, var(--sl-color-text) 4%, transparent);
+  color: var(--sl-color-text);
 }
 
 /* Block-level callouts */
