@@ -48,6 +48,7 @@ export default defineConfig({
             { label: 'Services', slug: 'concepts/services' },
             { label: 'Instances', slug: 'concepts/instances' },
             { label: 'Namespaces', slug: 'concepts/namespaces' },
+            { label: 'Networking', slug: 'concepts/networking' },
             { label: 'Runesets', slug: 'concepts/runesets' },
             { label: 'Secrets & ConfigMaps', slug: 'concepts/secrets-configmaps' },
             { label: 'Identity & RBAC', slug: 'concepts/identity-rbac' },
@@ -62,9 +63,12 @@ export default defineConfig({
             { label: 'Logs & exec', slug: 'guides/logs-exec' },
             { label: 'Health checks', slug: 'guides/health' },
             { label: 'Service dependencies', slug: 'guides/dependencies' },
+            { label: 'Expose a service (HTTPS + ACME)', slug: 'guides/expose-service' },
+            { label: 'Network policy', slug: 'guides/network-policy' },
             { label: 'Package a runeset', slug: 'guides/runesets' },
             { label: 'Process runner', slug: 'guides/process-runner' },
             { label: 'Deploy on AWS EC2 (Terraform)', slug: 'guides/terraform-ec2' },
+            { label: 'Deploy on a DigitalOcean droplet', slug: 'guides/digital-ocean-deploy' },
           ],
         },
         {
@@ -93,6 +97,7 @@ export default defineConfig({
           items: [
             { label: 'Service spec', slug: 'reference/service-spec' },
             { label: 'Runefile (server config)', slug: 'reference/runefile' },
+            { label: 'Networking CLI', slug: 'reference/cli-network' },
             { label: 'API surface (gRPC + REST)', slug: 'reference/api' },
             { label: 'Exit codes & errors', slug: 'reference/errors' },
           ],

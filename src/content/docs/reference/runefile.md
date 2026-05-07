@@ -3,7 +3,9 @@ title: Runefile (server config)
 description: The schema for runed's server configuration file.
 ---
 
-`runed` is configured via a YAML file (often called a "runefile"). The default location is `/etc/rune/runefile.yaml`. Override with `runed --config <path>`.
+`runed` is configured via a YAML or TOML file (often called a "runefile"). The default location is `/etc/rune/runefile.{yaml,toml}` — `runed` auto-discovers either format. Override with `runed --config <path>`.
+
+The two formats are equivalent; pick whichever your tooling prefers. TOML is recommended for new deployments because it's stricter about typos and easier to comment.
 
 ## Minimal example
 
@@ -131,6 +133,64 @@ registries:
 
 You can also manage these at runtime with [`rune admin registries`](/cli/admin/) without restarting `runed`.
 
+### `networking`
+
+The cluster networking layer. See [Concepts: Networking](/concepts/networking/) for what these knobs do.
+
+| Field           | Default          | Notes                                                                                  |
+| --------------- | ---------------- | -------------------------------------------------------------------------------------- |
+| `cluster_cidr`  | `10.96.0.0/16`   | Service VIP pool. **Set once at first start** — bootstrapped into the store.            |
+| `dev_mode`      | `false`          | Use a userland proxy instead of nftables. Required on macOS / Docker Desktop.           |
+| `metrics_addr`  | `127.0.0.1:9100` | Prometheus exposition. Set to `""` to disable.                                          |
+
+### `node`
+
+| Field   | Default   | Notes                                                                  |
+| ------- | --------- | ---------------------------------------------------------------------- |
+| `role`  | `worker`  | `worker` or `edge`. `edge` enables the ingress + ACME subsystems.      |
+
+### `ingress`
+
+Only consulted on edge nodes (`node.role: edge`).
+
+| Field         | Default  | Notes                                  |
+| ------------- | -------- | -------------------------------------- |
+| `http_addr`   | `:80`    | HTTP listener (also serves ACME challenges). |
+| `https_addr`  | `:443`   | HTTPS listener.                        |
+
+### `acme`
+
+Only consulted on edge nodes.
+
+| Field        | Default                                       | Notes                                                                                |
+| ------------ | --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `directory`  | `https://acme-v02.api.letsencrypt.org/directory` | ACME endpoint. Override for staging or Pebble in CI.                              |
+| `email`      | —                                             | Account contact. Required by Let's Encrypt — issuance fails without it.              |
+
+### TOML equivalent
+
+```toml
+data_dir = "/var/lib/rune"
+
+[server]
+grpc_address = ":7863"
+http_address = ":7861"
+
+[networking]
+cluster_cidr = "10.96.0.0/16"
+metrics_addr = "127.0.0.1:9100"
+
+[node]
+role = "edge"
+
+[ingress]
+http_addr  = ":80"
+https_addr = ":443"
+
+[acme]
+email = "ops@example.com"
+```
+
 ## CLI flag overrides
 
 Anything in the runefile can be overridden via `runed` flags:
@@ -145,6 +205,16 @@ Anything in the runefile can be overridden via `runed` flags:
 | `--log-format`   | `server.log-format`      |
 | `--debug`        | shorthand for `--log-level=debug` |
 | `--pretty`       | shorthand for `--log-format=text` |
+| `--cluster-cidr` | `networking.cluster_cidr`         |
+| `--dev-mode`     | `networking.dev_mode`             |
+| `--metrics-addr` | `networking.metrics_addr`         |
+| `--node-role`    | `node.role`                       |
+| `--ingress-http-addr`  | `ingress.http_addr`         |
+| `--ingress-https-addr` | `ingress.https_addr`        |
+| `--acme-directory`     | `acme.directory`            |
+| `--acme-email`         | `acme.email`                |
+
+Every key also has a corresponding `RUNE_*` environment variable (e.g. `RUNE_NETWORKING_CLUSTER_CIDR`, `RUNE_ACME_EMAIL`). Precedence, highest to lowest: **flag > env var > config file > built-in default**.
 
 ## Reload behavior
 
