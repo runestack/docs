@@ -83,28 +83,28 @@ Dev mode is a laptop convenience, not a production stance. Real clusters always 
 
 ## Network policy
 
-`ServiceNetworkPolicy` is a separate resource from `Service` — you can write it once and have it apply to every version of a service:
+`ServiceNetworkPolicy` is embedded in `Service` under `networkPolicy:`. You ship it as part of the service spec:
 
 ```yaml
-apiVersion: rune/v1
-kind: ServiceNetworkPolicy
-metadata:
-  name: api-allow
-  namespace: default
-spec:
-  service: api
-  ingress:
-    - from:
-        - service: web
-        - service: worker
-          namespace: jobs
-        - cidr: 10.0.0.0/8       # office network
-      ports: [8080]
+service:
+  name: api
+  image: ghcr.io/example/api:1.4.0
+  ports:
+    - name: http
+      port: 8080
+  networkPolicy:
+    ingress:
+      - from:
+          - service: web
+          - service: worker
+            namespace: jobs
+          - cidr: 10.0.0.0/8       # office network
+        ports: [http]
 ```
 
 Two rules to keep in mind:
 
-- **Default deny activates per-service.** As soon as *any* ingress rule references a service, that service flips to default-deny. Services without policies remain default-allow. This is intentional — it lets you adopt policies one workload at a time.
+- **Default deny activates per-service.** As soon as a service has a `networkPolicy` block for ingress or egress, that direction flips to default-deny. Services without policies remain default-allow. This is intentional — it lets you adopt policies one workload at a time.
 - **Service-name selectors are same-node only in v1.** Cross-node identity (so `from: { service: web }` matches web pods on *other* nodes) lands with Phase 2 alongside Raft. CIDR selectors work everywhere today.
 
 Dropped packets increment `rune_policy_drops_total{service,namespace,policy,reason}` so you can alert on policy bites in production.
@@ -120,7 +120,7 @@ service:
   scale: 2
   expose:
     host: api.example.com
-    port: 8080
+    port: http
     tls:
       auto: true                 # ACME (Let's Encrypt) — see acme.* config
 ```
@@ -136,8 +136,8 @@ You can watch progress with [`rune ingress`](/reference/cli-network/#rune-ingres
 
 ```text
 $ rune ingress list
-NAMESPACE  SERVICE  HOST              MODE  STATE   EXPIRES
-default    api      api.example.com   acme  ready   in 89d
+NAMESPACE  SERVICE  HOST              TLS   CERT    EXPIRES
+default    api      api.example.com   acme  ready   89d
 ```
 
 `mode=manual` lets you point at a pre-existing TLS secret instead of using ACME — useful for wildcard certs you manage out-of-band.

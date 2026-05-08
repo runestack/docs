@@ -59,7 +59,7 @@ service:
     - { name: http, port: 8080 }
   expose:
     host: api.example.com
-    port: 8080
+    port: http
     tls:
       auto: true            # use ACME (default Let's Encrypt prod)
 ```
@@ -76,14 +76,14 @@ That's the entire developer-facing change. The orchestrator publishes endpoints,
 
 ```bash
 $ rune ingress list
-NAMESPACE  SERVICE  HOST             MODE  STATE     EXPIRES
+NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
 default    api      api.example.com  acme  pending   -
 
 # … 10–30 seconds later …
 
 $ rune ingress list
-NAMESPACE  SERVICE  HOST             MODE  STATE     EXPIRES
-default    api      api.example.com  acme  ready     in 89d
+NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
+default    api      api.example.com  acme  ready     89d
 ```
 
 For more detail (including the last error if a request failed):
@@ -113,16 +113,31 @@ service:
   name: api
   expose:
     host: api.example.com
-    port: 8080
+    port: http
     tls:
       mode: manual
       secretName: api-tls       # Secret must contain `tls.crt` and `tls.key`
 ```
 
-Create the secret with:
+Create the secret as a normal Rune secret containing `tls.crt` and `tls.key`:
+
+```yaml
+secret:
+  name: api-tls
+  namespace: default
+  data:
+    tls.crt: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    tls.key: |
+      -----BEGIN PRIVATE KEY-----
+      ...
+      -----END PRIVATE KEY-----
+```
 
 ```bash
-rune create secret tls api-tls --cert=fullchain.pem --key=privkey.pem
+rune cast api-tls.yaml
 ```
 
 Rotate by updating the secret — the cert loader hot-reloads on the next handshake.

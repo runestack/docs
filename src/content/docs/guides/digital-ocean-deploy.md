@@ -99,6 +99,8 @@ format = "json"
 
 [networking]
 cluster_cidr = "10.96.0.0/16"
+
+[telemetry]
 metrics_addr = "127.0.0.1:9100"
 
 [node]
@@ -182,7 +184,7 @@ service:
     - { name: http, port: 80 }
   expose:
     host: api.example.com
-    port: 80
+    port: http
     tls:
       auto: true
 ```
@@ -196,14 +198,14 @@ rune get services
 
 ```bash
 $ rune ingress list
-NAMESPACE  SERVICE  HOST             MODE  STATE     EXPIRES
+NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
 default    api      api.example.com  acme  pending   -
 
 # … wait 10–30 seconds …
 
 $ rune ingress list
-NAMESPACE  SERVICE  HOST             MODE  STATE     EXPIRES
-default    api      api.example.com  acme  ready     in 89d
+NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
+default    api      api.example.com  acme  ready     89d
 ```
 
 From your laptop:

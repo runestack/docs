@@ -141,7 +141,12 @@ The cluster networking layer. See [Concepts: Networking](/concepts/networking/) 
 | --------------- | ---------------- | -------------------------------------------------------------------------------------- |
 | `cluster_cidr`  | `10.96.0.0/16`   | Service VIP pool. **Set once at first start** — bootstrapped into the store.            |
 | `dev_mode`      | `false`          | Use a userland proxy instead of nftables. Required on macOS / Docker Desktop.           |
-| `metrics_addr`  | `127.0.0.1:9100` | Prometheus exposition. Set to `""` to disable.                                          |
+
+### `telemetry`
+
+| Field           | Default          | Notes                                                                                  |
+| --------------- | ---------------- | -------------------------------------------------------------------------------------- |
+| `metrics_addr`  | `127.0.0.1:9100` | Prometheus `/metrics` endpoint. Exposes metrics from **all subsystems** (orchestrator, runners, networking, agent, DNS). Set to `""` to disable. |
 
 ### `node`
 
@@ -178,6 +183,8 @@ http_address = ":7861"
 
 [networking]
 cluster_cidr = "10.96.0.0/16"
+
+[telemetry]
 metrics_addr = "127.0.0.1:9100"
 
 [node]
@@ -207,14 +214,14 @@ Anything in the runefile can be overridden via `runed` flags:
 | `--pretty`       | shorthand for `--log-format=text` |
 | `--cluster-cidr` | `networking.cluster_cidr`         |
 | `--dev-mode`     | `networking.dev_mode`             |
-| `--metrics-addr` | `networking.metrics_addr`         |
+| `--metrics-addr` | `telemetry.metrics_addr`          |
 | `--node-role`    | `node.role`                       |
 | `--ingress-http-addr`  | `ingress.http_addr`         |
 | `--ingress-https-addr` | `ingress.https_addr`        |
 | `--acme-directory`     | `acme.directory`            |
 | `--acme-email`         | `acme.email`                |
 
-Every key also has a corresponding `RUNE_*` environment variable (e.g. `RUNE_NETWORKING_CLUSTER_CIDR`, `RUNE_ACME_EMAIL`). Precedence, highest to lowest: **flag > env var > config file > built-in default**.
+Every key also has a corresponding `RUNE_*` environment variable (e.g. `RUNE_NETWORKING_CLUSTER_CIDR`, `RUNE_TELEMETRY_METRICS_ADDR`, `RUNE_ACME_EMAIL`). Precedence, highest to lowest: **flag > env var > config file > built-in default**.
 
 ## Reload behavior
 

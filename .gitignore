@@ -2,6 +2,9 @@
 dist/
 # generated types
 .astro/
+# generated LLM corpus
+public/llms.txt
+public/llms-full.md
 
 # dependencies
 node_modules/

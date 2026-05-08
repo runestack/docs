@@ -28,9 +28,9 @@ rune ingress list [-n <namespace>] [-A] [-o table|json|yaml]
 **Sample output:**
 
 ```text
-NAMESPACE  SERVICE  HOST             MODE    STATE    EXPIRES
-default    api      api.example.com  acme    ready    in 89d
-default    admin    admin.example.io manual  ready    in 12d
+NAMESPACE  SERVICE  HOST             TLS     CERT     EXPIRES
+default    api      api.example.com  acme    ready    89d
+default    admin    admin.example.io manual  ready    12d
 jobs       worker   jobs.example.com acme    pending  -
 ```
 
@@ -44,12 +44,15 @@ The JSON form returns one object per row:
     "namespace": "default",
     "service": "api",
     "host": "api.example.com",
-    "mode": "acme",
-    "state": "ready",
-    "issuedAt": "2026-02-08T14:21:00Z",
-    "expiresAt": "2026-05-09T14:21:00Z",
-    "lastError": "",
-    "nextRetryAt": null
+    "path": "",
+    "port": "http",
+    "tlsMode": "acme",
+    "cert": {
+      "state": "ready",
+      "host": "api.example.com",
+      "issuedAt": "2026-02-08T14:21:00Z",
+      "expiresAt": "2026-05-09T14:21:00Z"
+    }
   }
 ]
 ```
@@ -64,21 +67,22 @@ rune ingress get <service> [-n <namespace>] [-o table|json|yaml]
 
 ```text
 $ rune ingress get api -n default
-Service:      default/api
-Host:         api.example.com
-TLS mode:     acme
-State:        ready
-Issued:       2026-02-08 14:21:00 UTC
-Expires:      2026-05-09 14:21:00 UTC (in 89d)
-Last error:   -
-Next retry:   -
+service:   default/api
+host:      api.example.com
+port:      http
+tls mode:  acme
+cert:
+  state:   ready
+  host:    api.example.com
+  issued:  2026-02-08T14:21:00Z
+  expires: 2026-05-09T14:21:00Z (in 89d)
 ```
 
 When a request is failing, `Last error` and `Next retry` populate. The orchestrator retries with exponential backoff; existing certificates keep serving traffic during the retry loop.
 
 ## `rune policy`
 
-Inspect compiled `ServiceNetworkPolicy` rules. Read-only.
+Inspect compiled `ServiceNetworkPolicy` rules attached to a service. Read-only.
 
 ### `rune policy explain <service>`
 
@@ -90,26 +94,29 @@ rune policy explain <service> [-n <namespace>] [-o table|json|yaml]
 
 ```text
 $ rune policy explain api -n default
-Service: default/api
-Default action: DENY
-Compiled rules:
-  ALLOW from service=default/web port=8080
-  ALLOW from service=jobs/worker  port=8080
-  ALLOW from cidr=10.0.0.0/8      port=8080
+service:   default/api
+policy:    default/api
+default-deny ingress=true egress=false
+ingress rules:
+  [0] peers=[service=default/web service=jobs/worker cidr=10.0.0.0/8] ports=[http]
 ```
 
-`Default action: ALLOW` means no policy targets this service yet. As soon as any policy lists it, this flips to `DENY` and only the listed sources can reach it. See [default-deny semantics](/guides/network-policy/#default-deny--opt-in-per-service).
+`service ... no policy (open)` means the service has no `networkPolicy` block yet. As soon as one is present, the relevant direction flips to default-deny. See [default-deny semantics](/guides/network-policy/#default-deny--opt-in-per-service).
 
 ### `rune policy validate -f <file>`
 
-Pure-CLI compile check on a policy YAML — CIDR parsing, port format, structural validation. Doesn't talk to the server.
+Pure-CLI compile check on a raw service YAML/JSON document — CIDR parsing, port format, and peer validation. Doesn't talk to the server.
 
 ```bash
-$ rune policy validate -f api-policy.yaml
-api-allow: 1 ingress rule, 2 sources, 1 port — OK
+$ rune policy validate -f api.service.yaml
+service:   default/api
+policy:    default/api
+default-deny ingress=true egress=false
+ingress rules:
+  [0] peers=[service=default/web cidr=10.0.0.0/8] ports=[http]
 ```
 
-Run it in CI on every PR to catch typos before they land in the store.
+If you keep policies inside cast files, validate the inner service object rather than the outer `service:` wrapper. Run it in CI on every PR to catch typos before they land in the store.
 
 ## `rune admin network`
 

@@ -3,9 +3,10 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
+    "build:llms": "node ./scripts/generate-llms.mjs",
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro build",
+    "build": "npm run build:llms && astro build",
     "preview": "astro preview",
     "astro": "astro"
   },

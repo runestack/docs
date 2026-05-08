@@ -3,61 +3,65 @@ title: Write a network policy
 description: Restrict which services can reach which using `ServiceNetworkPolicy`. Default-deny activates per-service, so you can adopt policies one workload at a time.
 ---
 
-`ServiceNetworkPolicy` lets you say which clients are allowed to talk to a service. It's a separate resource from `Service` — write it once, and it applies across every cast cycle of the target service.
+`ServiceNetworkPolicy` lets you say which clients are allowed to talk to a service. In Rune, it's embedded directly in the service spec under `networkPolicy:` — there is no standalone `ServiceNetworkPolicy` cast-file resource.
 
 This guide walks through writing your first policy, the default-deny semantics, and the v1 limitations you should know about before relying on it for security boundaries.
 
 ## The shape of a policy
 
 ```yaml
-apiVersion: rune/v1
-kind: ServiceNetworkPolicy
-metadata:
-  name: api-allow
+service:
+  name: api
   namespace: default
-spec:
-  service: api                       # the service this policy guards
-  ingress:
-    - from:
-        - service: web               # same namespace
-        - service: worker
-          namespace: jobs            # cross-namespace
-        - cidr: 10.0.0.0/8           # office subnet (any source)
-      ports:
-        - 8080
+  image: ghcr.io/example/api:1.4.0
+  scale: 2
+  ports:
+    - name: http
+      port: 8080
+  networkPolicy:
+    ingress:
+      - from:
+          - service: web               # same namespace
+          - service: worker
+            namespace: jobs            # cross-namespace
+          - cidr: 10.0.0.0/8           # office subnet (any source)
+        ports:
+          - http
 ```
 
 Apply it with `rune cast` like any other resource:
 
 ```bash
-rune cast api-policy.yaml
+rune cast api.yaml
 ```
 
 The agent picks it up via the OrderedLog watch, compiles the rules, and the next packet to the API service's VIP is filtered against the new table. There is no restart, no reload, no settling period.
 
 ## Default-deny — opt in per service
 
-Rune's policy stance is **default-allow until a policy mentions you**. The moment any `ServiceNetworkPolicy` lists `service: api` in its `from:` clauses or as its `spec.service`, the API service flips to default-deny. Every other service in the cluster stays default-allow until it gets the same treatment.
+Rune's policy stance is **default-allow until a service has a `networkPolicy` block**. The moment `api` carries ingress or egress rules, that direction flips to default-deny. Every other service in the cluster stays default-allow until it gets the same treatment.
 
 This is intentional — it lets you adopt policies one workload at a time without having to write a giant cluster-wide allow-list to avoid breaking unrelated services.
 
 In practice:
 
 ```yaml
-# Policy A: gates the api service. Now api is default-deny;
+# Service A: gates api. Now api is default-deny on ingress;
 # only web and the office CIDR can hit it.
-spec:
-  service: api
-  ingress:
-    - from: [{ service: web }, { cidr: 10.0.0.0/8 }]
+service:
+  name: api
+  networkPolicy:
+    ingress:
+      - from: [{ service: web }, { cidr: 10.0.0.0/8 }]
 
-# Policy B: gates the worker service. Now worker is default-deny too.
-# api still default-deny (Policy A still applies).
-# database remains default-allow because no policy mentions it.
-spec:
-  service: worker
-  ingress:
-    - from: [{ service: api }]
+# Service B: gates worker too.
+# api stays default-deny because its own policy still exists.
+# database remains default-allow because it has no networkPolicy block.
+service:
+  name: worker
+  networkPolicy:
+    ingress:
+      - from: [{ service: api }]
 ```
 
 ## Validate before you cast
@@ -65,11 +69,15 @@ spec:
 Catch typos before you ship them:
 
 ```bash
-$ rune policy validate -f api-policy.yaml
-api-policy: 1 ingress rule, 2 sources, 1 port — OK
+$ rune policy validate -f api.service.yaml
+service:   default/api
+policy:    default/api
+default-deny ingress=true egress=false
+ingress rules:
+  [0] peers=[service=default/web cidr=10.0.0.0/8] ports=[http]
 ```
 
-`validate` is a pure-CLI compile check (CIDR parsing, port format, rule structure). It doesn't talk to the server, so you can run it in CI on every PR.
+`validate` is a pure-CLI compile check (CIDR parsing, port format, peer shape). It reads a raw `Service` document, not a cast file wrapper, so validate the inner service body or pipe it on stdin. It doesn't talk to the server, so you can run it in CI on every PR.
 
 ## Explain what's enforced
 
@@ -77,12 +85,11 @@ Once a policy is in the store, render it the way the agent sees it:
 
 ```bash
 $ rune policy explain api -n default
-Service: default/api
-Default action: DENY
-Compiled rules:
-  ALLOW from service=default/web port=8080
-  ALLOW from service=jobs/worker  port=8080
-  ALLOW from cidr=10.0.0.0/8      port=8080
+service:   default/api
+policy:    default/api
+default-deny ingress=true egress=false
+ingress rules:
+  [0] peers=[service=default/web service=jobs/worker cidr=10.0.0.0/8] ports=[http]
 ```
 
 This is the same compiled form the in-process evaluator uses, rendered deterministically so it's diff-friendly across CI runs.
@@ -122,13 +129,18 @@ These are documented in the package comment and tracked for Phase 2.
 ### "Internal-only" service
 
 ```yaml
-spec:
-  service: postgres
-  ingress:
-    - from:
-        - service: api
-        - service: worker
-      ports: [5432]
+service:
+  name: postgres
+  image: postgres:alpine
+  ports:
+    - name: postgres
+      port: 5432
+  networkPolicy:
+    ingress:
+      - from:
+          - service: api
+          - service: worker
+        ports: [postgres]
 ```
 
 After casting, the database is unreachable from anything except `api` and `worker`. External CIDRs would need an explicit `cidr:` source.
@@ -136,25 +148,30 @@ After casting, the database is unreachable from anything except `api` and `worke
 ### "Office IPs plus other services"
 
 ```yaml
-spec:
-  service: admin
-  ingress:
-    - from:
-        - cidr: 203.0.113.0/24       # corporate egress
-        - cidr: 10.0.0.0/8           # VPN subnet
-        - service: bastion
-      ports: [8080]
+service:
+  name: admin
+  image: ghcr.io/example/admin:latest
+  ports:
+    - name: http
+      port: 8080
+  networkPolicy:
+    ingress:
+      - from:
+          - cidr: 203.0.113.0/24       # corporate egress
+          - cidr: 10.0.0.0/8           # VPN subnet
+          - service: bastion
+        ports: [http]
 ```
 
 ### Temporarily disable a policy
 
-There's no `enabled: false` switch — policies are simple enough that "delete it" is the right verb:
+There's no `enabled: false` switch. To remove enforcement, delete the `networkPolicy:` block from the service spec and cast the service again:
 
 ```bash
-rune delete servicenetworkpolicy api-allow -n default
+rune cast api.yaml
 ```
 
-The next packet evaluation runs without the rules, and `api` flips back to default-allow (assuming no other policy targets it).
+The next packet evaluation runs without the rules, and `api` flips back to default-allow.
 
 ## Reference
 
