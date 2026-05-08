@@ -75,13 +75,13 @@ That's the entire developer-facing change. The orchestrator publishes endpoints,
 ## Step 3 — watch the certificate land
 
 ```bash
-$ rune ingress list
+$ rune get ingresses
 NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
 default    api      api.example.com  acme  pending   -
 
 # … 10–30 seconds later …
 
-$ rune ingress list
+$ rune get ingresses
 NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
 default    api      api.example.com  acme  ready     89d
 ```
@@ -89,7 +89,7 @@ default    api      api.example.com  acme  ready     89d
 For more detail (including the last error if a request failed):
 
 ```bash
-rune ingress get api -n default -o yaml
+rune get ingress api -n default -o yaml
 ```
 
 The orchestrator retries on failure with exponential backoff, capped at the `acme_renewal_window` (default: 30 days before expiry). Existing certificates keep serving traffic while a renewal is in flight, so a temporary issuance error never causes a public-facing outage.
@@ -151,6 +151,6 @@ Rotate by updating the secret — the cert loader hot-reloads on the next handsh
 
 ## Reference
 
-- [`rune ingress`](/reference/cli-network/#rune-ingress) — list, inspect.
+- [`rune get ingress`](/reference/cli-network/#rune-get-ingresses) — list, inspect.
 - [`networking.md`](/concepts/networking/) — what's happening behind the scenes.
 - [`runefile.md`](/reference/runefile/) — every `acme.*` and `ingress.*` knob.

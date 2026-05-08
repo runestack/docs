@@ -149,12 +149,12 @@ acme orchestrator started
 `bootstrap` is a one-shot, server-enforced **local-only** operation that mints the root management token. Run it directly on the droplet:
 
 ```bash
-rune config set-context default --server 127.0.0.1:7863 --token unused
+rune context set default --server 127.0.0.1:7863 --token unused
 rune admin bootstrap --out-file /var/lib/rune/admin.token
 chmod 600 /var/lib/rune/admin.token
 
 # point the CLI at the just-minted token
-rune config set-context default \
+rune context set default \
   --server 127.0.0.1:7863 \
   --token-file /var/lib/rune/admin.token
 ```
@@ -197,13 +197,13 @@ rune get services
 ## Step 9 — watch the certificate land
 
 ```bash
-$ rune ingress list
+$ rune get ingresses
 NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
 default    api      api.example.com  acme  pending   -
 
 # … wait 10–30 seconds …
 
-$ rune ingress list
+$ rune get ingresses
 NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
 default    api      api.example.com  acme  ready     89d
 ```
@@ -231,11 +231,11 @@ For real production traffic:
 2. **Backups.** `data_dir` (`/var/lib/rune`) is the source of truth — snapshot it nightly.
 3. **Metrics.** Expose `:9100` to your scraper only (bind it to a private interface, or front it with a tunnel).
 4. **Tokens.** Rotate the bootstrap token (`rune admin token rotate`) after creating per-user tokens.
-5. **Image registries.** Configure private-registry auth via `rune admin registries add` if you're pulling from a private repo.
+5. **Image registries.** Configure private-registry auth via `rune admin registry add` if you're pulling from a private repo.
 
 ## Where to go next
 
 - [Concepts: Networking](/concepts/networking/) — how the pieces fit together.
 - [Write a network policy](/guides/network-policy/) — restrict service-to-service traffic.
-- [`rune ingress` reference](/reference/cli-network/) — list and inspect TLS certificate state.
+- [`rune get ingress` reference](/reference/cli-network/) — list and inspect TLS certificate state.
 - [`runefile.md`](/reference/runefile/) — every server-side knob.

@@ -69,7 +69,7 @@ service:
 Catch typos before you ship them:
 
 ```bash
-$ rune policy validate -f api.service.yaml
+$ rune lint api.service.yaml
 service:   default/api
 policy:    default/api
 default-deny ingress=true egress=false
@@ -84,7 +84,7 @@ ingress rules:
 Once a policy is in the store, render it the way the agent sees it:
 
 ```bash
-$ rune policy explain api -n default
+$ rune get netpolicy api -n default
 service:   default/api
 policy:    default/api
 default-deny ingress=true egress=false
@@ -175,5 +175,5 @@ The next packet evaluation runs without the rules, and `api` flips back to defau
 
 ## Reference
 
-- [`rune policy`](/reference/cli-network/#rune-policy) — `validate`, `explain`.
+- [`rune get netpolicy`](/reference/cli-network/#rune-get-netpolicy-service) — inspect a compiled policy. Use `rune lint` for offline validation.
 - [Networking concepts](/concepts/networking/#network-policy) — how the agent compiles and enforces rules.

@@ -1,5 +1,5 @@
 ---
-title: rune login / config
+title: rune login / context
 description: Manage CLI contexts — server addresses, tokens, default namespaces.
 ---
 
@@ -29,22 +29,22 @@ If you omit `<context-name>`, it defaults to `default`.
 
 `rune login` verifies the server is reachable and the token works (unless `--no-verify`).
 
-## `rune config`
+## `rune context`
 
 Sub-commands:
 
 ```sh
-rune config view                      # show current config
-rune config list-contexts             # list all
-rune config use-context <name>        # switch active context
-rune config set-context <name> [...]  # create or update a context
-rune config delete-context <name>     # remove
+rune context view                      # show current config
+rune context list             # list all
+rune context use <name>        # switch active context
+rune context set <name> [...]  # create or update a context
+rune context delete <name>     # remove
 ```
 
-### `set-context`
+### `context set`
 
 ```sh
-rune config set-context prod \
+rune context set prod \
   --server runed.example.com:7863 \
   --token-file /etc/rune/prod.token \
   --namespace prod \
@@ -56,12 +56,12 @@ rune config set-context prod \
 Update one field on an existing context:
 
 ```sh
-rune config set-context dev --namespace=staging
+rune context set dev --namespace=staging
 ```
 
 ### Aliases
 
-`rune use-context` is a top-level alias for `rune config use-context`:
+`rune use-context` is a top-level alias for `rune context use`:
 
 ```sh
 rune use-context prod

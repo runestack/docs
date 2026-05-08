@@ -58,14 +58,14 @@ Switch contexts:
 
 ```sh
 rune use-context prod
-rune config list-contexts
-rune config view
+rune context list
+rune context view
 ```
 
 Edit a context:
 
 ```sh
-rune config set-context dev --namespace=staging
+rune context set dev --namespace=staging
 ```
 
 Or use the shortcut:

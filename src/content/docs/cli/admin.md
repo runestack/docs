@@ -12,7 +12,7 @@ rune admin bootstrap
 rune admin user      [create | list]
 rune admin policy    [create | get | list | attach | detach | delete]
 rune admin token     [create | list | revoke]
-rune admin registries [add | list | remove]
+rune admin registry [add | list | remove]
 ```
 
 ## `rune admin bootstrap`
@@ -98,20 +98,20 @@ rune admin token revoke <token-id>
 
 The plaintext secret is printed once. Store it like a password.
 
-## `rune admin registries`
+## `rune admin registry`
 
 Manage Docker registry credentials so `runed` can pull private images:
 
 ```sh
-rune admin registries add \
+rune admin registry add \
   --name ghcr-private \
   --server ghcr.io \
   --username my-bot \
   --password-file ./ghcr.token
 
-rune admin registries list
+rune admin registry list
 
-rune admin registries remove ghcr-private
+rune admin registry remove ghcr-private
 ```
 
 ECR is supported via AWS credentials inferred from the host environment (or the runefile).

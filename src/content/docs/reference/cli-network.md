@@ -1,22 +1,22 @@
 ---
 title: Networking CLI
-description: Reference for `rune ingress`, `rune policy`, and `rune admin network` — the CLI surface for the networking layer.
+description: Reference for `rune get ingress`, `rune get netpolicy`, and `rune get network` — the CLI surface for the networking layer.
 ---
 
 This page is the operator reference for the networking-layer CLI. It covers what each command does, the flags it accepts, and the JSON shape it emits when you ask for `-o json`.
 
 For the conceptual picture, see [Concepts: Networking](/concepts/networking/). For task-oriented walkthroughs, see [Expose a service](/guides/expose-service/) and [Write a network policy](/guides/network-policy/).
 
-## `rune ingress`
+## Ingress
 
 Inspect ingress + TLS certificate state. Read-only — these commands never mutate cluster state.
 
-### `rune ingress list`
+### `rune get ingresses`
 
 List every service whose `spec.expose.host` is set, with its TLS mode, certificate state, and time-to-expiry.
 
 ```bash
-rune ingress list [-n <namespace>] [-A] [-o table|json|yaml]
+rune get ingresses [-n <namespace>] [-A] [-o table|json|yaml]
 ```
 
 | Flag                | Description                                                                              |
@@ -57,16 +57,16 @@ The JSON form returns one object per row:
 ]
 ```
 
-### `rune ingress get <service>`
+### `rune get ingress <service>`
 
 Show the full `IngressCertStatus` for one service.
 
 ```bash
-rune ingress get <service> [-n <namespace>] [-o table|json|yaml]
+rune get ingress <service> [-n <namespace>] [-o table|json|yaml]
 ```
 
 ```text
-$ rune ingress get api -n default
+$ rune get ingress api -n default
 service:   default/api
 host:      api.example.com
 port:      http
@@ -80,20 +80,20 @@ cert:
 
 When a request is failing, `Last error` and `Next retry` populate. The orchestrator retries with exponential backoff; existing certificates keep serving traffic during the retry loop.
 
-## `rune policy`
+## Network policy
 
 Inspect compiled `ServiceNetworkPolicy` rules attached to a service. Read-only.
 
-### `rune policy explain <service>`
+### `rune get netpolicy <service>`
 
 Render the compiled rule table for a service the way the in-process evaluator sees it.
 
 ```bash
-rune policy explain <service> [-n <namespace>] [-o table|json|yaml]
+rune get netpolicy <service> [-n <namespace>] [-o table|json|yaml]
 ```
 
 ```text
-$ rune policy explain api -n default
+$ rune get netpolicy api -n default
 service:   default/api
 policy:    default/api
 default-deny ingress=true egress=false
@@ -103,31 +103,24 @@ ingress rules:
 
 `service ... no policy (open)` means the service has no `networkPolicy` block yet. As soon as one is present, the relevant direction flips to default-deny. See [default-deny semantics](/guides/network-policy/#default-deny--opt-in-per-service).
 
-### `rune policy validate -f <file>`
+### Validating a policy file
 
-Pure-CLI compile check on a raw service YAML/JSON document — CIDR parsing, port format, and peer validation. Doesn't talk to the server.
+Use [`rune lint`](/cli/overview/) to compile-check a service YAML/JSON document — CIDR parsing, port format, and peer validation — without talking to the server. Run it in CI on every PR to catch typos before they land in the store.
 
 ```bash
-$ rune policy validate -f api.service.yaml
-service:   default/api
-policy:    default/api
-default-deny ingress=true egress=false
-ingress rules:
-  [0] peers=[service=default/web cidr=10.0.0.0/8] ports=[http]
+rune lint api.service.yaml
 ```
 
-If you keep policies inside cast files, validate the inner service object rather than the outer `service:` wrapper. Run it in CI on every PR to catch typos before they land in the store.
+## Cluster network state
 
-## `rune admin network`
+Read-only view of cluster-level networking state.
 
-Privileged commands for cluster-level networking state. Requires an admin token.
-
-### `rune admin network status`
+### `rune get network`
 
 Show the bootstrapped cluster CIDR, capacity, and current VIP allocation.
 
 ```bash
-$ rune admin network status
+$ rune get network
 CIDR:             10.96.0.0/16
 Capacity:         65533 usable IPs
 Allocated:        12
@@ -150,7 +143,7 @@ If `Allocated + Pending releases` approaches `Capacity`, you're running out of V
 **"Did my certificate just renew?"**
 
 ```bash
-watch rune ingress list
+watch rune get ingresses
 ```
 
 State will move `pending → ready` and the expiry counter will jump to `in 89d`.
@@ -158,7 +151,7 @@ State will move `pending → ready` and the expiry counter will jump to `in 89d`
 **"Why can't service A reach service B?"**
 
 ```bash
-rune policy explain B -n <ns>
+rune get netpolicy B -n <ns>
 # look for service A in the ALLOW list; if missing, write a policy
 ```
 
@@ -167,7 +160,7 @@ Cross-reference with `rune_policy_drops_total{service="B",reason=...}` on `/metr
 **"Am I about to run out of VIPs?"**
 
 ```bash
-rune admin network status
+rune get network
 ```
 
 Or alert on the Prometheus gauge:

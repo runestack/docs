@@ -87,7 +87,7 @@ export default defineConfig({
             { label: 'rune deps', slug: 'cli/deps' },
             { label: 'rune lint', slug: 'cli/lint' },
             { label: 'rune pack', slug: 'cli/pack' },
-            { label: 'rune login / config', slug: 'cli/login-config' },
+            { label: 'rune login / context', slug: 'cli/login-config' },
             { label: 'rune admin', slug: 'cli/admin' },
             { label: 'rune whoami / status / version', slug: 'cli/misc' },
           ],

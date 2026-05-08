@@ -131,7 +131,7 @@ registries:
     # AWS credentials inferred from environment / IAM role.
 ```
 
-You can also manage these at runtime with [`rune admin registries`](/cli/admin/) without restarting `runed`.
+You can also manage these at runtime with [`rune admin registry`](/cli/admin/) without restarting `runed`.
 
 ### `networking`
 
@@ -225,7 +225,7 @@ Every key also has a corresponding `RUNE_*` environment variable (e.g. `RUNE_NET
 
 ## Reload behavior
 
-Most fields require a `runed` restart to take effect. Registry credentials managed via `rune admin registries` are hot.
+Most fields require a `runed` restart to take effect. Registry credentials managed via `rune admin registry` are hot.
 
 ## See also
 

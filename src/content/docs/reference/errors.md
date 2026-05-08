@@ -87,7 +87,7 @@ rune delete <name> --force
 The Docker runner couldn't pull. Either:
 
 - Image doesn't exist (typo).
-- Registry is private — add credentials with `rune admin registries add`.
+- Registry is private — add credentials with `rune admin registry add`.
 - Network can't reach the registry from the host.
 
 ### `failed to start process: exec: "...": file does not exist`

@@ -32,7 +32,7 @@ auth:
 Restart `runed`. Update CLI contexts to point at the new TLS-enabled server:
 
 ```sh
-rune config set-context prod \
+rune context set prod \
   --server runed.example.com:7863 \
   --tls-ca /etc/rune/tls/ca.crt
 ```

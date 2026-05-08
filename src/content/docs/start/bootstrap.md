@@ -72,7 +72,7 @@ rune whoami
 The CLI keeps named contexts in `~/.rune/config.yaml`:
 
 ```sh
-rune config list-contexts
+rune context list
 rune use-context dev
 ```
 

@@ -133,10 +133,10 @@ On edge nodes (`--node-role=edge`), `runed`:
 3. Serves the HTTP-01 challenge from `/.well-known/acme-challenge/` on port 80.
 4. Once issued, hot-reloads the `tls.Config` so the next handshake on `:443` uses the new cert.
 
-You can watch progress with [`rune ingress`](/reference/cli-network/#rune-ingress):
+You can watch progress with [`rune get ingresses`](/reference/cli-network/#rune-get-ingresses):
 
 ```text
-$ rune ingress list
+$ rune get ingresses
 NAMESPACE  SERVICE  HOST              TLS   CERT    EXPIRES
 default    api      api.example.com   acme  ready   89d
 ```

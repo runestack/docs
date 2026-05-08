@@ -112,7 +112,7 @@ registries:
 Or dynamic at runtime:
 
 ```sh
-rune admin registries add --name ghcr-private \
+rune admin registry add --name ghcr-private \
   --server ghcr.io --username bot --password-file ./ghcr.token
 ```
 
