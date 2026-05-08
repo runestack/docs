@@ -10,7 +10,7 @@ If you're starting from scratch on a fresh VM, skip to the [DigitalOcean deploy 
 ## What you need
 
 1. A `runed` node reachable from the public internet on `:80` and `:443`.
-2. The node started with `--node-role=edge` (this enables the ingress controller and the ACME orchestrator on that node).
+2. The node started with `--node-role=edge` (this enables the ingress controller and the ACME orchestrator on that node). **Tip:** if you're on a laptop using `--dev-mode`, edge is enabled automatically — no separate flag needed.
 3. A DNS A record pointing your hostname at the node's public IP. ACME's HTTP-01 challenge requires this — the certificate authority will hit `http://<host>/.well-known/acme-challenge/<token>` and expect to land on your node.
 4. An `acme.email` configured. Let's Encrypt rejects accounts without a contact address.
 

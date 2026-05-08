@@ -73,8 +73,9 @@ The DNS subsystem is gated on data-plane readiness — it won't start serving an
 
 ### Dev mode
 
-`--dev-mode` (or `networking.dev_mode = true`) flips two switches:
+`--dev-mode` (or `networking.dev_mode = true`) flips three switches:
 
+- **Implies `--node-role=edge`** — the ingress controller and ACME orchestrator come up automatically. You don't need to pass both flags; a single `--dev-mode` is enough for the full laptop experience. Set `--node-role=""` if you explicitly want dev mode _without_ edge.
 - DNS resolves `*.rune` to `127.0.0.1` so you can hit services from your host with a port-forward.
 - The ingress controller binds `:8080`/`:8443` instead of `:80`/`:443` (no `sudo` needed).
 - nftables is skipped on Linux. Policy still evaluates in user space at the proxy.

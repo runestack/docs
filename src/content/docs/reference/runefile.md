@@ -140,7 +140,7 @@ The cluster networking layer. See [Concepts: Networking](/concepts/networking/) 
 | Field           | Default          | Notes                                                                                  |
 | --------------- | ---------------- | -------------------------------------------------------------------------------------- |
 | `cluster_cidr`  | `10.96.0.0/16`   | Service VIP pool. **Set once at first start** — bootstrapped into the store.            |
-| `dev_mode`      | `false`          | Use a userland proxy instead of nftables. Required on macOS / Docker Desktop.           |
+| `dev_mode`      | `false`          | Use a userland proxy instead of nftables. Required on macOS / Docker Desktop. **Implies `node.role: edge`** unless you explicitly set a different role. |
 
 ### `telemetry`
 
