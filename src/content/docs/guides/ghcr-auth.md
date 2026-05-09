@@ -13,7 +13,7 @@ This guide covers the two supported flows:
 1. **Direct (recommended)** — paste a GitHub PAT into a registry entry.
 2. **From an existing `docker login`** — reuse `~/.docker/config.json`.
 
-Both flows result in `ghcr.io` images pulling without `ImagePullBackOff`
+Both flows result in `ghcr.io` images pulling without `ImageUnreachable`
 on `rune cast`.
 
 ## 1. Mint a GitHub token
@@ -135,7 +135,7 @@ If credentials are missing or wrong you will see the dev.27 inline
 failure block:
 
 ```
-✗ ImagePullBackOff
+✗ ImageUnreachable
   pull access denied for ghcr.io/myorg/api, repository does not exist
   or may require 'docker login'
 
@@ -191,7 +191,7 @@ config.
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `ImagePullBackOff` with `pull access denied` | Token missing `read:packages` or package doesn't grant the user access. | Regenerate PAT with the right scope; check **Packages → Manage Actions access**. |
+| `ImageUnreachable` with `pull access denied` | Token missing `read:packages` or package doesn't grant the user access. | Regenerate PAT with the right scope; check **Packages → Manage Actions access**. |
 | `unauthorized: authentication required` | No registry entry matches `ghcr.io`. | `rune admin registry list` — add one if missing. |
 | `manifest unknown` | Image exists but tag doesn't, or org/name is wrong. | `docker pull` from the same host to confirm. |
 | Works locally, fails on the server | Runed wasn't restarted after a static config change, or the env var (`$GHCR_PAT`) isn't visible to runed. | Use `rune admin registry add` instead of editing the runefile, or restart runed with the env exported. |
@@ -201,5 +201,5 @@ config.
 - [`rune admin registry`](/cli/admin/) — full subcommand reference.
 - [Configuration reference](/operations/configuration/) — full runefile
   schema, including the `docker.registries[]` section.
-- [Errors: ImagePullBackOff](/reference/errors/) — what the reason slug
+- [Errors: ImageUnreachable](/reference/errors/) — what the reason slug
   means.

@@ -57,7 +57,7 @@ rune cast ./runeset --render --values=values.yaml
   command needed to find out *why* a deploy didn't take.
 
 ```text
-    ✗ ImagePullBackOff
+    ✗ ImageUnreachable
       pull access denied for ghcr.io/acme/api, repository does not
       exist or may require 'docker login'
 

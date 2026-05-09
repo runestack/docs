@@ -66,7 +66,7 @@ api  prod   Failed for 4m
   ghcr.io/acme/api:1.4.2 · scale 2 · 0/2 ready
   exposed at https://api.acme.io  ·  TLS Issued (in 89d)
 
-  ✗ ImagePullBackOff
+  ✗ ImageUnreachable
     pull access denied for ghcr.io/acme/api, repository does not exist
     or may require 'docker login'
 
@@ -85,8 +85,8 @@ api  prod   Failed for 4m
 
 `rune get services` includes a `REASON` column between `STATUS` and
 `READY`. It's `-` for healthy services and a short slug
-(`ImagePullBackOff`, `CrashLooping`, `OOMKilled`, `ProbeFailed`,
-`ScheduleFailed`, `ConfigError`, `RunnerError`, `Exited`) for failed
+(`ImageUnreachable`, `Unhealthy`, `Restarting`, `OutOfMemory`,
+`Unplaceable`, `ConfigMissing`, `LaunchFailed`, `Exited`) for failed
 ones. To see the full sentence, run `rune get service <name>`.
 
 ## Tips
