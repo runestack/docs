@@ -69,6 +69,7 @@ export default defineConfig({
             { label: 'Process runner', slug: 'guides/process-runner' },
             { label: 'Deploy on AWS EC2 (Terraform)', slug: 'guides/terraform-ec2' },
             { label: 'Deploy on a DigitalOcean droplet', slug: 'guides/digital-ocean-deploy' },
+            { label: 'Provision DigitalOcean (Terraform module)', slug: 'guides/terraform-digitalocean' },
           ],
         },
         {
