@@ -15,7 +15,7 @@ instead. This guide is the Terraform path.
 
 :::caution[Pre-1.0]
 The module is at `v0.0.1` and tracks Rune's pre-1.0 development.
-Pin the module version (`version = "0.0.1"`) and the Rune version
+Pin the module version (`version = "0.0.2"`) and the Rune version
 (`rune_version = "v0.0.1-dev.22"`) until v1.0.
 :::
 
@@ -48,7 +48,7 @@ data "digitalocean_ssh_key" "main" {
 
 module "rune" {
   source  = "runestack/rune/digitalocean"
-  version = "0.0.1"
+  version = "0.0.2"
 
   ssh_key_ids = [data.digitalocean_ssh_key.main.id]
   node_role   = "worker"
@@ -78,7 +78,7 @@ Same recipe, with edge ingress and Let's Encrypt:
 ```hcl
 module "rune" {
   source  = "runestack/rune/digitalocean"
-  version = "0.0.1"
+  version = "0.0.2"
 
   ssh_key_ids = [data.digitalocean_ssh_key.main.id]
 
@@ -114,7 +114,7 @@ a ready-to-paste `rune login` command:
 ```hcl
 module "rune" {
   source  = "runestack/rune/digitalocean"
-  version = "0.0.1"
+  version = "0.0.2"
 
   ssh_key_ids = [data.digitalocean_ssh_key.main.id]
 
