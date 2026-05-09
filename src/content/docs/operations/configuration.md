@@ -102,21 +102,27 @@ Two ways to manage:
 
 ```yaml
 # Static — in the runefile
-registries:
-  - name: ghcr-private
-    server: ghcr.io
-    username: bot
-    password-file: /etc/rune/ghcr.token
+docker:
+  registries:
+    - name: ghcr-private
+      registry: ghcr.io
+      auth:
+        type: basic
+        username: ${GHCR_USER}
+        password: ${GHCR_PAT}
 ```
 
 Or dynamic at runtime:
 
 ```sh
 rune admin registry add --name ghcr-private \
-  --server ghcr.io --username bot --password-file ./ghcr.token
+  --registry ghcr.io --type basic \
+  --username "$GHCR_USER" --password "$GHCR_PAT"
 ```
 
 Runtime registries don't require a `runed` restart. Static ones do.
+See [Pull from GHCR](/guides/ghcr-auth/) for the end-to-end GitHub
+Container Registry walkthrough.
 
 ## Logging
 

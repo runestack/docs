@@ -67,6 +67,7 @@ export default defineConfig({
             { label: 'Network policy', slug: 'guides/network-policy' },
             { label: 'Package a runeset', slug: 'guides/runesets' },
             { label: 'Process runner', slug: 'guides/process-runner' },
+            { label: 'Pull from GHCR (private images)', slug: 'guides/ghcr-auth' },
             { label: 'Deploy from GitHub Actions', slug: 'guides/ci-deployments' },
             { label: 'Deploy on AWS EC2 (Terraform)', slug: 'guides/terraform-ec2' },
             { label: 'Deploy on a DigitalOcean droplet', slug: 'guides/digital-ocean-deploy' },

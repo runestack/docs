@@ -56,14 +56,19 @@ runner:
   process:
     enabled: true
 
-registries:
-  - name: ghcr-private
-    server: ghcr.io
-    username: bot
-    password-file: /etc/rune/ghcr.token
-  - name: ecr
-    type: ecr
-    region: us-east-1
+docker:
+    registries:
+      - name: ghcr-private
+        registry: ghcr.io
+        auth:
+          type: basic
+          username: ${GHCR_USER}
+          password: ${GHCR_PAT}
+      - name: ecr
+        registry: "*.dkr.ecr.us-east-1.amazonaws.com"
+        auth:
+          type: ecr
+          region: us-east-1
 ```
 
 ## Sections
@@ -116,22 +121,35 @@ The KEK is 32 bytes, base64-encoded when stored on disk or passed via env.
 | `docker`     | `socket`   | Docker daemon socket. Default OS-specific.  |
 | `process`    | `enabled`  | Set `false` to disable process runner.      |
 
-### `registries[]`
+### `docker.registries[]`
 
 ```yaml
-registries:
-  - name: ghcr-private
-    server: ghcr.io
-    username: bot
-    password-file: /etc/rune/ghcr.token
+docker:
+  registries:
+    - name: ghcr-private
+      registry: ghcr.io
+      auth:
+        type: basic
+        username: ${GHCR_USER}     # env-expanded at runed start
+        password: ${GHCR_PAT}
 
-  - name: ecr
-    type: ecr
-    region: us-east-1
-    # AWS credentials inferred from environment / IAM role.
+    - name: ecr
+      registry: "*.dkr.ecr.us-east-1.amazonaws.com"
+      auth:
+        type: ecr
+        region: us-east-1
+        # AWS credentials inferred from environment / IAM role.
 ```
 
+| Auth `type`        | Required fields                          | Notes                                              |
+| ------------------ | ---------------------------------------- | -------------------------------------------------- |
+| `basic`            | `username`, `password`                   | Use for GHCR (PAT as password), Docker Hub, etc.   |
+| `token`            | `token`                                  | Bearer token in the `Authorization` header.        |
+| `ecr`              | `region`                                 | Pulls a fresh ECR token via the AWS SDK.           |
+| `dockerconfigjson` | `dockerconfigjson` (raw JSON)            | Reuse the contents of `~/.docker/config.json`.     |
+
 You can also manage these at runtime with [`rune admin registry`](/cli/admin/) without restarting `runed`.
+See the [GHCR guide](/guides/ghcr-auth/) for a private-image walkthrough.
 
 ### `networking`
 
