@@ -5,8 +5,8 @@ description: How Rune authenticates clients (bearer tokens) and authorizes them 
 
 Rune has a small, explicit auth model:
 
-- **Subjects** are users (and, eventually, services). Each subject has zero or more attached **policies**.
-- **Tokens** are bearer credentials issued to subjects. The token's secret hashes with SHA-256; only the hash is stored.
+- **Subjects** are users or services. Each subject has zero or more attached **policies**. Service subjects are non-human identities for CI/automation — see [`rune admin service`](/cli/admin/#rune-admin-service).
+- **Tokens** are bearer credentials issued to subjects. They look like `rune_<uuid>.<uuid>`. The token's secret hashes with SHA-256; only the hash is stored.
 - **Policies** are lists of **rules**. A rule grants `(verbs)` on `(resource)` in `(namespace)`.
 
 A request is allowed if **any rule** in **any of the subject's policies** matches.
@@ -63,12 +63,13 @@ Verbs map to RPCs:
 
 Seeded at first boot:
 
-| Policy      | Rule                                                                  |
-| ----------- | --------------------------------------------------------------------- |
-| `root`      | `* on * in *` — full access. Reserved for the bootstrap token.        |
-| `admin`     | `* on * in *`.                                                        |
-| `readwrite` | get/list/watch/create/update/delete/scale/exec on `*` in `*`.          |
-| `readonly`  | get/list/watch on `*` in `*`.                                          |
+| Policy      | Rule                                                                                          |
+| ----------- | --------------------------------------------------------------------------------------------- |
+| `root`      | `* on * in *` — full access. Reserved for the bootstrap token.                                |
+| `admin`     | `* on * in *`.                                                                                |
+| `readwrite` | get/list/watch/create/update/delete/scale/exec on `*` in `*`.                                 |
+| `readonly`  | get/list/watch on `*` in `*`.                                                                 |
+| `cast`      | The minimum permissions a CI pipeline needs to deploy: write services + read instances/logs. |
 
 ## Tokens
 
@@ -83,14 +84,14 @@ rune admin token create alice-laptop \
 
 The plaintext secret is printed once. After that, only the SHA-256 hash is in the database.
 
-| Property      | Notes                                              |
-| ------------- | -------------------------------------------------- |
-| `Name`        | Human label.                                       |
-| `SubjectID`   | The user's ID.                                     |
-| `SubjectType` | `user` today; `service` planned.                   |
-| `IssuedAt`    | When minted.                                       |
-| `ExpiresAt`   | Optional — `--ttl 0` for no expiry.                |
-| `Revoked`     | If true, all requests fail.                        |
+| Property      | Notes                                                                                |
+| ------------- | ------------------------------------------------------------------------------------ |
+| `Name`        | Human label.                                                                         |
+| `SubjectID`   | The user's ID.                                                                       |
+| `SubjectType` | `user` for humans, `service` for CI/automation tokens (see `rune admin service`).    |
+| `IssuedAt`    | When minted.                                                                         |
+| `ExpiresAt`   | Optional — `--ttl 0` for no expiry.                                                  |
+| `Revoked`     | If true, all requests fail.                                                          |
 
 Revoke immediately:
 

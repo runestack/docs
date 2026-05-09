@@ -10,6 +10,7 @@ description: Server administration — bootstrap, users, policies, tokens, and r
 ```sh
 rune admin bootstrap
 rune admin user      [create | list]
+rune admin service   [create]
 rune admin policy    [create | get | list | attach | detach | delete]
 rune admin token     [create | list | revoke]
 rune admin registry [add | list | remove]
@@ -38,6 +39,46 @@ rune admin user list
 ```
 
 User fields: `name`, `email`, `policies` (attached). Use `policy attach` / `policy detach` to manage policies.
+
+## `rune admin service`
+
+Mint **service accounts** — non-human identities for CI pipelines, deploy bots, and other automation. They authenticate exactly like users (bearer token), but their tokens carry `subject-type=service` so they're easy to audit and revoke separately from human users.
+
+```sh
+# Scoped CI token for one namespace (recommended).
+rune admin service create ci-stg \
+  --namespace stg \
+  --permissions cast \
+  --ttl 90d \
+  --description "GitHub Actions deploys to stg" \
+  --out-file ci-stg.token
+
+# Cluster-wide read-only token (no --namespace).
+rune admin service create dashboard \
+  --permissions read \
+  --ttl 720h \
+  --out-file dashboard.token
+```
+
+| Flag             | Notes                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| `--namespace`    | Pin granted permissions to this namespace. Omit for cluster-wide.                           |
+| `--permissions`  | One or more of `cast`, `read`, `admin` (comma-separated, default `cast`).                   |
+| `--ttl`          | Token lifetime (e.g. `720h`, `90d`). Omit for no expiry.                                    |
+| `--description`  | Free-text description (shown in `admin token list`).                                        |
+| `--out-file`     | Write token to file (mode `0600`) instead of stdout.                                        |
+
+**Permission shorthands:**
+
+| Shorthand | Resolves to    | Use for                                                              |
+| --------- | -------------- | -------------------------------------------------------------------- |
+| `cast`    | `cast` policy  | CI deploys (`rune cast` + read instances/logs). Recommended for CI.  |
+| `read`    | `readonly`     | Dashboards, monitoring exporters.                                    |
+| `admin`   | `admin`        | Full access. Use sparingly.                                          |
+
+When `--namespace` is given, the granted policy is **derived** — a copy of the built-in is written as `<service>-<perm>` (e.g. `ci-stg-cast`) with every rule pinned to that namespace, so the service account cannot reach into other namespaces. Rules touching the cluster-scoped `namespaces` resource stay unpinned so `rune cast --create-namespace` still works.
+
+The plaintext token is printed (or written to `--out-file`) **once**. Treat it like a password.
 
 ## `rune admin policy`
 
@@ -68,7 +109,7 @@ rules:
     namespace: prod
 ```
 
-Built-in policies (`root`, `admin`, `readwrite`, `readonly`) are seeded automatically and cannot be modified or deleted.
+Built-in policies (`root`, `admin`, `readwrite`, `readonly`, `cast`) are seeded automatically and cannot be modified or deleted.
 
 ## `rune admin token`
 

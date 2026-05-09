@@ -13,21 +13,40 @@ Shortcut for "create or update a context, optionally make it the current one."
 rune login dev \
   --server localhost:7863 \
   --token-file ~/.rune/dev.token \
-  --namespace default
+  --default-namespace default
 ```
 
 If you omit `<context-name>`, it defaults to `default`.
 
-| Flag             | Notes                                              |
-| ---------------- | -------------------------------------------------- |
-| `--server`       | gRPC address (`host:port`).                        |
-| `--token`        | Inline token value.                                |
-| `--token-file`   | Path to a file containing the token.               |
-| `--namespace`    | Default namespace for this context.                |
-| `--no-verify`    | Skip server verification — just set the context.   |
-| `--set-current`  | Make this the active context (default: yes).       |
+| Flag                  | Notes                                                                       |
+| --------------------- | --------------------------------------------------------------------------- |
+| `--server`            | gRPC address (`host:port`).                                                 |
+| `--token`             | Inline token value.                                                         |
+| `--token-file`        | Path to a file containing the token.                                        |
+| `--token-stdin`       | Read the token from stdin. Designed for CI — see below.                     |
+| `--default-namespace` | Default namespace for this context (used when commands omit `--namespace`). |
+| `--no-verify`         | Skip server verification — just set the context.                            |
+| `--set-current`       | Make this the active context (default: yes).                                |
 
 `rune login` verifies the server is reachable and the token works (unless `--no-verify`).
+
+The legacy `--namespace` flag on `rune login` is a deprecated alias for `--default-namespace`; it still works for one release but emits a warning. The rename disambiguates it from the per-operation `--namespace` flag used everywhere else (`cast`, `get`, `delete`).
+
+### `--token-stdin` for CI
+
+For automation (GitHub Actions, GitLab CI, etc.) prefer piping the token over stdin so it never lands on the process argv — invisible to `/proc`, `ps`, shell history, or naive log capture:
+
+```sh
+printf '%s' "$RUNE_TOKEN" | rune login ci \
+  --server runed.example.com:443 \
+  --token-stdin
+```
+
+This is what [`runestack/rune-cast-action`](https://github.com/runestack/rune-cast-action) uses internally. See the [CI deployments guide](/guides/ci-deployments/).
+
+### About the `rune_` token prefix
+
+All bearer tokens issued from v0.0.1-dev.25 onward look like `rune_<uuid>.<uuid>`. The prefix is mandatory — tokens without it are rejected by the server. It exists so secret scanners (Gitleaks, GitHub secret scanning, TruffleHog) can match Rune tokens by a stable distinctive marker, the same way `ghp_` or `glpat-` work.
 
 ## `rune context`
 
