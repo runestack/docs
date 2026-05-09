@@ -47,6 +47,48 @@ rune get instances -o json | jq '.[] | select(.status=="Running") | .id'
 | `--watch`           | false   | Stream updates as state changes.               |
 | `-l, --selector`    | —       | Label selector (e.g. `app=api,tier=frontend`). |
 
+## Service detail view
+
+`rune get service <name>` (singular) renders a paragraph view rather
+than a one-row table. It includes:
+
+- header line — `<name>  <namespace>   <Status> for <age>`
+- spec summary — image, scale, ready count, exposure + TLS state
+- failure block (only when `Status: Failed`) — short reason + the
+  one-sentence message that explains it
+- per-instance breakdown — sorted failed-first, with the failing
+  instance's status message indented underneath
+- one hint command at the bottom
+
+```text
+api  prod   Failed for 4m
+
+  ghcr.io/acme/api:1.4.2 · scale 2 · 0/2 ready
+  exposed at https://api.acme.io  ·  TLS Issued (in 89d)
+
+  ✗ ImagePullBackOff
+    pull access denied for ghcr.io/acme/api, repository does not exist
+    or may require 'docker login'
+
+  Instances (2):
+    ✗ api-7d9c-b2  node-edge-1   Failed   ×6
+        pull access denied for ghcr.io/acme/api ...
+    ✗ api-7d9c-a1  node-edge-2   Failed   ×6
+        pull access denied for ghcr.io/acme/api ...
+
+  rune logs api -n prod --tail=50
+```
+
+`-o yaml` and `-o json` still take the structured path.
+
+## REASON in the table
+
+`rune get services` includes a `REASON` column between `STATUS` and
+`READY`. It's `-` for healthy services and a short slug
+(`ImagePullBackOff`, `CrashLooping`, `OOMKilled`, `ProbeFailed`,
+`ScheduleFailed`, `ConfigError`, `RunnerError`, `Exited`) for failed
+ones. To see the full sentence, run `rune get service <name>`.
+
 ## Tips
 
 - `rune get service <name> -o yaml` round-trips into something you can edit and re-cast.

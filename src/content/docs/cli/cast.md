@@ -50,6 +50,22 @@ rune cast ./runeset --render --values=values.yaml
 - **Generation bumps** on every accepted change. The reconciler keys off generation.
 - **Multi-document YAML** is supported — separate documents with `---`.
 - **Mixed resource files** (services + secrets + configmaps in one file) are fine.
+- **Failures surface inline.** Without `--detach`, `cast` waits for each
+  service to become ready. If the reconciler reports `Failed` it stops
+  waiting immediately, prints a short reason + the one-sentence cause
+  + a `rune get service <name>` hint, and exits non-zero. No second
+  command needed to find out *why* a deploy didn't take.
+
+```text
+    ✗ ImagePullBackOff
+      pull access denied for ghcr.io/acme/api, repository does not
+      exist or may require 'docker login'
+
+      image:   ghcr.io/acme/api:1.4.2
+      service: prod/api
+
+      rune get service api -n prod
+```
 
 ## Common patterns
 
