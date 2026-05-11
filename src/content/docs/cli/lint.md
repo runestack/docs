@@ -5,11 +5,14 @@ description: Validate Rune YAML — both server config (runefiles) and resource 
 
 `lint` is your "pre-flight check." Run it in CI. Run it before `cast`. It catches schema errors, typos, and common mistakes early.
 
+Both YAML and TOML are accepted — `lint` routes by extension, so `rune lint /etc/rune/runefile.toml` works the same as the YAML form.
+
 ## Examples
 
 ```sh
-# Single file
+# Single file (YAML or TOML)
 rune lint myservice.yaml
+rune lint /etc/rune/runefile.toml
 
 # Recurse into a directory
 rune lint ./manifests --recursive

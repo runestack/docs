@@ -148,7 +148,32 @@ docker:
 | `ecr`              | `region`                                 | Pulls a fresh ECR token via the AWS SDK.           |
 | `dockerconfigjson` | `dockerconfigjson` (raw JSON)            | Reuse the contents of `~/.docker/config.json`.     |
 
-You can also manage these at runtime with [`rune admin registry`](/cli/admin/) without restarting `runed`.
+#### Credentials from a Rune Secret (`fromSecret`)
+
+Instead of inlining credentials, an entry can resolve them from an encrypted Rune Secret at runtime — the recommended pattern for production:
+
+```yaml
+docker:
+  registries:
+    - name: ghcr-private
+      registry: ghcr.io
+      auth:
+        fromSecret: ghcr-credentials   # Secret name; runed infers auth type from its keys
+```
+
+`runed` infers the auth type from the secret's keys: `username`+`password` → `basic`, `token` → bearer, `.dockerconfigjson` → docker config JSON, `awsAccessKeyId`+`awsSecretAccessKey` (+ optional `awsRegion`) → `ecr`. When `fromSecret` is set, do **not** also set `type` or inline `username`/`password`/`token` — they are ignored.
+
+For first-boot bootstrapping (e.g. from the [Terraform module](https://github.com/runestack/terraform-digitalocean-rune)), the entry can also seed the secret on startup:
+
+| Field        | Notes                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------ |
+| `fromSecret` | Name of the Rune Secret to read credentials from at pull time.                                   |
+| `bootstrap`  | If `true`, runed creates/updates the secret from `data` on first start (`manage` controls re-apply). |
+| `manage`     | `create` (default) or `update`. `update` overwrites the secret on every start; `create` is one-shot. |
+| `immutable`  | If `true`, the seeded secret rejects subsequent writes via the API.                              |
+| `data`       | Bootstrap seed map (env-expanded against runed's process env). **Ignored at runtime resolution** — only consumed when `bootstrap = true`. |
+
+Manage credentials at runtime with [`rune admin registry`](/cli/admin/) — no restart required.
 See the [GHCR guide](/guides/ghcr-auth/) for a private-image walkthrough.
 
 ### `networking`
