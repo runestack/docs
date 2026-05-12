@@ -1,0 +1,133 @@
+---
+title: rune volume
+description: Manage persistent volumes — list, get, create, delete, detach, retry-provision, restore from snapshot.
+---
+
+```sh
+rune volume <subcommand> [flags]
+rune vol    <subcommand> [flags]    # short alias
+```
+
+A `Volume` is a namespaced unit of durable storage backed by a driver. See the
+[storage concept](/concepts/storage/) for the lifecycle and how services
+consume them via `claim` / `claimTemplate`.
+
+## Subcommands
+
+| Command                              | Purpose                                              |
+| ------------------------------------ | ---------------------------------------------------- |
+| `rune volume list`                   | List volumes in a namespace.                         |
+| `rune volume get <name>`             | Show one volume's full status.                       |
+| `rune volume create -f <file>`       | Create from a YAML/JSON spec.                        |
+| `rune volume delete <name>`          | Delete the row; reclaim policy decides the rest.     |
+| `rune volume detach <name>`          | Clear `Bound` state so a replacement can attach.     |
+| `rune volume retry-provision <name>` | Re-drive a `Failed`/`Stalled` volume back to `Pending`. |
+| `rune volume restore <name>`         | Provision a new volume from a snapshot.              |
+
+## Examples
+
+```sh
+# List in current namespace
+rune volume list
+
+# Across all namespaces
+rune vol list -A
+
+# Show one
+rune volume get pgdata-postgres-0 -n prod -o yaml
+
+# Apply from a spec
+rune volume create -f web-data.yaml
+
+# Delete (reclaim policy applies — see storage concept)
+rune volume delete web-data
+
+# Volume stuck Bound after the instance vanished — break the bind
+rune volume detach pgdata-postgres-1 -n prod
+
+# Provisioning failed — fix the underlying problem, then re-drive
+rune volume retry-provision pgdata-postgres-1 -n prod
+
+# Restore from a snapshot into a new volume row
+rune volume restore web-data-restored \
+  --from-snapshot web-data-2025-11-15 \
+  --snapshot-namespace prod \
+  --storage-class local \
+  -n prod
+```
+
+### `web-data.yaml`
+
+```yaml
+volume:
+  name: web-data
+  namespace: default
+  storageClassName: local
+  size: 5Gi
+  accessMode: ReadWriteOnce
+  reclaimPolicy: retain
+```
+
+For `local-host`, declare the host path on the volume itself:
+
+```yaml
+volume:
+  name: shared-cache
+  namespace: default
+  storageClassName: local-host
+  size: 0           # informational — not enforced for hostPath
+  accessMode: ReadWriteOnce
+  parameters:
+    hostPath: /mnt/rune/shared-cache
+```
+
+The path must sit under one of `runefile.[storage].hostPathAllowlist`, and
+must already exist unless `[storage] allowCreateMissing = true`.
+
+## Flags
+
+### `list`
+
+| Flag                   | Default   | Notes                                            |
+| ---------------------- | --------- | ------------------------------------------------ |
+| `-n, --namespace`      | `default` | Target namespace.                                |
+| `-A, --all-namespaces` | false     | List across every namespace.                     |
+| `-o, --output`         | `table`   | `table`, `json`, `yaml`, `name`.                 |
+| `-l, --selector`       | —         | Label selector.                                  |
+| `--field-selector`     | —         | Field selector (`key=value,key=value`).          |
+
+### `get <name>`
+
+| Flag                | Default   | Notes                          |
+| ------------------- | --------- | ------------------------------ |
+| `-n, --namespace`   | `default` | Target namespace.              |
+| `-o, --output`      | `table`   | `table`, `json`, `yaml`.       |
+
+### `create -f <file>`
+
+| Flag                  | Default   | Notes                                                 |
+| --------------------- | --------- | ----------------------------------------------------- |
+| `-f, --file`          | —         | Required. Path to YAML/JSON spec.                     |
+| `-n, --namespace`     | `default` | Used when the spec omits one.                         |
+| `--ensure-namespace`  | false     | Auto-create the target namespace if missing.          |
+
+### `delete <name>` / `detach <name>` / `retry-provision <name>`
+
+| Flag                | Default   | Notes                          |
+| ------------------- | --------- | ------------------------------ |
+| `-n, --namespace`   | `default` | Target namespace.              |
+
+### `restore <name>`
+
+| Flag                       | Default   | Notes                                                 |
+| -------------------------- | --------- | ----------------------------------------------------- |
+| `-n, --namespace`          | `default` | Namespace for the **new** volume.                     |
+| `--from-snapshot`          | —         | Required. Snapshot name to restore from.              |
+| `--snapshot-namespace`     | `-n`      | Namespace of the source snapshot. Defaults to `-n`.   |
+| `--storage-class`          | —         | Storage class for the new volume. Defaults to source. |
+
+## See also
+
+- [`rune storageclass`](/cli/storageclass/) · [`rune snapshot`](/cli/snapshot/)
+- [Persistent storage guide](/guides/persistent-storage/)
+- [Storage resources reference](/reference/storage-resources/)

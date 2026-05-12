@@ -113,6 +113,41 @@ The KEK is 32 bytes, base64-encoded when stored on disk or passed via env.
 | `max-keys-per-secret`  | `64`       | Per-secret key count cap.              |
 | `max-value-size`       | `65536`    | Per-value size cap (bytes).            |
 
+### `storage` (volumes)
+
+Controls the persistent-storage subsystem. See the [storage
+concept](/concepts/storage/) and [storage resources
+reference](/reference/storage-resources/).
+
+| Field                 | Default                  | Notes                                                                          |
+| --------------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| `defaultStorageClass` | `local`                  | Cluster default class. Empty string disables the default — `claimTemplate` without `storageClassName` becomes a cast-time error. |
+| `localVolumeRoot`     | `/var/lib/rune/volumes`  | Root for the `local` driver's managed directory tree.                          |
+| `hostPathAllowlist`   | `[]`                     | Allowed prefixes for `local-host` `hostPath`. Empty list denies all hostPath usage. `runed --dev-mode` overlays `["~/.rune/volumes"]`. |
+| `allowCreateMissing`  | `false`                  | When `true`, honour `local-host` `parameters.createIfMissing: "true"`. `runed --dev-mode` overlays `true`. |
+| `preserveOnDelete`    | `false`                  | (`local` driver only.) When `true`, converts `reclaimPolicy: delete` to `retain` — directories survive cascade.  |
+
+```toml
+[storage]
+defaultStorageClass = "local"
+localVolumeRoot = "/var/lib/rune/volumes"
+hostPathAllowlist = ["/mnt/rune", "/var/lib/rune-volumes"]
+allowCreateMissing = false
+
+[storage.local]
+preserveOnDelete = false
+```
+
+#### `storage.drivers`
+
+Per-driver configuration is keyed by registered driver name:
+
+```toml
+[storage.drivers.do-volume]
+# inline token (prefer secretRef in production)
+apiToken = "dop_v1_..."
+```
+
 ### `runner`
 
 | Section      | Field      | Notes                                       |

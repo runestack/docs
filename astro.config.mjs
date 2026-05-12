@@ -51,6 +51,7 @@ export default defineConfig({
             { label: 'Networking', slug: 'concepts/networking' },
             { label: 'Runesets', slug: 'concepts/runesets' },
             { label: 'Secrets & ConfigMaps', slug: 'concepts/secrets-configmaps' },
+            { label: 'Storage', slug: 'concepts/storage' },
             { label: 'Identity & RBAC', slug: 'concepts/identity-rbac' },
           ],
         },
@@ -59,6 +60,7 @@ export default defineConfig({
           items: [
             { label: 'Deploy your first service', slug: 'guides/first-service' },
             { label: 'Use secrets & configmaps', slug: 'guides/secrets-configmaps' },
+            { label: 'Persistent storage', slug: 'guides/persistent-storage' },
             { label: 'Scale & restart', slug: 'guides/scale-restart' },
             { label: 'Logs & exec', slug: 'guides/logs-exec' },
             { label: 'Health checks', slug: 'guides/health' },
@@ -86,6 +88,9 @@ export default defineConfig({
             { label: 'rune exec', slug: 'cli/exec' },
             { label: 'rune delete', slug: 'cli/delete' },
             { label: 'rune create', slug: 'cli/create' },
+            { label: 'rune storageclass', slug: 'cli/storageclass' },
+            { label: 'rune volume', slug: 'cli/volume' },
+            { label: 'rune snapshot', slug: 'cli/snapshot' },
             { label: 'rune health', slug: 'cli/health' },
             { label: 'rune deps', slug: 'cli/deps' },
             { label: 'rune lint', slug: 'cli/lint' },
@@ -96,7 +101,8 @@ export default defineConfig({
           ],
         },
         {
-          label: 'Reference',
+          label: 'RefeStorage resources', slug: 'reference/storage-resources' },
+            { label: 'rence',
           items: [
             { label: 'Service spec', slug: 'reference/service-spec' },
             { label: 'Runefile (server config)', slug: 'reference/runefile' },

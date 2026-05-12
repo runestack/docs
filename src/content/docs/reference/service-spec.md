@@ -105,6 +105,7 @@ service:
 | `dependencies` | []object | no      | Service dependencies.                      |
 | `secretMounts` | []object | no       | File-mount secrets.                        |
 | `configMounts` | []object | no       | File-mount configmaps.                     |
+| `volumes`      | []object | no       | Persistent volume mounts. See [Storage resources](/reference/storage-resources/). |
 | `expose`       | object  | no       | Single-node host exposure.                 |
 | `discovery`    | object  | no       | Internal service discovery.                |
 | `affinity`     | object  | no       | Placement hints (multi-node, roadmap).     |
@@ -209,6 +210,38 @@ envFrom:
 ```
 
 Each key becomes an env var. Keys conflicting with explicit `env:` lose.
+
+### `volumes[]`
+
+Mount persistent storage. Each entry references either an existing `Volume`
+(`claim`) or asks Rune to auto-provision one per replica (`claimTemplate`).
+
+```yaml
+volumes:
+  - name: pgdata
+    mountPath: /var/lib/postgresql/data
+    claimTemplate:
+      storageClassName: local
+      size: 10Gi
+      accessMode: ReadWriteOnce
+  - name: shared
+    mountPath: /var/lib/shared
+    readOnly: true
+    claim:
+      name: shared-cache
+```
+
+| Field           | Notes                                                              |
+| --------------- | ------------------------------------------------------------------ |
+| `name`          | Mount identifier; unique within the service.                       |
+| `mountPath`     | Absolute path. Blocklist: `/`, `/etc`, `/proc`, `/sys`, `/var/run/docker.sock`. |
+| `readOnly`      | Optional. Default `false`.                                         |
+| `subPath`       | Optional. Mount a sub-directory of the volume.                     |
+| `claim`         | `name` of an existing Volume. Cross-namespace via FQDN `name.ns.rune`. |
+| `claimTemplate` | `storageClassName` (optional, falls back to default class), `size`, `accessMode`. |
+
+Full schema in [Storage resources](/reference/storage-resources/) and the
+[storage concept](/concepts/storage/).
 
 ### `expose`
 

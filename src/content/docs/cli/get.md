@@ -17,6 +17,9 @@ rune get <resource-type> [name] [flags]
 | `jobs`       |         | Batch workloads (roadmap).       |
 | `configs`    |         | ConfigMaps.                      |
 | `secrets`    |         | Secrets (values redacted).       |
+| `storageclasses` | `sc`  | Cluster-scoped storage classes.  |
+| `volumes`    | `vol`   | Persistent volumes.              |
+| `snapshots`  | `snap`  | Volume snapshots.                |
 
 ## Examples
 
