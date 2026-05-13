@@ -293,8 +293,8 @@ and may override it (see [`initSteps[]`](#initsteps)).
 ```yaml
 securityContext:
   seccompProfile:
-    type: unconfined          # default | unconfined | localhost
-    # localhostProfile: /etc/docker/seccomp/my.json  # required iff type=localhost
+    type: Unconfined          # Unconfined | RuntimeDefault | Localhost (case-insensitive)
+    # localhostProfile: /etc/docker/seccomp/my.json  # required iff type=Localhost
   capAdd:    [SYS_NICE]
   capDrop:   [ALL]
   privileged: false
@@ -302,8 +302,8 @@ securityContext:
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `seccompProfile.type` | string | `default`, `unconfined`, or `localhost`. |
-| `seccompProfile.localhostProfile` | string | Absolute host path. Required iff `type: localhost`. |
+| `seccompProfile.type` | string | `Unconfined`, `RuntimeDefault`, or `Localhost` (Kubernetes names). Lowercase aliases (`unconfined`/`default`/`localhost`) also accepted; matching is case-insensitive since v0.0.1-dev.42. |
+| `seccompProfile.localhostProfile` | string | Absolute host path. Required iff `type: Localhost`. |
 | `capAdd` | []string | Linux capability names. |
 | `capDrop` | []string | Linux capability names; applied after `capAdd`. |
 | `privileged` | bool | Full access to host devices/namespaces. |
@@ -335,7 +335,7 @@ initSteps:
     timeout: 2m
     restartPolicy: OnFailure
     securityContext:
-      seccompProfile: { type: unconfined }
+      seccompProfile: { type: Unconfined }
 ```
 
 | Field | Type | Notes |

@@ -183,7 +183,7 @@ that.
 ```yaml
 # Image: ghcr.io/tigerbeetle/tigerbeetle (ENTRYPOINT: tini -- /tigerbeetle)
 # Container runs exactly: /tigerbeetle format --cluster=0 /data/0_0.tigerbeetle
-initSteps:
+initSteps:  
   - name: format
     image: ghcr.io/tigerbeetle/tigerbeetle:0.16.30
     command: /tigerbeetle
@@ -200,7 +200,7 @@ recent async runtimes have similar requirements.
 ```yaml
 spec:
   securityContext:
-    seccompProfile: { type: unconfined }
+    seccompProfile: { type: Unconfined }
   initSteps:
     - name: format
       image: ghcr.io/tigerbeetle/tigerbeetle:0.16.30
@@ -219,12 +219,22 @@ silently dropped and the container runs with the runtime default
 profile.
 :::
 
+:::note[Case-insensitive since v0.0.1-dev.42]
+The `type` values are case-insensitive and accept the Kubernetes
+PascalCase aliases (`Unconfined`, `RuntimeDefault`, `Localhost`)
+alongside the lowercase forms (`unconfined`, `default`, `localhost`).
+Pre-v0.0.1-dev.42 the runner did exact-match on lowercase, so
+`type: Unconfined` was silently treated as "no preference" and the
+container ran with the runtime default profile. PascalCase is the
+recommended canonical form going forward (matches k8s docs).
+:::
+
 `securityContext` can sit on the service (applied to the main
 container) **and** on each init step. The fields:
 
 | Field | Effect |
 | --- | --- |
-| `seccompProfile.type` | `default` *(runtime default)*, `unconfined`, or `localhost`. |
+| `seccompProfile.type` | `Unconfined`, `RuntimeDefault`, or `Localhost` (k8s names). Lowercase aliases also accepted. |
 | `seccompProfile.localhostProfile` | Absolute host path to a JSON profile. Required iff `type: localhost`. |
 | `capAdd` | Linux capabilities to add (e.g. `SYS_NICE`, `NET_ADMIN`). |
 | `capDrop` | Linux capabilities to drop. Applied after `capAdd`. |
