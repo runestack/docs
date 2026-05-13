@@ -113,6 +113,17 @@ By default, all `admin/*` RPCs are gated to localhost on the server side. Toggle
 
 Note: today, streaming RPCs (`logs`, `exec`, `watch`) bypass namespace-scoped policy rules — only `*` namespace rules apply to streams. Treat namespace-scoped policies as protection for write APIs, not stream APIs. This is tracked as a hardening item.
 
+### Payload-shaped verbs
+
+Some writes carry a privileged side-effect that's encoded in the request body rather than the RPC name. Rune gates these behind extra verbs in addition to the standard one for the RPC:
+
+| Verb | Triggered by | Effect |
+| --- | --- | --- |
+| `storageclasses.set-default` | `StorageClass.default: true` on create / update | Required on top of `storageclasses.create` / `storageclasses.update`. |
+| `services.privileged` | `securityContext.privileged: true` or `securityContext.seccompProfile.type: unconfined` on the service or any init step | Required on top of `services.create` / `services.update`. Without it the server returns `PermissionDenied: access denied for resource: services verb: privileged`. |
+
+The built-in `readwrite` policy grants the standard CRUD verbs on every resource but does **not** include `set-default` or `privileged`. Grant those to specific tokens or subjects (e.g. a platform-admin user managing the storage defaults, or a stateful-workload operator who needs `seccomp=unconfined` for an init step like TigerBeetle's `format`) rather than handing out `root`.
+
 ## Recipes
 
 ### Read-only auditor

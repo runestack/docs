@@ -111,7 +111,8 @@ service:
 | `affinity`     | object  | no       | Placement hints (multi-node, roadmap).     |
 | `autoscale`    | object  | no       | Autoscaling (roadmap).                     |
 | `networkPolicy`| object  | no       | Ingress/egress rules.                      |
-| `securityContext` | object | no     | Container/process security.                |
+| `securityContext` | object | no     | Container security (seccomp, capabilities, privileged). See [`securityContext`](#securitycontext). |
+| `initSteps`    | []object | no      | One-shot setup containers run before the main container. See [`initSteps[]`](#initsteps). |
 | `skip`         | bool    | no       | Skip applying this doc (useful in batch).  |
 
 ### `process`
@@ -282,6 +283,85 @@ Schema accepted; runtime enforcement is roadmap (RUNE-080).
 ### `affinity` / `autoscale`
 
 Schemas exist; runtime support is roadmap. Don't rely on them in single-node deployments today.
+
+### `securityContext`
+
+Container-level security knobs. Applies to the main container when set
+at service level; init steps inherit the service-level block by default
+and may override it (see [`initSteps[]`](#initsteps)).
+
+```yaml
+securityContext:
+  seccompProfile:
+    type: unconfined          # default | unconfined | localhost
+    # localhostProfile: /etc/docker/seccomp/my.json  # required iff type=localhost
+  capAdd:    [SYS_NICE]
+  capDrop:   [ALL]
+  privileged: false
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `seccompProfile.type` | string | `default`, `unconfined`, or `localhost`. |
+| `seccompProfile.localhostProfile` | string | Absolute host path. Required iff `type: localhost`. |
+| `capAdd` | []string | Linux capability names. |
+| `capDrop` | []string | Linux capability names; applied after `capAdd`. |
+| `privileged` | bool | Full access to host devices/namespaces. |
+
+> **Admin-gated.** `privileged: true` and `seccompProfile.type: unconfined`
+> require the `services.privileged` policy verb. The built-in
+> `readwrite` policy does not grant it; `root` does. See
+> [Identity & RBAC](/concepts/identity-rbac/).
+
+For the process runtime, the `process.securityContext` block on the
+parent governs UID/GID/capabilities differently — see
+[Process runner](/guides/process-runner/).
+
+### `initSteps[]`
+
+One-shot containers (or process subprocesses) that run before the main
+container on each instance start. See [Init steps](/guides/init-steps/)
+for the user-facing walk-through.
+
+```yaml
+initSteps:
+  - name: format
+    image: ghcr.io/tigerbeetle/tigerbeetle:0.16.30
+    command: /tigerbeetle
+    args: ["format", "--cluster=0", "/data/0_0.tigerbeetle"]
+    runIf:
+      type: fileMissing
+      path: /data/0_0.tigerbeetle
+    timeout: 2m
+    restartPolicy: OnFailure
+    securityContext:
+      seccompProfile: { type: unconfined }
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `name` | string | Required. DNS-1123 label, unique within the service. |
+| `image` | string | Container image. Required for container runtime; must be empty for process runtime. |
+| `command` | string | Required. Replaces the image's `ENTRYPOINT`. |
+| `args` | []string | Replaces the image's `CMD`. |
+| `env` | map | Merged on top of the parent env; step keys win. |
+| `envFrom` | []object | Merged with the parent's `envFrom`. |
+| `volumes` | []string | Filter over parent volumes. nil = inherit all; `[]` = none; `[a,b]` = only those. |
+| `secretMounts` | []string | Same convention as `volumes`. |
+| `configmapMounts` | []string | Same convention as `volumes`. |
+| `resources` | object | Step-level override. Inherits parent block when omitted. |
+| `runIf` | object | When to run. See [Init steps §2](/guides/init-steps/#2-when-does-a-step-run-runif). |
+| `timeout` | duration | Per-attempt ceiling. 0 defers to the cast-level timeout. |
+| `restartPolicy` | string | `OnFailure` *(default)* or `Never`. |
+| `securityContext` | object | See [`securityContext`](#securitycontext). Inherits parent when omitted; overrides wholesale when set. |
+
+#### `initSteps[].runIf`
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `type` | string | `freshVolume` *(default)*, `fileMissing`, or `always`. |
+| `path` | string | Absolute path inside a parent volume. Required iff `type: fileMissing`. |
+| `volume` | string | Optional parent volume name to restrict the `fileMissing` check to. |
 
 ## Validation
 

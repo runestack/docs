@@ -162,7 +162,79 @@ INSTANCE  STATUS     EXIT  ATTEMPTS  REASON  MESSAGE
 tb-0      Succeeded  0     1         -       -
 ```
 
-## 6. What an init step inherits
+## 6. `command` and `args`
+
+`command` and `args` follow Kubernetes conventions, **not** Docker's
+shell form:
+
+- `command` is a single string. It **replaces** the image's
+  `ENTRYPOINT`.
+- `args` is a list of strings. It **replaces** the image's `CMD`
+  and becomes the arguments passed to `command`.
+
+This matters for images that wrap their real binary in something
+like `tini --` or a custom entrypoint script. The step's `command`
+is used verbatim — you do not need to re-state the entrypoint chain,
+and you must not. Pre-v0.0.1-dev.39 the runner appended `command`
+to the image's `ENTRYPOINT` and the binary saw its own path as its
+first argument (`unknown subcommand: '/foo'`); upgrade if you see
+that.
+
+```yaml
+# Image: ghcr.io/tigerbeetle/tigerbeetle (ENTRYPOINT: tini -- /tigerbeetle)
+# Container runs exactly: /tigerbeetle format --cluster=0 /data/0_0.tigerbeetle
+initSteps:
+  - name: format
+    image: ghcr.io/tigerbeetle/tigerbeetle:0.16.30
+    command: /tigerbeetle
+    args: ["format", "--cluster=0", "/data/0_0.tigerbeetle"]
+```
+
+## 7. Security context (seccomp, capabilities, privileged)
+
+Some workloads have to opt out of Docker's default seccomp profile
+or add Linux capabilities. TigerBeetle's `format` uses
+`io_uring_setup(2)`, which the default profile blocks; ScyllaDB and
+recent async runtimes have similar requirements.
+
+```yaml
+spec:
+  securityContext:
+    seccompProfile: { type: unconfined }
+  initSteps:
+    - name: format
+      image: ghcr.io/tigerbeetle/tigerbeetle:0.16.30
+      command: /tigerbeetle
+      args: ["format", "--cluster=0", "/data/0_0.tigerbeetle"]
+      # securityContext omitted → inherits the service-level block
+```
+
+`securityContext` can sit on the service (applied to the main
+container) **and** on each init step. The fields:
+
+| Field | Effect |
+| --- | --- |
+| `seccompProfile.type` | `default` *(runtime default)*, `unconfined`, or `localhost`. |
+| `seccompProfile.localhostProfile` | Absolute host path to a JSON profile. Required iff `type: localhost`. |
+| `capAdd` | Linux capabilities to add (e.g. `SYS_NICE`, `NET_ADMIN`). |
+| `capDrop` | Linux capabilities to drop. Applied after `capAdd`. |
+| `privileged` | Full access to host devices and namespaces. |
+
+**Inheritance:** init steps inherit the parent service's
+`securityContext` when they omit their own — matching how volumes,
+env and mounts inherit. Setting `securityContext` on the step
+**replaces** the parent block wholesale; there is no field-level
+merge. So a step that needs to *narrow* the parent's context must
+re-state every field it wants applied.
+
+> **Admin-gated.** `privileged: true` and `seccompProfile.type: unconfined`
+> (on either the main container or any init step) require the
+> `services.privileged` policy verb. The built-in `readwrite`
+> policy does **not** grant it; `root` does. Without the verb the
+> server returns `PermissionDenied: access denied for resource:
+> services verb: privileged` from `rune cast` / `rune update`.
+
+## 8. What an init step inherits
 
 An init step starts from the parent service's pod-shape and overlays
 its own keys:
@@ -174,12 +246,15 @@ its own keys:
   win on conflict.
 - **Resources**: a step-level block fully replaces the parent's. Init
   for databases is often heavier than steady state; budget for it.
-- **SecurityContext** (process runtime): inherited from the parent
-  unchanged.
+- **SecurityContext**: inherited from the parent if the step omits
+  its own; an explicit step block replaces the parent's wholesale
+  (no merge). See [§7](#7-security-context-seccomp-capabilities-privileged).
+- **SecurityContext** (process runtime UID/GID controls): inherited
+  from the parent unchanged.
 
 Anything not listed here is copied from the parent verbatim.
 
-## 7. Common pitfalls
+## 9. Common pitfalls
 
 - **Forgetting `runIf` semantics on a stateful set.** With
   `claimTemplate`, every replica gets its own volume. `freshVolume`
@@ -197,8 +272,16 @@ Anything not listed here is copied from the parent verbatim.
 - **Bound resources too low.** A formatter that gets OOM-killed
   retries forever (well, three times) and looks like a bug in your
   init logic. Confirm the cgroup limit can hold your formatter.
+- **`io_uring is not available` in an init step.** Docker's default
+  seccomp profile blocks `io_uring_setup(2)`. Set
+  `securityContext.seccompProfile: { type: unconfined }` on the
+  service (init steps inherit) or on the step itself. Requires the
+  `services.privileged` policy verb — see [§7](#7-security-context-seccomp-capabilities-privileged).
+- **`unknown subcommand: '/your-binary'`** in an init step. You're on
+  a client/server pair older than v0.0.1-dev.39 against an image
+  with a baked-in `ENTRYPOINT`. Upgrade both ends.
 
-## 8. Where to next
+## 10. Where to next
 
 - [Persistent storage](/guides/persistent-storage/) — the volume
   primitives `freshVolume` keys off.

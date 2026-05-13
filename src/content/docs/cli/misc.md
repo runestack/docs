@@ -10,11 +10,12 @@ rune whoami
 rune whoami -o json
 ```
 
-Shows the active context, the server, the configured namespace, the (masked) token, whether the connection works, and — if authenticated — the subject ID and attached policies.
+Shows the active context, the server, the configured namespace, the (masked) token, whether the connection works, the server's version, and — if authenticated — the subject ID and attached policies.
 
 ```
 Current Context: prod
 Server: runed.example.com:7863
+Server Version: v0.0.1-dev.40 (51e7782b)
 Default Namespace: prod
 Token: 29b******364
 Status: Authenticated
@@ -23,7 +24,7 @@ Name: alice
 Policies: [readwrite]
 ```
 
-If `Status: Not connected to server`, run `rune login` again or check that the server is reachable.
+If `Status: Not connected to server`, run `rune login` again or check that the server is reachable. The `Server Version` line is omitted on older servers that don't expose `HealthService.GetServerVersion` (added in v0.0.1-dev.38).
 
 ## `rune status`
 
@@ -47,15 +48,30 @@ Useful as a health check from a dashboard or shell prompt.
 ## `rune version`
 
 ```sh
-rune version
-runed --version    # equivalent for the server
+rune version              # client + server
+rune version --client     # client only (skips the server probe)
+rune version -o json      # structured output: text | json | yaml
+runed --version           # the server's own version subcommand
 ```
 
 ```
-Rune v0.1.0 (abc1234) - 2026-04-25T18:00:00Z darwin/arm64
+Client:
+  Version:    v0.0.1-dev.40
+  Commit:     51e7782b
+  BuildTime:  2026-05-13T03:23:51Z
+  GoVersion:  go1.22.5
+  Platform:   darwin/arm64
+Server:
+  Version:    v0.0.1-dev.40
+  Commit:     51e7782b
+  BuildTime:  2026-05-13T03:25:18Z
+  GoVersion:  go1.22.5
+  Platform:   linux/amd64
 ```
 
 The build is tagged with the git commit and build timestamp. If you see `-dirty` in the version, the binary was built from uncommitted changes.
+
+The server probe uses the unauthenticated `HealthService.GetServerVersion` RPC (added in v0.0.1-dev.38) so it works before `rune login`. Against older servers, or without a configured context, you'll see a one-line note instead of the `Server:` block; use `--client` to skip the probe entirely.
 
 ## Combining
 
