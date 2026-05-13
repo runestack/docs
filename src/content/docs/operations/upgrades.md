@@ -58,6 +58,45 @@ Flags worth knowing:
 - `--skip-restart` — replace binaries without restarting (for scripted maintenance windows).
 - `--skip-caps` — don't re-apply `cap_net_bind_service`. Use if you've moved low-port binding entirely to systemd's `AmbientCapabilities`.
 - `--no-keep-backup` — remove the backup files after success. Default keeps them so you can roll back by hand.
+- `--refresh-unit` *(since v0.0.1-dev.45)* — replace the on-disk `runed.service` with a fresh one from `runed print-systemd`. See [Refreshing the systemd unit](#refreshing-the-systemd-unit) below.
+
+### Refreshing the systemd unit
+
+The on-disk `/etc/systemd/system/runed.service` is written by `install-server.sh` at first boot and never updated again unless you do something about it. The Rune team adds directives to that template over time — `AmbientCapabilities=CAP_NET_BIND_SERVICE` (the back-stop for the [file-capability trap](#the-file-capability-trap)), resource limits, OOM tuning — and hosts that were provisioned from older installers don't pick those up automatically.
+
+Since v0.0.1-dev.45, the `runed` binary itself emits its canonical unit via `runed print-systemd`, and `upgrade-server.sh --refresh-unit` uses that to swap in a current unit during the upgrade.
+
+```sh
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/runestack/rune/main/scripts/upgrade-server.sh) \
+  --version v0.0.1-dev.45 \
+  --refresh-unit
+```
+
+The flow during a `--refresh-unit` run:
+
+1. Binaries are swapped first (same as a plain upgrade).
+2. The new `runed` is invoked: `/usr/local/bin/runed print-systemd > runed.service.new`. Rendering uses the new binary, so the unit always matches what *this version* of `runed` expects.
+3. The old unit is backed up to `/etc/systemd/system/runed.service.bak`.
+4. The new unit is installed and `systemctl daemon-reload` runs.
+5. `runed` is restarted; the verification path is the same as the plain upgrade.
+6. **On verification failure**, the EXIT trap restores both the binary and the previous unit, reloads, and restarts.
+
+You can inspect what `runed` would write before committing to the refresh:
+
+```sh
+# What would the new unit look like?
+runed print-systemd
+
+# Diff against what's deployed:
+diff <(runed print-systemd) /etc/systemd/system/runed.service
+```
+
+`runed print-systemd` accepts `--user`, `--group`, `--binary`, and `--config` if your install uses non-default paths. With no flags it emits the same unit `install-server.sh` would write today.
+
+**Caveat for customized units.** `--refresh-unit` replaces the whole base unit. If you've edited it by hand to add (say) `Environment=` lines or a custom `RestartSec`, those go to the `.bak` file and don't carry forward. Two safer patterns:
+
+- **Drop-ins**: put your customisations in `/etc/systemd/system/runed.service.d/*.conf` instead of editing the base unit. Drop-ins aren't touched by `--refresh-unit`. This is the pattern `install-server.sh` already uses for `SupplementaryGroups=docker` when the docker group exists.
+- **Diff first**: run `diff <(runed print-systemd) /etc/systemd/system/runed.service` before `--refresh-unit` and adapt the customisations into drop-ins ahead of the refresh.
 
 ### The file-capability trap
 
