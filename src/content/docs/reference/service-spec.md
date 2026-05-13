@@ -95,8 +95,8 @@ service:
 | `process`      | object  | conditional | Required for process services. See below.|
 | `scale`        | int     | yes      | Desired replicas. `0` to stop.             |
 | `labels`       | map     | no       | Free-form key/value labels.                |
-| `command`      | string  | no       | Override container/process entrypoint.     |
-| `args`         | []string | no      | Args to the command.                       |
+| `command`      | string  | no       | Override the image's `ENTRYPOINT` (Kubernetes semantics — `command` → Entrypoint). Omit to keep the image's baked-in `ENTRYPOINT`. Pre-v0.0.1-dev.43 this was silently ignored for the main container; init steps were always honoured (since v0.0.1-dev.38). |
+| `args`         | []string | no      | Override the image's `CMD` (`args` → Cmd). Args without `command` keeps the image's `ENTRYPOINT` and just supplies positional arguments. Pre-v0.0.1-dev.43 also silently ignored for the main container. |
 | `ports`        | []object | no      | See below.                                 |
 | `env`          | map     | no       | Plain environment variables.               |
 | `envFrom`      | []object | no      | Pull env from a secret/config.             |
