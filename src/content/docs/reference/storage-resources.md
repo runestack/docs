@@ -67,7 +67,7 @@ volume:
 | `name`             | string    | yes         | DNS-1123. Unique within the namespace.                                   |
 | `namespace`        | string    | no          | Default `default`.                                                       |
 | `storageClassName` | string    | conditional | Required unless a default class is set. Falls back to `runefile.[storage].defaultStorageClass`. |
-| `size`             | quantity  | yes         | E.g. `10Gi`, `500Mi`. Driver may treat as informational (e.g. hostPath). |
+| `size`             | quantity  | yes         | E.g. `10Gi`, `500Mi`, `1G`. Kubernetes Quantity syntax: binary suffixes (`Ki`/`Mi`/`Gi`/...) are powers of two, SI suffixes (`K`/`M`/`G`/...) are decimal. **Unitless integers are bytes**, not gigabytes — write `10Gi`, not `10`. Driver may treat as informational (e.g. hostPath). |
 | `accessMode`       | enum      | yes         | `ReadWriteOnce`, `ReadOnlyMany`, `ReadWriteMany`. Driver-gated.          |
 | `reclaimPolicy`    | enum      | no          | `retain` or `delete`. Defaults to the class's policy.                    |
 | `parameters`       | map[string]string | no  | Per-volume overrides merged on top of class parameters.                  |

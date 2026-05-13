@@ -253,7 +253,7 @@ volume:
   name: do-smoke-test
   namespace: default
   storageClassName: do-volumes-nyc3
-  size: "10"
+  size: "10Gi"
   accessMode: ReadWriteOnce
 EOF
 

@@ -1,6 +1,6 @@
 ---
 title: rune storageclass
-description: Manage storage classes — list, get, create, delete, set the cluster default.
+description: Inspect storage classes — list, get, delete, set the cluster default. (StorageClasses are created via `rune cast`.)
 ---
 
 ```sh
@@ -18,9 +18,12 @@ seeded automatically on first boot. See the [storage concept](/concepts/storage/
 | ----------------------------- | ---------------------------------------------------- |
 | `rune storageclass list`      | List storage classes.                                |
 | `rune storageclass get <name>`| Show one storage class.                              |
-| `rune storageclass create -f` | Create from a YAML/JSON spec file.                   |
 | `rune storageclass delete`    | Delete a storage class.                              |
 | `rune storageclass set-default <name>` | Mark a class as the cluster default.        |
+
+To **create** a StorageClass, use [`rune cast`](/cli/cast/) — the same
+declarative path used for every other resource (services, secrets,
+configmaps, volumes). See the example below.
 
 Promoting a class to default and `--cascade` deletes are admin-only.
 
@@ -33,8 +36,9 @@ rune storageclass list
 # Show one
 rune sc get local -o yaml
 
-# Apply from a file
-rune storageclass create -f do-nyc3.yaml
+# Apply from a file — StorageClasses are created via `rune cast`,
+# the same declarative path used for every other resource.
+rune cast do-nyc3.yaml
 
 # Promote a different class to default (admin)
 rune storageclass set-default do-nyc3
@@ -76,12 +80,6 @@ storageClass:
 | Flag                | Default | Notes                                       |
 | ------------------- | ------- | ------------------------------------------- |
 | `-o, --output`      | `table` | `table`, `json`, `yaml`.                    |
-
-### `create -f <file>`
-
-| Flag           | Default | Notes                                            |
-| -------------- | ------- | ------------------------------------------------ |
-| `-f, --file`   | —       | Required. Path to YAML/JSON spec file.           |
 
 ### `delete <name>`
 

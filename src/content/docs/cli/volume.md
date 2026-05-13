@@ -1,6 +1,6 @@
 ---
 title: rune volume
-description: Manage persistent volumes — list, get, create, delete, detach, retry-provision, restore from snapshot.
+description: Inspect persistent volumes — list, get, delete, detach, retry-provision, restore from snapshot. (Volumes are created via `rune cast`.)
 ---
 
 ```sh
@@ -18,7 +18,6 @@ consume them via `claim` / `claimTemplate`.
 | ------------------------------------ | ---------------------------------------------------- |
 | `rune volume list`                   | List volumes in a namespace.                         |
 | `rune volume get <name>`             | Show one volume's full status.                       |
-| `rune volume create -f <file>`       | Create from a YAML/JSON spec.                        |
 | `rune volume delete <name>`          | Delete the row; reclaim policy decides the rest.     |
 | `rune volume detach <name>`          | Clear `Bound` state so a replacement can attach.     |
 | `rune volume retry-provision <name>` | Re-drive a `Failed`/`Stalled` volume back to `Pending`. |
@@ -36,8 +35,9 @@ rune vol list -A
 # Show one
 rune volume get pgdata-postgres-0 -n prod -o yaml
 
-# Apply from a spec
-rune volume create -f web-data.yaml
+# Apply from a spec — Volumes are created via `rune cast`, the same
+# declarative path used for every other resource.
+rune cast web-data.yaml
 
 # Delete (reclaim policy applies — see storage concept)
 rune volume delete web-data
@@ -102,14 +102,6 @@ must already exist unless `[storage] allowCreateMissing = true`.
 | ------------------- | --------- | ------------------------------ |
 | `-n, --namespace`   | `default` | Target namespace.              |
 | `-o, --output`      | `table`   | `table`, `json`, `yaml`.       |
-
-### `create -f <file>`
-
-| Flag                  | Default   | Notes                                                 |
-| --------------------- | --------- | ----------------------------------------------------- |
-| `-f, --file`          | —         | Required. Path to YAML/JSON spec.                     |
-| `-n, --namespace`     | `default` | Used when the spec omits one.                         |
-| `--ensure-namespace`  | false     | Auto-create the target namespace if missing.          |
 
 ### `delete <name>` / `detach <name>` / `retry-provision <name>`
 
