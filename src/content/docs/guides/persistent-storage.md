@@ -180,6 +180,111 @@ volume:
 `allowCreateMissing = true` in the runefile (which is the default in
 `runed --dev-mode`).
 
+## Using `do-volume` for DigitalOcean Block Storage
+
+The `do-volume` driver provisions, attaches, snapshots and reclaims
+DO Block Storage volumes via the DigitalOcean API. End-to-end first-time
+setup is three steps.
+
+### Step 1 — Mint a scoped DO API token
+
+In the DigitalOcean console: **API → Tokens → Generate New Token**.
+Choose **Custom Scopes** (not Full Access) and grant exactly the
+permissions the driver uses:
+
+| Resource                 | Operations                  |
+| ------------------------ | --------------------------- |
+| `block_storage`          | `create`, `read`, `delete`  |
+| `block_storage_action`   | `create`                    |
+| `actions`                | `read`                      |
+| `droplet`                | `read`                      |
+| `block_storage_snapshot` | `create`, `read`, `delete`  *(omit if you don't use `rune snapshot`)* |
+
+See the [service-spec reference's scope table](/reference/storage-resources/#required-digitalocean-token-scopes)
+for the per-endpoint breakdown of what each scope unlocks. The one
+that's easy to miss is `block_storage_action:create` — without it
+provisioning *appears* to work and attach silently 401s, leaving the
+volume stuck `Available` with the consuming instance pending.
+
+### Step 2 — Create a Rune Secret holding the token
+
+The driver reads the token from a Rune Secret rather than the
+runefile so it can rotate without restarting `runed`. The secret's
+data field must be named `token`:
+
+```sh
+rune create secret do-api-token \
+  --from-literal=token=dop_v1_<your_token_here> \
+  -n shared
+```
+
+### Step 3 — Create the StorageClass
+
+Reference the secret on `apiTokenSecretRef` using the format
+`<namespace>/<secret-name>`. DO volumes are region-pinned, so the
+StorageClass also names the region; for a multi-region cluster
+create one StorageClass per region.
+
+```yaml
+storageClass:
+  name: do-volumes-nyc3
+  driver: do-volume
+  parameters:
+    region: nyc3
+    fsType: ext4
+    apiTokenSecretRef: shared/do-api-token
+```
+
+```sh
+rune cast do-volumes-nyc3.yaml
+rune get storageclasses
+# NAME              DRIVER      DEFAULT
+# do-volumes-nyc3   do-volume   false
+```
+
+### Verify
+
+Provision a one-off volume to confirm the token and scopes are
+correct before pointing real workloads at the class:
+
+```sh
+cat <<'EOF' | rune cast -
+volume:
+  name: do-smoke-test
+  namespace: default
+  storageClassName: do-volumes-nyc3
+  size: "10"
+  accessMode: ReadWriteOnce
+EOF
+
+rune get volume do-smoke-test -n default
+# STATUS: Available     HANDLE: <do-volume-id>
+
+# Quick attach test using a throw-away service. If this stalls in
+# Pending with `dovolume: action ... errored`, the token is missing
+# block_storage_action:create or actions:read.
+cat <<'EOF' | rune cast -
+service:
+  name: do-smoke
+  image: alpine:3.19
+  command: ["sleep", "infinity"]
+  volumes:
+    - name: data
+      mountPath: /data
+      claim:
+        name: do-smoke-test
+EOF
+rune get service do-smoke
+# STATUS: Running
+
+rune delete service do-smoke
+rune delete volume do-smoke-test -n default
+```
+
+If any step in the verify fails, the [storage-resources reference](/reference/storage-resources/#do-volume)
+maps each DO API endpoint to the scope it requires and the failure
+mode you'll see without it.
+
 ## Cleaning up
 
 ```sh

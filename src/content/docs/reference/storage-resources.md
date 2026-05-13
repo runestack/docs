@@ -92,10 +92,52 @@ volume:
 
 | Key                  | Notes                                                                  |
 | -------------------- | ---------------------------------------------------------------------- |
-| `region`             | Required. DigitalOcean region (e.g. `nyc3`).                           |
+| `region`             | Required. DigitalOcean region (e.g. `nyc3`). Block-storage volumes are region-pinned — see [Region pinning](#region-pinning) below. |
 | `fsType`             | `ext4` (default), `xfs`.                                               |
 | `apiToken`           | Inline DO API token. Prefer `apiTokenSecretRef`.                       |
-| `apiTokenSecretRef`  | `<namespace>/<secret-name>` for the DO API token.                      |
+| `apiTokenSecretRef`  | `<namespace>/<secret-name>` for the DO API token. Format example: `shared/do-api-token` resolves to the `do-api-token` secret in the `shared` namespace. The secret's data field must be named `token`. |
+
+##### Required DigitalOcean token scopes
+
+A **Full Access** token works, but the driver only needs the
+following custom scopes. These mirror exactly the eight HTTP endpoints
+the driver calls (`pkg/storage/driver/dovolume/client.go`); anything
+else is over-privileged.
+
+| Resource                 | Operations             | DO endpoint(s) the driver hits          | What fails without it                                                                 |
+| ------------------------ | ---------------------- | --------------------------------------- | ------------------------------------------------------------------------------------- |
+| `block_storage`          | `create`, `read`, `delete` | `POST/GET/DELETE /v2/volumes[/{id}]`    | Provision (`create`), reconcile/observe (`read`), reclaim (`delete`).                  |
+| `block_storage_action`   | `create`               | `POST /v2/volumes/{id}/actions`          | Attach, detach, and online-resize. **This is the one most operators miss** — provisioning succeeds and then attach silently 401s, leaving the volume stuck `Available` with the instance pending. |
+| `actions`                | `read`                 | `GET /v2/actions/{id}`                   | Polling the async action to completion. Without it, attach/detach return an action ID the driver can't observe and times out as `Stalled`. |
+| `droplet`                | `read`                 | `GET /v2/droplets?name=<node>`            | Translating the Rune node ID into a DO droplet ID for the attach call.                |
+| `block_storage_snapshot` | `create`, `read`, `delete` | `POST /v2/volumes/{id}/snapshots`, `DELETE /v2/snapshots/{id}` | Only required if you use `rune snapshot create / restore` against volumes on this class. Omit if you don't use snapshots. |
+
+The driver does **not** call `/v2/regions`, `/v2/sizes`, or update
+the volume metadata, so `regions:read`, `sizes:read`, and
+`block_storage:update` are not needed despite what the DO console's
+default scope hints sometimes suggest.
+
+##### Region pinning
+
+DO block-storage volumes belong to a single region. The driver
+provisions in the region named on the StorageClass, and DO refuses
+to attach a volume to a droplet in a different region. For a
+multi-region cluster, create one StorageClass per region:
+
+```yaml
+storageClass:
+  name: do-volumes-nyc3
+  driver: do-volume
+  parameters: { region: nyc3, fsType: ext4, apiTokenSecretRef: shared/do-api-token }
+---
+storageClass:
+  name: do-volumes-fra1
+  driver: do-volume
+  parameters: { region: fra1, fsType: ext4, apiTokenSecretRef: shared/do-api-token }
+```
+
+Use `allowedTopologies` (RUNE-072) or the namespace scoping of your
+StorageClass references to keep claims targeted at the right region.
 
 ### Status fields (read-only)
 
