@@ -1,104 +1,206 @@
 ---
 title: Upgrades
-description: How to upgrade runed and the rune CLI safely. Rollback, version skew, and what to test.
+description: How to upgrade runed and the rune CLI safely. Rollback, version skew, what pauses during the swap, and the Terraform pitfalls.
 ---
 
-Rune ships single binaries — upgrades are mostly "swap and restart." This page covers the corners.
+Rune ships single binaries — upgrades are mostly "swap and restart." This page covers the corners that matter in production: which path to use, what actually pauses during the swap, the file-capability gotcha, and the Terraform module behaviour that's bitten operators.
+
+## Pick an upgrade path
+
+| Scenario | Path | Notes |
+| --- | --- | --- |
+| Routine `runed` version bump on an existing host | [`scripts/upgrade-server.sh`](https://github.com/runestack/rune/blob/main/scripts/upgrade-server.sh) | Swaps binaries, re-applies `cap_net_bind_service`, restarts, rolls back on failure. **Doesn't** touch the systemd unit, runefile, or data dir. |
+| First-time install, or you want the systemd unit refreshed to current | [`scripts/install-server.sh`](https://github.com/runestack/rune/blob/main/scripts/install-server.sh) | Greenfield path. Re-running it on an existing host *will* rewrite the unit and re-`setcap` — useful when the on-disk unit has drifted behind the installer template. |
+| Provisioned via `terraform-digitalocean-rune` (or similar) | `upgrade-server.sh` over SSH, **not** `terraform apply` with a bumped `rune_version` | See the [Terraform-managed deployments](#terraform-managed-deployments) section. |
+| Just the CLI on a developer machine | [`scripts/install-cli.sh`](https://github.com/runestack/rune/blob/main/scripts/install-cli.sh) | Doesn't touch `runed`. |
 
 ## Version skew
 
-The CLI and server share a generated proto package. Mismatched versions usually still work for compatible RPCs, but new features only show up when both sides are upgraded.
+Client and server share a generated proto package. Mismatched versions usually still work for compatible RPCs, but new features only show up when both sides are upgraded.
 
-Rule of thumb:
-
-- **CLI ahead of server**: missing fields in responses, "unknown field" warnings on requests. Mostly fine.
+- **CLI ahead of server**: missing fields in responses, possible `unknown field` warnings on requests. Mostly fine.
 - **CLI behind server**: missing client-side support for new flags. Update the CLI.
+
+`rune version` since v0.0.1-dev.38 prints both client and server build info — use it to spot skew at a glance.
+
+```sh
+$ rune version
+Client:
+  Version:    v0.0.1-dev.44
+  Commit:     32ab1d04
+Server:
+  Version:    v0.0.1-dev.43
+  Commit:     ffde251c
+```
 
 Pin to the same version on both sides for production.
 
-## Upgrade `runed` — scripted
+## Upgrade `runed` — the script
 
-Recommended path for hosts that used `install-server.sh`:
+Since v0.0.1-dev.44, the recommended in-place upgrade path is `scripts/upgrade-server.sh`. Run it as root on the host:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/runestack/rune/master/scripts/install-server.sh \
-  | sudo bash -s -- --version v0.1.1 --skip-docker
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/runestack/rune/main/scripts/upgrade-server.sh) \
+  --version v0.0.1-dev.44
 ```
 
-The script:
+What it does:
 
-1. Downloads the new tarball.
-2. Stops `runed` cleanly.
-3. Replaces the binaries.
-4. Starts `runed`.
-5. Leaves config and data untouched.
+1. Downloads `rune_linux_<arch>.tar.gz` for the requested version.
+2. Notes whether the current `runed` has `cap_net_bind_service` set (via `getcap`).
+3. Backs up the current binaries to `/usr/local/bin/.{rune,runed}.bak`.
+4. Stops `runed`, atomically replaces the binaries, re-applies the file capability when applicable, starts `runed`.
+5. Polls `systemctl is-active` for up to 15s.
+6. **On verification failure**: restores the backup binaries and restarts. The EXIT trap covers any failure point.
 
-## Upgrade `runed` — manual
+Flags worth knowing:
+
+- `--skip-restart` — replace binaries without restarting (for scripted maintenance windows).
+- `--skip-caps` — don't re-apply `cap_net_bind_service`. Use if you've moved low-port binding entirely to systemd's `AmbientCapabilities`.
+- `--no-keep-backup` — remove the backup files after success. Default keeps them so you can roll back by hand.
+
+### The file-capability trap
+
+This is the one to remember. `cap_net_bind_service` is set via `setcap` and stored as an extended attribute on the binary file. **It does not survive `cp` / `mv` / `install`** — any binary-only replacement strips it, and runed (running as the non-root `rune` user) then fails to bind `:80` / `:443` / `:53` with `bind: permission denied`.
+
+`upgrade-server.sh` handles this automatically. If you're doing a manual swap (see below), you need to re-apply:
 
 ```sh
-VER=v0.1.1
+sudo setcap cap_net_bind_service=+ep /usr/local/bin/runed
+```
+
+The systemd unit shipped by `install-server.sh` *also* sets `AmbientCapabilities=CAP_NET_BIND_SERVICE` and `CapabilityBoundingSet=CAP_NET_BIND_SERVICE` as a belt-and-braces measure. On modern systemd those alone *should* be sufficient — but on hosts provisioned from older `install-server.sh` versions the unit may pre-date that line. If you suspect that's you, refresh the unit by re-running `install-server.sh` once.
+
+## Upgrade `runed` — manual swap
+
+If you want to know every step or you're building a custom upgrade flow:
+
+```sh
+VER=v0.0.1-dev.44
 ARCH=$(uname -m); case "$ARCH" in
   x86_64) ARCH=amd64 ;;
   aarch64|arm64) ARCH=arm64 ;;
   *) echo "Unsupported"; exit 1 ;;
 esac
 
+# Backup
+sudo cp /usr/local/bin/rune  /usr/local/bin/.rune.bak
+sudo cp /usr/local/bin/runed /usr/local/bin/.runed.bak
+
+# Swap
 sudo systemctl stop runed
 curl -L -o /tmp/rune.tgz \
   "https://github.com/runestack/rune/releases/download/$VER/rune_linux_${ARCH}.tar.gz"
 sudo tar -C /usr/local/bin -xzf /tmp/rune.tgz rune runed
-sudo systemctl start runed
 
+# Re-apply file capability (REQUIRED for edge nodes binding :80/:443/:53)
+sudo setcap cap_net_bind_service=+ep /usr/local/bin/runed
+
+sudo systemctl start runed
 runed --version
 sudo systemctl status runed --no-pager | cat
 ```
 
+`upgrade-server.sh` is the same flow with rollback and verification baked in — prefer it.
+
 ## Upgrade the CLI only
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/runestack/rune/master/scripts/install-cli.sh | bash
+curl -fsSL https://raw.githubusercontent.com/runestack/rune/main/scripts/install-cli.sh | bash
 rune version
 ```
 
+## What actually pauses during the swap
+
+`runed` is the API server, the orchestrator, the ingress proxy, the embedded DNS resolver, and (when configured) the ACME runner — all in one process. While it's stopped, four things are unavailable:
+
+| Surface | Behaviour during the ~5–15s window |
+| --- | --- |
+| **gRPC control plane** | `rune` CLI calls fail (connection refused). No new services/instances can start. |
+| **Ingress on :80/:443** | Listener is in-process. External HTTP/HTTPS traffic to ingress-exposed services drops. Already-established connections may stall. |
+| **Embedded DNS** | `*.rune` name resolution between containers breaks. Already-resolved connections stay up; new lookups fail. |
+| **Health probes** | Runner-driven probes don't fire. Services with tight `failureThreshold` × `intervalSeconds` may briefly flip to `Degraded` and recover when `runed` returns. |
+
+**Service workload containers keep running** — they're independent Docker containers, not in runed's data path. Their TCP listeners stay up; whatever was talking to them via container IPs continues unaffected.
+
+True zero-downtime upgrades (and a story for ingress that survives `runed` restart) require multi-node Raft, on the roadmap as RUNE-025.
+
+## Terraform-managed deployments
+
+If you're using [`terraform-digitalocean-rune`](https://github.com/runestack/terraform-digitalocean-rune) (or a similar module), there's a sharp edge worth knowing about.
+
+The module renders `var.rune_version` into the droplet's `user_data` (cloud-init). Cloud-init runs **only on first boot** — bumping `rune_version` in code does not re-run the installer on an existing droplet. Until v0.0.5 of the module, the default Terraform behaviour on a `user_data` change was to **mark the droplet for replacement** (destroy + create), which would wipe `/var/lib/rune` (KEK, BadgerDB store, host-local volumes).
+
+Since v0.0.6 the module sets `lifecycle { ignore_changes = [user_data] }` on the droplet so the variable can advance freely in code without triggering a destroy.
+
+The correct flow with the TF module:
+
+```sh
+# 1. SSH to the droplet and upgrade in place:
+sudo bash <(curl -fsSL https://raw.githubusercontent.com/runestack/rune/main/scripts/upgrade-server.sh) \
+  --version v0.0.1-dev.44
+
+# 2. Bump var.rune_version in your TF code so new droplets (DR rebuild,
+#    region migration, etc.) start at the same version. The apply will
+#    be a no-op for the existing droplet because of ignore_changes.
+terraform apply
+```
+
+If you genuinely want a fresh droplet at a new version — e.g. for a deliberate DR rebuild or a disposable preview environment — use `-replace`:
+
+```sh
+terraform apply -replace=module.rune.digitalocean_droplet.this
+```
+
+This bypasses `ignore_changes` and recreates the droplet. **Expect data loss** on the destroyed host. Floating IPs and externally-attached DO Block Storage volumes survive; everything on the droplet's root disk does not.
+
 ## Pre-upgrade checklist
 
-- [ ] **Backup**: `--data-dir` and the KEK file (separately).
-- [ ] **Read the release notes**: breaking changes are flagged.
-- [ ] **Run on a staging host first**.
-- [ ] **Confirm reachability** of all your registries from the host.
+- [ ] **Backup** the data dir (default `/var/lib/rune`) and the KEK separately.
+- [ ] **Read the release notes** — breaking changes are flagged.
+- [ ] **Run on a staging host first** if your environment supports it.
+- [ ] **Confirm reachability** of all your image registries from the host.
+- [ ] **Note the current version** (`rune version`) so you have a target if rollback is needed.
 
 ## Post-upgrade checks
 
 ```sh
-runed --version
-rune version
+rune version                                # both blocks should match
 sudo systemctl status runed --no-pager
-sudo journalctl -u runed -n 100 --no-pager
+sudo journalctl -u runed -n 100 --no-pager  # look for binding errors
 
-rune whoami
-rune get services -A          # full inventory
+rune whoami                                  # API responsive, server version line
+rune get services -A                         # full inventory, look for Failed
 rune status
 ```
 
-If services come back as `Failed` after restart, check probe configuration — schema rules sometimes tighten between minor versions.
+For edge nodes:
+
+```sh
+# Confirm the file capability is still in place after upgrade.
+getcap /usr/local/bin/runed
+# → /usr/local/bin/runed cap_net_bind_service=ep
+```
+
+If services come back as `Failed`, check probe configuration — schema validation sometimes tightens between minor versions (see the [Init steps troubleshooting](/guides/init-steps/#11-troubleshooting) section for examples).
 
 ## Rollback
 
-If the new version misbehaves:
+If the new version misbehaves and `upgrade-server.sh` has already declared success (the failure surfaced later), restore by hand:
 
 ```sh
 sudo systemctl stop runed
-# Re-install the previous version with install-server.sh --version vX.Y.Z
+sudo cp /usr/local/bin/.rune.bak  /usr/local/bin/rune
+sudo cp /usr/local/bin/.runed.bak /usr/local/bin/runed
+sudo setcap cap_net_bind_service=+ep /usr/local/bin/runed   # if edge
 sudo systemctl start runed
 ```
 
-Data on disk is forward- and backward-compatible across patch versions. Across minor versions, breaking schema migrations are flagged in release notes — back up before, and only roll forward.
+The backups are at `/usr/local/bin/.{rune,runed}.bak` unless you ran with `--no-keep-backup`.
 
-## Zero-downtime?
+If `upgrade-server.sh` itself fails verification, it has *already* rolled back via its EXIT trap before exiting non-zero — no manual restore needed.
 
-Single-node `runed` cannot be upgraded with zero downtime — there's only one. Workloads keep running (containers don't restart on a `runed` restart), but the API is unavailable for ~5–15 seconds during the swap.
-
-True zero-downtime requires multi-node Raft (Release 2 — RUNE-025).
+Data on disk is forward- and backward-compatible across patch versions. Across minor versions, breaking schema migrations are flagged in release notes — back up before, and only roll forward unless the notes say otherwise.
 
 ## Schema migrations
 
@@ -123,3 +225,5 @@ Avoid relying on `curl | bash` ad hoc — pin a version per environment.
 - [Installation](/start/installation/)
 - [Running runed](/operations/runed/)
 - [Configuration](/operations/configuration/)
+- [`upgrade-server.sh` source](https://github.com/runestack/rune/blob/main/scripts/upgrade-server.sh)
+- [`terraform-digitalocean-rune` module](https://github.com/runestack/terraform-digitalocean-rune)
