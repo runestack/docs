@@ -61,6 +61,7 @@ export default defineConfig({
             { label: 'Deploy your first service', slug: 'guides/first-service' },
             { label: 'Use secrets & configmaps', slug: 'guides/secrets-configmaps' },
             { label: 'Persistent storage', slug: 'guides/persistent-storage' },
+            { label: 'Init steps', slug: 'guides/init-steps' },
             { label: 'Scale & restart', slug: 'guides/scale-restart' },
             { label: 'Logs & exec', slug: 'guides/logs-exec' },
             { label: 'Health checks', slug: 'guides/health' },
