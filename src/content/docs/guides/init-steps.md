@@ -209,6 +209,16 @@ spec:
       # securityContext omitted → inherits the service-level block
 ```
 
+:::caution[The field is `seccompProfile.type`, not `seccomp`]
+A common mistake is writing `securityContext: { seccomp: unconfined }`.
+There is no `seccomp` field — the schema is
+`securityContext.seccompProfile.type`. Since v0.0.1-dev.41 the
+validator rejects unknown fields here at `rune cast` time with a
+"did you mean" hint; on older clients/servers the wrong field is
+silently dropped and the container runs with the runtime default
+profile.
+:::
+
 `securityContext` can sit on the service (applied to the main
 container) **and** on each init step. The fields:
 
