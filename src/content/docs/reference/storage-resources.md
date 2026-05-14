@@ -58,16 +58,28 @@ storageClass:
   driver: do-volume
   parameters:
     region: nyc3
-    apiToken: secret:do-api-token/token              # shorthand: same namespace
-    # or
-    apiToken: secret:do-api-token.shared.rune/token  # FQDN: explicit namespace
+    # FQDN: pinned to a specific namespace — recommended for
+    # cluster-scoped StorageClasses since one shared secret serves
+    # every namespace's volumes.
+    apiToken: secret:do-api-token.shared.rune/token
 ```
 
-Form: `secret:<name>[.<namespace>.rune]/<key>`. The shorthand resolves
-in the StorageClass's owning namespace context (cluster default for
-cluster-scoped classes). Values without the `secret:` prefix pass
-through verbatim. A missing secret or key fails the operation with
-`InvalidParameters`.
+Form: `secret:<name>[.<namespace>.rune]/<key>`. Values without the
+`secret:` prefix pass through verbatim. A missing secret or key fails
+the operation with `InvalidParameters`.
+
+#### Shorthand vs FQDN — important for StorageClass
+
+The shorthand form `secret:<name>/<key>` (no namespace) is resolved
+against the **consuming Volume's namespace**, not the StorageClass's.
+Since StorageClass is cluster-scoped, a single class with a shorthand
+ref will look up the secret in whichever namespace happens to be
+using the class at that moment — so every namespace would need its
+own copy of the secret. For shared infrastructure tokens (DO API
+token, S3 credentials, etc.) use the **FQDN form** to pin the
+lookup to one namespace regardless of which Volume triggered the
+operation. Shorthand is fine on `Volume.parameters` overrides (the
+Volume already has its own namespace).
 
 ## `Volume`
 
