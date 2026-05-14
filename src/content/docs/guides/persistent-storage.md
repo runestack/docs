@@ -291,6 +291,31 @@ If any step in the verify fails, the [storage-resources reference](/reference/st
 maps each DO API endpoint to the scope it requires and the failure
 mode you'll see without it.
 
+### Two `do-volume` gotchas
+
+**Sizing is `ceil(bytes / 1e9)`, not `ceil(GiB)`.** DigitalOcean
+Volumes are sized in decimal GB (10⁹ bytes), Rune's `size: <quantity>`
+field accepts Kubernetes-style binary suffixes (Gi = 2³⁰ bytes). The
+driver rounds up to the next whole DO GB, so `size: 1Gi`
+(1,073,741,824 bytes) provisions a **2 GB** DO Volume — and DO bills
+per-GB-month. Write sizes in plain GB (`size: 1G`) if you want a 1:1
+mapping. Sizes ≥ 10 Gi land within a few percent of the requested
+amount, so this only bites on tiny volumes.
+
+**`reclaimPolicy: retain` does not reclaim the underlying DO Volume.**
+When the Rune Volume row is deleted, the DO Volume keeps existing
+(and being billed) until you delete it manually:
+
+```sh
+doctl compute volume list   # find the volume ID
+doctl compute volume delete <id>
+```
+
+Use `reclaimPolicy: delete` on the StorageClass if you want Rune to
+reap the DO Volume when the Rune Volume row goes away. `retain` is
+the safer default for irreplaceable data — make sure it matches your
+intent before you delete the row.
+
 ## Cleaning up
 
 ```sh
