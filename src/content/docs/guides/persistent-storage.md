@@ -64,6 +64,33 @@ rune restart web
 ls /var/lib/rune/volumes/default/web-data    # files still there
 ```
 
+### `fsUser` / `fsGroup` / `fsMode`
+
+A fresh ext4 mount is owned by `root:root` with mode `0700`. Containers
+that run as a non-root uid (most modern images) hit `EACCES` on the
+first write. Tell Rune to chown / chmod the mount root for you:
+
+```yaml
+volumes:
+  - name: data
+    mountPath: /var/lib/web
+    fsUser: 1000        # uid that owns the mount root
+    fsGroup: 1000       # gid that owns the mount root
+    fsMode: "0775"      # optional; octal string so leading zero is kept
+    claim:
+      name: web-data
+```
+
+Applied to the **mount root only** (subPath ownership is yours to
+manage), idempotently — Rune skips the chown when ownership already
+matches, so subsequent reconciles don't stomp on in-place changes.
+Works for any driver where Rune owns the mount path (`local`,
+`do-volume`, …); skipped automatically when the operator omits the
+field, so `local-host` paths you manage by hand are left alone.
+
+This replaces the older `initSteps: chown` recipe for the common
+case — keep `initSteps` for anything more elaborate than chown.
+
 ## 3. Run a 3-replica stateful set with `claimTemplate`
 
 `claim` shares one volume across the whole service. For per-replica state
