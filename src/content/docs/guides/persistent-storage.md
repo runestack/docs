@@ -186,6 +186,15 @@ The `do-volume` driver provisions, attaches, snapshots and reclaims
 DO Block Storage volumes via the DigitalOcean API. End-to-end first-time
 setup is three steps.
 
+:::caution[Hostname must match the droplet name]
+Each node's OS hostname (`hostname` / `os.Hostname()`) must equal its
+DigitalOcean droplet name. The driver resolves Rune nodes to DO
+droplets via `/v2/droplets?name=<hostname>`; a mismatch surfaces as
+`no DO droplet matches hostname "<host>"` on the first Attach. New
+droplets get this for free; only break it by explicitly running
+`hostnamectl set-hostname` to something the DO console doesn't know.
+:::
+
 ### Step 1 — Mint a scoped DO API token
 
 In the DigitalOcean console: **API → Tokens → Generate New Token**.
