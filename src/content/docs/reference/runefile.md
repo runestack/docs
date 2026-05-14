@@ -140,12 +140,18 @@ preserveOnDelete = false
 
 #### `storage.drivers`
 
-Per-driver configuration is keyed by registered driver name:
+Per-driver configuration is keyed by registered driver name. Reserved
+for non-credential, non-per-class driver knobs only — credentials and
+per-class settings live on `StorageClass.parameters` so they can be
+rotated and varied per class. The `do-volume` driver currently takes
+no runefile knobs (its API token is sourced from
+`StorageClass.parameters.apiToken`, see
+[Storage resources](/reference/storage-resources/#do-volume)).
 
 ```toml
-[storage.drivers.do-volume]
-# inline token (prefer secretRef in production)
-apiToken = "dop_v1_..."
+# Example placeholder — no driver currently requires any of these.
+# [storage.drivers.<driver-name>]
+# someKnob = "value"
 ```
 
 ### `runner`
