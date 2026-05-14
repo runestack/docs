@@ -352,6 +352,49 @@ reap the DO Volume when the Rune Volume row goes away. `retain` is
 the safer default for irreplaceable data — make sure it matches your
 intent before you delete the row.
 
+:::note[Use `retain` for production do-volume today]
+`reclaimPolicy: delete` is supported but the unbind→detach→delete
+ordering is best-effort: Rune fires the agent-side Detach when the
+Volume row is deleted, but the DO `DELETE /v2/volumes/<id>` call
+races with the Detach action's completion. A 409 "volume in use"
+response leaves the underlying DO Volume orphaned. Use `retain` and
+delete the DO Volume manually (`doctl compute volume delete <id>`)
+until the cleanup ordering is hardened.
+:::
+
+### Surviving a droplet rebuild
+
+DO Volumes outlive the droplet they're attached to — the durability
+story `do-volume` exists for. The supported recovery path when
+`terraform apply` destroys + recreates the droplet:
+
+1. Fresh droplet boots; the reserved IP reattaches automatically.
+2. New `runed` comes up with the same `node-role` + the same node
+   hostname (the latter is what the driver matches against
+   `/v2/droplets?name=…` — see the [hostname caveat](#step-3--create-the-storageclass)
+   earlier on this page).
+3. Agent's volumes Subsystem walks every Volume row whose
+   `BoundNode` matches this node. For each, it calls `Driver.Attach`
+   against the existing DO Volume ID (the `handle` on the row).
+4. `EnsureFormatted` is a no-op — `lsblk` reports the existing
+   `ext4`, mkfs is skipped.
+5. The mount target is recreated under
+   `/var/lib/rune/mounts/<volume-id>/` and services come up against
+   the existing data.
+
+Caveats:
+- The Volume row's `namespace` and `name` must persist across the
+  rebuild (they're what BoundNode lookups key on). If you're seeding
+  the cluster from a fresh state store on the new droplet, also
+  restore the Volume rows (`rune cast` the same YAML against the new
+  cluster).
+- The droplet's region must still match the StorageClass region —
+  DO refuses cross-region attaches. If you're moving regions, you're
+  doing a snapshot-restore, not a rebuild.
+- Hostname collisions inside one DO account will surface as "no DO
+  droplet matches hostname …" on the first Attach attempt — make
+  sure the new droplet's hostname is unique.
+
 ## Cleaning up
 
 ```sh
