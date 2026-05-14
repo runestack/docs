@@ -45,6 +45,30 @@ storageClass:
 `TopologySelector` is a list of `matchLabels` and/or `matchExpressions`
 (operators: `In`, `NotIn`, `Exists`, `DoesNotExist`).
 
+### Secret references in `parameters`
+
+Any value in a StorageClass or Volume `parameters` map may be a
+`secret:` reference instead of a literal. The controller resolves
+the reference against the secrets store before the driver sees it,
+so drivers always receive plaintext.
+
+```yaml
+storageClass:
+  name: do-nyc3
+  driver: do-volume
+  parameters:
+    region: nyc3
+    apiToken: secret:do-api-token/token              # shorthand: same namespace
+    # or
+    apiToken: secret:do-api-token.shared.rune/token  # FQDN: explicit namespace
+```
+
+Form: `secret:<name>[.<namespace>.rune]/<key>`. The shorthand resolves
+in the StorageClass's owning namespace context (cluster default for
+cluster-scoped classes). Values without the `secret:` prefix pass
+through verbatim. A missing secret or key fails the operation with
+`InvalidParameters`.
+
 ## `Volume`
 
 Namespaced. A unit of durable storage.
@@ -94,8 +118,8 @@ volume:
 | -------------------- | ---------------------------------------------------------------------- |
 | `region`             | Required. DigitalOcean region (e.g. `nyc3`). Block-storage volumes are region-pinned — see [Region pinning](#region-pinning) below. |
 | `fsType`             | `ext4` (default), `xfs`.                                               |
-| `apiToken`           | Inline DO API token. Prefer `apiTokenSecretRef`.                       |
-| `apiTokenSecretRef`  | `<namespace>/<secret-name>` for the DO API token. Format example: `shared/do-api-token` resolves to the `do-api-token` secret in the `shared` namespace. The secret's data field must be named `token`. |
+| `apiToken`           | DO API token. Accepts a literal value or a [secret reference](#secret-references-in-parameters) like `secret:do-api-token/token`. |
+| `apiTokenSecretRef`  | **Legacy.** `<namespace>/<secret-name>` form, kept for runefile back-compat. Prefer the generic `secret:` reference on `apiToken` above. |
 
 ##### Required DigitalOcean token scopes
 
@@ -150,6 +174,7 @@ StorageClass references to keep claims targeted at the right region.
 | `ownerService` | Set when the volume was created from a service `claimTemplate`.    |
 | `failureMessage` | Last driver/controller error if `Failed`/`Stalled`.              |
 | `attempts`     | Provision retry count.                                             |
+| `driverParameters` | Controller-captured snapshot of the merged StorageClass + Volume `parameters` (post-secret-resolution-source) at successful Provision time. Used by reclaim Delete / Detach / Unmount when the class has been deleted before its volumes, so orphan cleanup still has the parameters the driver needs. Read-only. |
 
 ## `Snapshot`
 

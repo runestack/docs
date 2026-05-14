@@ -1,6 +1,6 @@
 ---
 title: rune storageclass
-description: Inspect storage classes — list, get, delete, set the cluster default. (StorageClasses are created via `rune cast`.)
+description: Manage storage classes — list, get, create, delete, set the cluster default.
 ---
 
 ```sh
@@ -18,12 +18,19 @@ seeded automatically on first boot. See the [storage concept](/concepts/storage/
 | ----------------------------- | ---------------------------------------------------- |
 | `rune storageclass list`      | List storage classes.                                |
 | `rune storageclass get <name>`| Show one storage class.                              |
+| `rune storageclass create -f` | Create from a YAML/JSON spec file.                   |
 | `rune storageclass delete`    | Delete a storage class.                              |
 | `rune storageclass set-default <name>` | Mark a class as the cluster default.        |
 
-To **create** a StorageClass, use [`rune cast`](/cli/cast/) — the same
-declarative path used for every other resource (services, secrets,
-configmaps, volumes). See the example below.
+StorageClass is **cluster-scoped**, which is why it has a dedicated
+`create -f` command rather than going through [`rune cast`](/cli/cast/).
+Cast is the declarative path for namespaced resources (services,
+secrets, configmaps, volumes, snapshots); cluster-scoped resources
+get their own `rune <kind> create -f` so cast's namespace-aware
+machinery (`--namespace` flag, per-resource `namespace:` field)
+doesn't pretend to apply where it doesn't. The file format is
+identical to a cast file's `storageClass:` block, so the same YAML
+works either way.
 
 Promoting a class to default and `--cascade` deletes are admin-only.
 
@@ -36,9 +43,8 @@ rune storageclass list
 # Show one
 rune sc get local -o yaml
 
-# Apply from a file — StorageClasses are created via `rune cast`,
-# the same declarative path used for every other resource.
-rune cast do-nyc3.yaml
+# Apply from a file
+rune storageclass create -f do-nyc3.yaml
 
 # Promote a different class to default (admin)
 rune storageclass set-default do-nyc3
@@ -80,6 +86,12 @@ storageClass:
 | Flag                | Default | Notes                                       |
 | ------------------- | ------- | ------------------------------------------- |
 | `-o, --output`      | `table` | `table`, `json`, `yaml`.                    |
+
+### `create -f <file>`
+
+| Flag           | Default | Notes                                            |
+| -------------- | ------- | ------------------------------------------------ |
+| `-f, --file`   | —       | Required. Path to YAML/JSON spec file.           |
 
 ### `delete <name>`
 
