@@ -127,6 +127,23 @@ rune get config app-settings -o yaml
 
 For secrets, only metadata comes back. There's no API to read plaintext — the only way out is to mount it into a service.
 
+## Referencing a secret from another resource
+
+A few places outside a service spec (notably StorageClass `parameters`)
+accept a string-form **secret reference** instead of a literal value.
+Two forms:
+
+| Form     | Syntax                                  | Namespace resolution                                |
+| -------- | --------------------------------------- | --------------------------------------------------- |
+| Shorthand | `secret:<name>/<key>`                  | Same namespace as the consuming resource.           |
+| FQDN     | `secret:<name>.<namespace>.rune/<key>` | Explicit namespace — independent of the consumer.   |
+
+Reach for the **FQDN form** whenever the consuming resource is
+cluster-scoped (e.g. a StorageClass shared across namespaces) or
+when you want one secret to serve many namespaces. Shorthand is fine
+inside a namespaced resource that already has its own namespace
+(a Volume override, for example).
+
 ## Naming and limits
 
 - Names must match DNS-1123 (`[a-z0-9]([-a-z0-9]*[a-z0-9])?`).

@@ -220,10 +220,16 @@ rune create secret do-api-token \
 
 ### Step 3 — Create the StorageClass
 
-Reference the secret on `apiTokenSecretRef` using the format
-`<namespace>/<secret-name>`. DO volumes are region-pinned, so the
-StorageClass also names the region; for a multi-region cluster
-create one StorageClass per region.
+Reference the secret on `apiToken` using the FQDN secret-reference
+form `secret:<name>.<namespace>.rune/<key>`. Since StorageClass is
+cluster-scoped, the FQDN form pins the lookup to one namespace so a
+single shared secret serves every namespace's volumes — see the
+[shorthand vs FQDN note](/reference/storage-resources/#shorthand-vs-fqdn--important-for-storageclass)
+for why the shorthand `secret:<name>/<key>` is the wrong choice here.
+
+DO volumes are region-pinned, so the StorageClass also names the
+region; for a multi-region cluster create one StorageClass per
+region.
 
 ```yaml
 storageClass:
@@ -232,11 +238,11 @@ storageClass:
   parameters:
     region: nyc3
     fsType: ext4
-    apiTokenSecretRef: shared/do-api-token
+    apiToken: secret:do-api-token.shared.rune/token
 ```
 
 ```sh
-rune cast do-volumes-nyc3.yaml
+rune storageclass create -f do-volumes-nyc3.yaml
 rune get storageclasses
 # NAME              DRIVER      DEFAULT
 # do-volumes-nyc3   do-volume   false
