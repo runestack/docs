@@ -19,6 +19,11 @@ const orderedSections = [
     summary: 'Architecture, services, instances, namespaces, networking, runesets, secrets, configmaps, identity, and RBAC.',
   },
   {
+    slug: 'tutorial',
+    title: 'Tutorial: Full Project',
+    summary: 'End-to-end walkthrough: repo layout, Terraform provisioning on DigitalOcean, authoring a runeset, GitHub Actions CI/CD, and first deploy.',
+  },
+  {
     slug: 'guides',
     title: 'Guides',
     summary: 'Deploy services, use secrets & configmaps, scale, exec, health checks, dependencies, expose services, network policy, runesets, process runner, and cloud deployment guides.',
