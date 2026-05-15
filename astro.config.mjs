@@ -56,6 +56,17 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Tutorial: full project',
+          items: [
+            { label: 'Overview', slug: 'tutorial/overview' },
+            { label: 'Part 1 — Project layout', slug: 'tutorial/layout' },
+            { label: 'Part 2 — Provision with Terraform', slug: 'tutorial/terraform' },
+            { label: 'Part 3 — Author your runeset', slug: 'tutorial/runeset' },
+            { label: 'Part 4 — Wire up CI/CD', slug: 'tutorial/ci-cd' },
+            { label: 'Part 5 — Deploy & verify', slug: 'tutorial/deploy' },
+          ],
+        },
+        {
           label: 'Guides',
           items: [
             { label: 'Deploy your first service', slug: 'guides/first-service' },
