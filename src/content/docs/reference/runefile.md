@@ -256,6 +256,8 @@ Only consulted on edge nodes.
 | `directory`  | `https://acme-v02.api.letsencrypt.org/directory` | ACME endpoint. Override for staging or Pebble in CI.                              |
 | `email`      | —                                             | Account contact. Required by Let's Encrypt — issuance fails without it.              |
 
+Issued certificates are persisted in the encrypted state store (one Secret per host under the `system` namespace), so `runed` restarts reuse them rather than re-issuing — important because Let's Encrypt rate-limits to 5 issuances per identifier set per 168 h.
+
 ### TOML equivalent
 
 ```toml
