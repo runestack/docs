@@ -54,3 +54,4 @@ Gated by the `exec` verb on `service` (or `instance`). Lock this down in product
 
 - [Logs & exec](/guides/logs-exec/)
 - [`rune logs`](/cli/logs/)
+- [`rune port-forward`](/cli/port-forward/) — narrower alternative when you only need TCP access to a port (no shell)
