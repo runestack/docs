@@ -106,7 +106,7 @@ curl -I https://api.example.com/healthz
 
 ## Manual TLS (BYO certificate)
 
-If you manage certificates out of band — wildcard certs from your CA, mTLS rigs, etc. — set `tls.mode: manual` and reference a `Secret` containing the cert and key:
+If you manage certificates out of band — wildcard certs from your CA, Cloudflare Origin Certs, mTLS rigs, etc. — set `tls.mode: manual` and reference a `Secret` containing the cert and key:
 
 ```yaml
 service:
@@ -116,8 +116,18 @@ service:
     port: http
     tls:
       mode: manual
-      secretName: api-tls       # Secret must contain `tls.crt` and `tls.key`
+      secret: api-tls           # Secret must contain `tls.crt` and `tls.key`
 ```
+
+`tls.secret` accepts three shapes — same convention as other typed refs in Rune:
+
+| Shape                                       | Resolves to                              |
+| ------------------------------------------- | ---------------------------------------- |
+| `api-tls`                                   | service's own namespace                  |
+| `shared/cf-origin`                          | cross-namespace shorthand                |
+| `secret:cf-origin.shared.rune`              | FQDN secret ref                          |
+
+The cross-namespace forms are the right pick for a single wildcard cert (or a Cloudflare Origin Cert) you want to share across services in many namespaces — park it once in `shared`, reference it everywhere.
 
 Create the secret as a normal Rune secret containing `tls.crt` and `tls.key`:
 
@@ -140,7 +150,7 @@ secret:
 rune cast api-tls.yaml
 ```
 
-Rotate by updating the secret — the cert loader hot-reloads on the next handshake.
+Rotate by updating the secret — the ingress controller observes the new `Secret.Version` on its next reconcile tick (default 2 s) and pushes the new cert into the loader. No service restart needed.
 
 ## Common gotchas
 
