@@ -87,6 +87,7 @@ export default defineConfig({
             { label: 'rune restart / stop', slug: 'cli/restart-stop' },
             { label: 'rune logs', slug: 'cli/logs' },
             { label: 'rune exec', slug: 'cli/exec' },
+            { label: 'rune port-forward', slug: 'cli/port-forward' },
             { label: 'rune delete', slug: 'cli/delete' },
             { label: 'rune create', slug: 'cli/create' },
             { label: 'rune storageclass', slug: 'cli/storageclass' },
