@@ -63,3 +63,58 @@ Each instance carries:
 - `StartedAt` / `FinishedAt`.
 
 Use `rune get instance <id> -o yaml` to read all of it. The most useful field for debugging is `LastFailureMessage`.
+
+## Postmortem: failed-instance retention
+
+When an instance is restarted because of a health-check failure, Rune
+preserves the failing container as a **tombstone** instead of removing it
+straight away. The tombstone keeps the underlying docker container in its
+stopped state so operators have time to inspect it — `docker logs`, the
+container filesystem, the env it crashed with — instead of racing the
+reconciler.
+
+Tombstones:
+
+- Appear in `rune get instances --show-failed` (hidden by default).
+- Have `Status=Failed` and a populated `FailedAt` / `FailureReason`.
+- Are named `<original-name>-failed-<short-uuid>`.
+- Keep working with `rune logs <tombstone-id>` until they're reaped.
+- Don't count against the service's desired scale — the reconciler
+  treats them as bookkeeping, not live instances.
+
+```sh
+# Find postmortem candidates for a flapping service
+rune get instances -n prod --show-failed
+
+# Inspect the dead container's logs
+rune logs landing-0-failed-a3b9c1d8 -n prod
+
+# Postmortem exec (the failing app does NOT re-run — server starts an
+# inspection container with a sleep entrypoint instead).
+rune exec --debug landing-0-failed-a3b9c1d8 -- ls /etc/secrets
+```
+
+### Retention policy
+
+A retention GC pass on the reconciler bounds how many tombstones survive
+and for how long. Defaults are baked into the orchestrator for v1
+(per-service cap of 3 tombstones; TTL of 1h, whichever fires first); a
+`failed_instance_retention` block in the runefile lets operators override.
+
+```yaml
+# runefile
+failed_instance_retention:
+  per_service_cap: 5       # keep up to 5 most-recent tombstones per service
+  ttl: 2h                  # hard-evict anything older than 2h
+  snapshot_log_bytes: 200000  # reserved for v2 (post-eviction log snapshot)
+```
+
+When a tombstone is evicted, its container is removed and the instance
+record is marked Deleted; the existing deleted-instance retention sweep
+cleans the store row a few minutes later.
+
+> **`--debug` server-side**: as of this release, `rune exec --debug` is
+> wired through the proto and CLI but the server returns `Unimplemented`
+> for the ephemeral inspection container. Use `rune logs <tombstone-id>`
+> in the meantime — the preserved container is fully queryable. The
+> sidecar implementation lands in a follow-up.
