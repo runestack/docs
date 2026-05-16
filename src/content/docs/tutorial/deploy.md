@@ -104,7 +104,7 @@ Bookmark these. They cover ~95% of day-to-day operation:
 | `rune get services -n <env>` | List services + readiness. |
 | `rune get instances -n <env>` | The actual containers running. |
 | `rune logs <svc> -n <env> -f` | Tail logs across all instances. |
-| `rune exec -n <env> <svc> -- sh` | Open a shell inside an instance. |
+| `rune exec -n <env> <svc>` | Open a shell inside an instance.       |
 | `rune restart <svc> -n <env>` | Roll instances (e.g. after secret update). |
 | `rune scale <svc> N -n <env>` | Quick scale without re-casting. |
 | `rune health <svc> -n <env> --checks` | Why is a probe failing? |

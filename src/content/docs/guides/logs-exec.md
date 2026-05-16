@@ -54,22 +54,22 @@ Run a command inside a running instance:
 
 ```sh
 # Interactive shell
-rune exec api -- bash
+rune exec api
 
 # One-off command
 rune exec api -- ls -la /app
 
 # Inspect a specific instance
-rune exec api-instance-7c2e8a3b -- ps aux
+rune exec api-instance-7c2e8a3b ps aux
 
 # With env and workdir
-rune exec --workdir=/app --env=DEBUG=true api -- python debug.py
+rune exec --workdir=/app --env=DEBUG=true api python debug.py
 
 # Non-interactive (no TTY)
-rune exec --no-tty api -- python script.py
+rune exec --no-tty api python script.py
 
 # Bound timeout
-rune exec --timeout=30s api -- python long-running.py
+rune exec --timeout=30s api python long-running.py
 ```
 
 If you pass a service name, Rune picks any healthy instance for you. Pass an instance ID to be specific.
@@ -94,14 +94,14 @@ rune logs <failing-id> --tail=200
 ### "Did my config update land?"
 
 ```sh
-rune exec api -- cat /etc/config/log-level
-rune exec api -- env | grep LOG
+rune exec api cat /etc/config/log-level
+rune exec api env | grep LOG
 ```
 
 ### "Is the database reachable from the api?"
 
 ```sh
-rune exec api -- sh
+rune exec api
 # inside:
 nc -zv postgres 5432
 curl -sv http://postgres:5432
@@ -110,8 +110,8 @@ curl -sv http://postgres:5432
 ### "Where are my mounted secrets?"
 
 ```sh
-rune exec api -- ls /etc/secrets/db
-rune exec api -- cat /etc/secrets/db/username
+rune exec api ls /etc/secrets/db
+rune exec api cat /etc/secrets/db/username
 ```
 
 ## Security note

@@ -4,29 +4,36 @@ description: Execute a command inside a running service or instance — interact
 ---
 
 ```sh
-rune exec [flags] <service-or-instance> -- <command> [args...]
+rune exec [flags] <service-or-instance> [command] [args...]
 ```
 
-`--` is **required** to separate rune's flags from the command to run inside
-the container. Anything after `--` is passed verbatim to the instance —
-including dash-prefixed args (`-la`, `-c`, `-HUP`) that would otherwise
-collide with rune's own flags. This matches the convention used by
-`kubectl exec`, `git bisect run`, `ssh -- cmd`, `sudo --`, and similar tools.
+Three shapes are accepted:
+
+1. **No command** — opens an interactive shell (bash if present, else sh):
+   `rune exec api`
+2. **Simple command** — written inline:
+   `rune exec api ps aux`
+3. **Command with flags** — use `--` so rune doesn't try to parse the inner
+   flags as its own: `rune exec api -- ls -la /app`
+
+Rune's own flags (`-n`, `--workdir`, `--env`, `--timeout`, `--no-tty`,
+`--api-server`, `-t`) work in any position before `--`. The `--` convention is
+the same one used by `kubectl exec`, `git bisect run`, `ssh -- cmd`, and `sudo`.
 
 ## Examples
 
 ```sh
-# Interactive shell
-rune exec api -- bash
+# Interactive shell (auto-picks bash, falls back to sh)
+rune exec api
+rune exec -n prod web
 
-# One-off (note the '--' before the command; -la belongs to ls)
+# Simple commands (no inner flags)
+rune exec api ps aux
+rune exec api-instance-7c2e env
+
+# Commands with flags — '--' is required
 rune exec api -- ls -la /app
-
-# Specific instance
-rune exec api-instance-7c2e -- ps aux
-
-# Target a namespace (rune flags work anywhere before '--')
-rune exec -n prod web -- bash
+rune exec api -- bash -c "echo $HOSTNAME"
 
 # Workdir + env + command
 rune exec api --workdir=/app --env=DEBUG=true -- python debug.py
