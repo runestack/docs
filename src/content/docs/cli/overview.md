@@ -100,7 +100,7 @@ rune get services                       # list
 rune get service api -o yaml            # describe
 rune scale api 5                        # scale
 rune logs api --follow                  # tail logs
-rune exec api bash                      # interactive shell
+rune exec api -- bash # interactive shell
 rune delete api                         # remove
 rune health api --checks                # probe status
 rune lint ./manifests --recursive       # validate
