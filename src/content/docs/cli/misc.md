@@ -28,14 +28,10 @@ If `Status: Not connected to server`, run `rune login` again or check that the s
 
 ## `rune status`
 
-<<<<<<< Updated upstream
-A namespace summary — what's running, what's degraded.
-=======
 A health roll-up for a namespace (or the whole cluster with `-A`). Surfaces
 the same `statusReason` / `statusMessage` you'd otherwise dig out with
 `rune get service <name>`, so failed services explain themselves on the
 first line.
->>>>>>> Stashed changes
 
 ```sh
 rune status                         # default namespace
@@ -49,16 +45,6 @@ rune status -o json                 # structured output for scripts/dashboards
 ### Default output
 
 ```
-<<<<<<< Updated upstream
-Services in default:
-NAME     STATUS    SCALE
-api      Running   3
-worker   Running   5
-echo     Failed    1
-```
-
-Useful as a health check from a dashboard or shell prompt.
-=======
 Namespace: prod   ·   12 services   ·   28 instances
 
   ✓ Running      10
@@ -150,7 +136,6 @@ Add `--detail` to also emit the per-service table beneath each namespace.
 - Glyphs (`✓ ⊙ ⏸ ⚠ ·`) auto-degrade to ASCII tokens (`OK DEPL STOP FAIL PEND`) when colors are off (`NO_COLOR=1`, non-TTY stdout, Windows without ConEmu/WT).
 - One `ListServices` + one `ListInstances` per namespace — no N+1 even with `-A`.
 - `Stopping` is set server-side whenever the desired scale is below the current instance count; works the same for `rune stop` and the drain phase of `rune restart`.
->>>>>>> Stashed changes
 
 ## `rune version`
 
