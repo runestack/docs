@@ -86,6 +86,7 @@ export default defineConfig({
             { label: 'Deploy on AWS EC2 (Terraform)', slug: 'guides/terraform-ec2' },
             { label: 'Deploy on a DigitalOcean droplet', slug: 'guides/digital-ocean-deploy' },
             { label: 'Provision DigitalOcean (Terraform module)', slug: 'guides/terraform-digitalocean' },
+            { label: 'Provision Hetzner Cloud (Terraform module)', slug: 'guides/terraform-hetzner' },
           ],
         },
         {
