@@ -37,7 +37,7 @@ The reconciler will replace failing instances automatically. Permanent failures 
 | Action  | Command                                       |
 | ------- | --------------------------------------------- |
 | Logs    | `rune logs <instance-id>`                     |
-| Exec    | `rune exec <instance-id> bash`                |
+| Exec    | `rune exec <instance-id>`                     |
 | Health  | `rune health instance <instance-id> --checks` |
 | Inspect | `rune get instance <instance-id> -o yaml`     |
 | Kill    | `rune delete instance <instance-id>`          |
@@ -49,8 +49,8 @@ Killing an instance returns it to the reconciler, which replaces it. Don't use t
 Most commands accept either a service name or an instance ID. Some, like `exec`, attach to a specific instance — if you pass a service name, Rune picks one for you.
 
 ```sh
-rune exec api bash             # picks any healthy instance of 'api'
-rune exec api-instance-7c2e bash   # specific instance
+rune exec api bash # picks any healthy instance of 'api'
+rune exec api-instance-7c2e bash # specific instance
 ```
 
 ## Per-instance state
@@ -113,8 +113,32 @@ When a tombstone is evicted, its container is removed and the instance
 record is marked Deleted; the existing deleted-instance retention sweep
 cleans the store row a few minutes later.
 
-> **`--debug` server-side**: as of this release, `rune exec --debug` is
-> wired through the proto and CLI but the server returns `Unimplemented`
-> for the ephemeral inspection container. Use `rune logs <tombstone-id>`
-> in the meantime — the preserved container is fully queryable. The
-> sidecar implementation lands in a follow-up.
+### How `--debug` works under the hood
+
+When you run `rune exec --debug <tombstone-id> -- bash`, the server:
+
+1. Looks up the tombstone (must be `Status=Failed` with a preserved
+   `ContainerID` — rejects Running instances with "drop the flag" and
+   already-evicted tombstones with a "use `rune logs --previous`" hint
+   when that lands).
+2. Builds a fresh docker container config from the tombstone's image,
+   env, mounts, volumes, resources — same template the original used.
+3. **Replaces the entrypoint with `sleep infinity`** so the failing
+   app does *not* re-run when the new container starts. This is the
+   whole reason a flag exists instead of just `docker start` on the
+   stopped container.
+4. Names the sidecar `<tombstone-name>-debug-<short-uuid>` and tags
+   it with a `rune.debug=true` label.
+5. Pulls the image with `IfNotPresent` policy (usually a no-op since
+   the failing instance just ran it).
+6. Starts the sidecar, opens an exec session against it for your
+   command.
+7. **Tears down the sidecar (stop + remove) when your session ends**
+   — clean exit, `Ctrl+C`, or transport disconnect all trigger
+   cleanup via a `sync.Once`-guarded teardown wrapper on the exec
+   stream.
+
+The original failed container is never touched, so `rune logs
+<tombstone-id>` still works on it afterwards. Only the `docker` runner
+supports `--debug` today; the process runner returns
+`FailedPrecondition` because there's no image to clone.

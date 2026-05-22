@@ -95,6 +95,8 @@ LOG_FORMAT=json
 
 ## 4. Update a value
 
+### Configmap — replace the whole thing
+
 ```sh
 rune create config app-settings \
   --from-literal=log-level=debug \
@@ -102,7 +104,43 @@ rune create config app-settings \
   --replace
 ```
 
-The configmap version increments. **Mounted values do not hot-reload** — restart the service to pick up the new value:
+### Secret — rotate one key without wiping the others
+
+If a secret holds several keys, use `rune secret set` to update just one. The
+server reads the existing data, merges your change, and writes a new version
+atomically — you never have to re-supply (or even know) the values of the
+other keys.
+
+```sh
+# Rotate one key in a multi-key secret
+rune secret set gateway-secrets -n prod \
+  INFRA_ENCRYPTION_PASSPHRASE=new-passphrase
+
+# Rotate several at once
+rune secret set gateway-secrets -n prod \
+  INFRA_JWT_SECRET=jwt-v2 INFRA_ENCRYPTION_PASSPHRASE=pass-v2
+
+# Load a binary/PEM value from a file
+rune secret set tls-secret -n prod --from-file=cert=./cert.pem
+
+# Remove a key that's no longer needed
+rune secret unset gateway-secrets -n prod LEGACY_TOKEN
+```
+
+`set` and `unset` only require the `secrets:update` RBAC verb — **not**
+`secrets:reveal`. A CI bot that rotates a JWT secret never gains the ability
+to read the other secrets sitting next to it. Each operation creates a new
+version that's visible in `rune secret versions` and rollback-able with
+`rune secret rollback`.
+
+If you genuinely want to replace the entire data map (e.g. from a script
+that owns the full secret), use `rune secret update` instead — that wipes
+any keys you don't include.
+
+### Tell the service to pick up the new value
+
+**Mounted values do not hot-reload.** Restart the service to pick up the new
+value:
 
 ```sh
 rune restart api
