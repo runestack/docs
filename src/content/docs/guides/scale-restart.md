@@ -13,10 +13,10 @@ rune scale api 5
 
 The reconciler creates or destroys instances until 5 are running and healthy. The CLI blocks until rollout completes (or the timeout — `--timeout=5m` by default).
 
-Don't wait:
+Detach (fire-and-forget — don't wait for the rollout):
 
 ```sh
-rune scale api 5 --no-wait
+rune scale api 5 -d
 ```
 
 ## Gradual scale
@@ -98,5 +98,5 @@ rune scale workers 50 --mode=gradual --step=5 --interval=1m
 ## Anti-patterns
 
 - **Scaling instead of restarting.** `rune scale api 0 && rune scale api 3` works but is awkward — use `rune restart api`.
-- **Forgetting `--no-wait` in CI scripts** when you don't actually want to block.
+- **Forgetting `-d`/`--detach` in CI scripts** when you don't actually want to block.
 - **Setting `--rollback-on-fail=false` by default** to "make scaling faster." If health is flapping, you want the rollback. Fix the probes.
