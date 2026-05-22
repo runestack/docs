@@ -54,22 +54,22 @@ Run a command inside a running instance:
 
 ```sh
 # Interactive shell
-rune exec api bash
+rune exec api
 
 # One-off command
-rune exec api ls -la /app
+rune exec api -- ls -la /app
 
 # Inspect a specific instance
 rune exec api-instance-7c2e8a3b ps aux
 
 # With env and workdir
-rune exec api --workdir=/app --env=DEBUG=true python debug.py
+rune exec --workdir=/app --env=DEBUG=true api python debug.py
 
 # Non-interactive (no TTY)
-rune exec api --no-tty python script.py
+rune exec --no-tty api python script.py
 
 # Bound timeout
-rune exec api --timeout=30s python long-running.py
+rune exec --timeout=30s api python long-running.py
 ```
 
 If you pass a service name, Rune picks any healthy instance for you. Pass an instance ID to be specific.
@@ -101,7 +101,7 @@ rune exec api env | grep LOG
 ### "Is the database reachable from the api?"
 
 ```sh
-rune exec api sh
+rune exec api
 # inside:
 nc -zv postgres 5432
 curl -sv http://postgres:5432

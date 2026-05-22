@@ -35,7 +35,7 @@ storageClass:
 | Field               | Type           | Required | Notes                                                                 |
 | ------------------- | -------------- | -------- | --------------------------------------------------------------------- |
 | `name`              | string         | yes      | DNS-1123. Cluster-unique.                                             |
-| `driver`            | string         | yes      | Registered driver name (e.g. `local`, `local-host`, `do-volume`).     |
+| `driver`            | string         | yes      | Registered driver name (e.g. `local`, `local-host`, `do-volume`, `hcloud-volume`). |
 | `parameters`        | map[string]string | no    | Driver-specific. See driver tables below.                             |
 | `reclaimPolicy`     | enum           | no       | `retain` (default) or `delete`. Per-volume override allowed.          |
 | `default`           | bool           | no       | At most one class may be `true`. API server enforces uniqueness.      |
@@ -175,6 +175,38 @@ storageClass:
 Use `allowedTopologies` (RUNE-072) or the namespace scoping of your
 StorageClass references to keep claims targeted at the right region.
 
+#### `hcloud-volume`
+
+| Key                  | Notes                                                                  |
+| -------------------- | ---------------------------------------------------------------------- |
+| `location`           | Required. Hetzner Cloud location (e.g. `nbg1`, `fsn1`, `hel1`, `ash`). Volumes are location-pinned — see [Region pinning](#region-pinning) (the same rule applies). `region` is accepted as an alias for cross-provider topology key compatibility. |
+| `fsType`             | `ext4` (default), `xfs`.                                               |
+| `apiToken`           | Hetzner Cloud API token. Accepts a literal value or a [secret reference](#secret-references-in-parameters) like `secret:hcloud-api-token.shared.rune/token`. |
+
+The driver calls the following Hetzner Cloud API endpoints:
+
+| Operation         | Endpoint                                          |
+| ----------------- | ------------------------------------------------- |
+| Provision         | `POST /v1/volumes`                                |
+| Observe / reconcile | `GET /v1/volumes/{id}`                          |
+| Delete            | `DELETE /v1/volumes/{id}`                         |
+| Attach            | `POST /v1/volumes/{id}/actions/attach`            |
+| Detach            | `POST /v1/volumes/{id}/actions/detach`            |
+| Resize (offline)  | `POST /v1/volumes/{id}/actions/resize`            |
+| Action polling    | `GET /v1/actions/{id}`                            |
+| Server lookup     | `GET /v1/servers?name=<node-hostname>`            |
+
+Capabilities:
+
+- `Snapshots: false` — Hetzner Cloud has no volume-snapshot API.
+  Writes to `Snapshot` against an `hcloud-volume` class are
+  rejected at cast time.
+- `Expand: true`, `OnlineExpand: false` — `rune volume resize`
+  works but the volume must be unbound first.
+- `BlockDevice: true` — the driver formats the volume on first
+  mount and exposes the underlying block device at
+  `/dev/disk/by-id/scsi-0HC_Volume_<id>`.
+
 ### Status fields (read-only)
 
 | Field          | Notes                                                              |
@@ -289,7 +321,7 @@ All of the following are checked at cast time and on every API write:
 - `local-host` `hostPath` is absolute, has no `..`, sits under
   `runefile.[storage].hostPathAllowlist`.
 - Process-runtime services may use `local-host` only; block-device drivers
-  (`do-volume`) are rejected at cast time.
+  (`do-volume`, `hcloud-volume`) are rejected at cast time.
 - A `Volume` whose `reclaimPolicy: delete` targets the `local-host` driver is
   rejected.
 

@@ -4,29 +4,45 @@ description: Execute a command inside a running service or instance — interact
 ---
 
 ```sh
-rune exec <service-or-instance> [--] <command> [args...]
+rune exec [flags] <service-or-instance> [command] [args...]
 ```
+
+Three shapes are accepted:
+
+1. **No command** — opens an interactive shell (bash if present, else sh):
+   `rune exec api`
+2. **Simple command** — written inline:
+   `rune exec api ps aux`
+3. **Command with flags** — use `--` so rune doesn't try to parse the inner
+   flags as its own: `rune exec api -- ls -la /app`
+
+Rune's own flags (`-n`, `--workdir`, `--env`, `--timeout`, `--no-tty`,
+`--api-server`, `-t`) work in any position before `--`. The `--` convention is
+the same one used by `kubectl exec`, `git bisect run`, `ssh -- cmd`, and `sudo`.
 
 ## Examples
 
 ```sh
-# Interactive shell
-rune exec api bash
+# Interactive shell (auto-picks bash, falls back to sh)
+rune exec api
+rune exec -n prod web
 
-# One-off
-rune exec api ls -la /app
+# Simple commands (no inner flags)
+rune exec api ps aux
+rune exec api-instance-7c2e env
 
-# Specific instance
-rune exec api-instance-7c2e ps aux
+# Commands with flags — '--' is required
+rune exec api -- ls -la /app
+rune exec api -- bash -c "echo $HOSTNAME"
 
 # Workdir + env + command
-rune exec api --workdir=/app --env=DEBUG=true python debug.py
+rune exec api --workdir=/app --env=DEBUG=true -- python debug.py
 
 # Non-interactive
-rune exec api --no-tty python script.py
+rune exec api --no-tty -- python script.py
 
 # Bound timeout
-rune exec api --timeout=30s python long.py
+rune exec api --timeout=30s -- python long.py
 ```
 
 ## Flags
