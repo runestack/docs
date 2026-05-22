@@ -28,7 +28,7 @@ If `Status: Not connected to server`, run `rune login` again or check that the s
 
 ## `rune status`
 
-A namespace summary — what's running, what's degraded.
+A namespace summary — what's running, what's degraded, what's in flight.
 
 ```sh
 rune status
@@ -37,13 +37,25 @@ rune status -n prod
 
 ```
 Services in default:
-NAME     STATUS    SCALE
-api      Running   3
-worker   Running   5
-echo     Failed    1
+NAME     STATUS     SCALE
+api      Running    3/3
+worker   Running    5/5
+echo     Failed     1/0
 ```
 
-Useful as a health check from a dashboard or shell prompt.
+The `SCALE` column reads `desired/ready`, so transitions are visible at
+a glance:
+
+| State                       | Status      | Scale | Meaning                                            |
+| --------------------------- | ----------- | ----- | -------------------------------------------------- |
+| Steady                      | `Running`   | `1/1` | Converged.                                         |
+| Drain in flight (`stop`)    | `Stopping`  | `0/1` | Asked to scale to 0; old instance still draining.  |
+| Drain done                  | `Pending`   | `0/0` | No instances; service spec still present.          |
+| Start / restart in flight   | `Deploying` | `1/0` | New instance booting; not yet ready.               |
+| Healthy after start         | `Running`   | `1/1` |                                                    |
+| Probe / image / OOM failure | `Failed`    | `1/0` | See `rune get service <name>` for `statusReason`.  |
+
+`Stopping` is set whenever the desired scale is below the current instance count — both during `rune stop` and the drain phase of `rune restart`. Useful as a health check from a dashboard or shell prompt.
 
 ## `rune version`
 
