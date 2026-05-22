@@ -11,7 +11,7 @@ Rune ships single binaries — upgrades are mostly "swap and restart." This page
 | --- | --- | --- |
 | Routine `runed` version bump on an existing host | [`scripts/upgrade-server.sh`](https://github.com/runestack/rune/blob/main/scripts/upgrade-server.sh) | Swaps binaries, re-applies `cap_net_bind_service`, restarts, rolls back on failure. **Doesn't** touch the systemd unit, runefile, or data dir. |
 | First-time install, or you want the systemd unit refreshed to current | [`scripts/install-server.sh`](https://github.com/runestack/rune/blob/main/scripts/install-server.sh) | Greenfield path. Re-running it on an existing host *will* rewrite the unit and re-`setcap` — useful when the on-disk unit has drifted behind the installer template. |
-| Provisioned via `terraform-digitalocean-rune` (or similar) | `upgrade-server.sh` over SSH, **not** `terraform apply` with a bumped `rune_version` | See the [Terraform-managed deployments](#terraform-managed-deployments) section. |
+| Provisioned via `terraform-digitalocean-rune` / `terraform-hetzner-rune` (or similar) | `upgrade-server.sh` over SSH, **not** `terraform apply` with a bumped `rune_version` | See the [Terraform-managed deployments](#terraform-managed-deployments) section. |
 | Just the CLI on a developer machine | [`scripts/install-cli.sh`](https://github.com/runestack/rune/blob/main/scripts/install-cli.sh) | Doesn't touch `runed`. |
 
 ## Version skew
@@ -166,7 +166,7 @@ True zero-downtime upgrades (and a story for ingress that survives `runed` resta
 
 ## Terraform-managed deployments
 
-If you're using [`terraform-digitalocean-rune`](https://github.com/runestack/terraform-digitalocean-rune) (or a similar module), there's a sharp edge worth knowing about.
+If you're using [`terraform-digitalocean-rune`](https://github.com/runestack/terraform-digitalocean-rune), [`terraform-hetzner-rune`](https://github.com/runestack/terraform-hetzner-rune), or a similar module, there's a sharp edge worth knowing about.
 
 The module renders `var.rune_version` into the droplet's `user_data` (cloud-init). Cloud-init runs **only on first boot** — bumping `rune_version` in code does not re-run the installer on an existing droplet. Until v0.0.5 of the module, the default Terraform behaviour on a `user_data` change was to **mark the droplet for replacement** (destroy + create), which would wipe `/var/lib/rune` (KEK, BadgerDB store, host-local volumes).
 
@@ -266,3 +266,4 @@ Avoid relying on `curl | bash` ad hoc — pin a version per environment.
 - [Configuration](/operations/configuration/)
 - [`upgrade-server.sh` source](https://github.com/runestack/rune/blob/main/scripts/upgrade-server.sh)
 - [`terraform-digitalocean-rune` module](https://github.com/runestack/terraform-digitalocean-rune)
+- [`terraform-hetzner-rune` module](https://github.com/runestack/terraform-hetzner-rune)

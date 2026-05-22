@@ -145,6 +145,7 @@ Snapshot drivers vary:
 
 - `local` — filesystem copy (`cp -a`). Synchronous.
 - `do-volume` — DigitalOcean snapshot API.
+- `hcloud-volume` — **not supported**; Hetzner Cloud has no volume-snapshot API.
 - `local-host` — **not supported**; the API rejects the write.
 
 ## 5. Restore into a new volume
@@ -394,6 +395,165 @@ Caveats:
 - Hostname collisions inside one DO account will surface as "no DO
   droplet matches hostname …" on the first Attach attempt — make
   sure the new droplet's hostname is unique.
+
+## Using `hcloud-volume` for Hetzner Cloud Block Storage
+
+The `hcloud-volume` driver provisions, attaches and reclaims
+Hetzner Cloud volumes via the Hetzner Cloud API. The shape mirrors
+`do-volume`: per-class API token, location-pinned volumes,
+offline-only expand.
+
+:::caution[Hostname must match the Hetzner server name]
+Each node's OS hostname (`hostname` / `os.Hostname()`) must equal
+its Hetzner server name. The driver resolves Rune nodes to Hetzner
+servers via `GET /v1/servers?name=<hostname>`; a mismatch surfaces
+as `no Hetzner server matches hostname "<host>"` on the first
+Attach. The
+[`terraform-hetzner-rune`](https://github.com/runestack/terraform-hetzner-rune)
+module sets the server name to `rune-<environment>` and cloud-init
+brings the hostname up to match; only break this by running
+`hostnamectl set-hostname` to something the Hetzner Cloud Console
+doesn't know.
+:::
+
+:::note[No snapshots, offline expand only]
+Hetzner Cloud has **no volume-snapshot API** — the driver
+advertises `Capabilities.Snapshots = false`, so
+`rune snapshot create / restore` against an `hcloud-volume`
+class is rejected at cast time. `rune volume resize` works but
+requires the volume to be detached first (Rune surfaces this as
+`ErrOnlineExpandUnsupported`).
+:::
+
+### Step 1 — Mint a Hetzner Cloud API token
+
+In the Hetzner Cloud Console: **Project → Security → API Tokens →
+Generate API Token**. Hetzner tokens are project-scoped with a
+single permission level (Read & Write) — pick a token name that
+ties it back to the cluster so future rotations are obvious.
+
+### Step 2 — Create a Rune Secret holding the token
+
+The driver reads the token from a Rune Secret rather than the
+runefile so it can rotate without restarting `runed`. The secret's
+data field must be named `token`:
+
+```sh
+rune create secret hcloud-api-token \
+  --from-literal=token=<your_hcloud_token_here> \
+  -n shared
+```
+
+### Step 3 — Create the StorageClass
+
+Reference the secret on `apiToken` using the FQDN secret-reference
+form `secret:<name>.<namespace>.rune/<key>`. Hetzner volumes are
+location-pinned, so the StorageClass names the location; for a
+multi-location cluster create one StorageClass per location.
+
+```yaml
+storageClass:
+  name: hcloud-volumes-nbg1
+  driver: hcloud-volume
+  parameters:
+    location: nbg1
+    fsType: ext4
+    apiToken: secret:hcloud-api-token.shared.rune/token
+```
+
+```sh
+rune storageclass create -f hcloud-volumes-nbg1.yaml
+rune get storageclasses
+# NAME                  DRIVER          DEFAULT
+# hcloud-volumes-nbg1   hcloud-volume   false
+```
+
+### Verify
+
+Provision a one-off volume to confirm the token and location are
+correct before pointing real workloads at the class:
+
+```sh
+cat <<'EOF' | rune cast -
+volume:
+  name: hcloud-smoke-test
+  namespace: default
+  storageClassName: hcloud-volumes-nbg1
+  size: "10Gi"
+  accessMode: ReadWriteOnce
+EOF
+
+rune get volume hcloud-smoke-test -n default
+# STATUS: Available     HANDLE: <hcloud-volume-id>
+```
+
+Then mount it on a throw-away service to exercise Attach:
+
+```sh
+cat <<'EOF' | rune cast -
+service:
+  name: hcloud-smoke
+  image: alpine:3.19
+  command: ["sleep", "infinity"]
+  volumes:
+    - name: data
+      mountPath: /data
+      claim:
+        name: hcloud-smoke-test
+EOF
+rune get service hcloud-smoke
+# STATUS: Running
+
+rune delete service hcloud-smoke
+rune delete volume hcloud-smoke-test -n default
+```
+
+### Two `hcloud-volume` gotchas
+
+**Minimum size is 10 GB.** Hetzner Cloud Block Storage volumes are
+sized in decimal GB (10⁹ bytes) and Hetzner enforces a 10 GB
+minimum. The driver silently rounds up to 10 GB if you ask for
+less. `size: 1Gi` provisions a 10 GB Hetzner volume, not 1 GiB —
+Hetzner bills per-GB-month, so be deliberate on small mounts.
+
+**`reclaimPolicy: retain` does not reclaim the underlying Hetzner
+volume.** When the Rune Volume row is deleted, the Hetzner volume
+keeps existing (and being billed) until you delete it manually
+from the Hetzner Cloud Console or via
+`hcloud volume delete <id>`. Use `reclaimPolicy: delete` on the
+StorageClass if you want Rune to reap the Hetzner volume when the
+Rune Volume row goes away. `retain` is the safer default for
+irreplaceable data — match it to your intent before you delete the
+row.
+
+### Surviving a server rebuild
+
+Hetzner Cloud volumes outlive the server they're attached to — the
+durability story `hcloud-volume` exists for. The supported recovery
+path when `terraform apply` destroys + recreates the server is the
+same as DigitalOcean's:
+
+1. Fresh server boots; the (optional) floating/primary IP
+   reattaches.
+2. New `runed` comes up with the same `node-role` + the same node
+   hostname (which must equal the Hetzner server name — see the
+   [hostname caveat](#using-hcloud-volume-for-hetzner-cloud-block-storage)
+   above).
+3. Agent's volumes Subsystem walks every Volume row whose
+   `BoundNode` matches this node and calls `Driver.Attach` against
+   the existing Hetzner Volume ID.
+4. `EnsureFormatted` is a no-op — `lsblk` reports the existing
+   filesystem.
+5. The mount target is recreated under
+   `/var/lib/rune/mounts/<volume-id>/` and services come up
+   against the existing data.
+
+Caveats:
+- The server's location must still match the StorageClass
+  `location` — Hetzner refuses cross-location attaches.
+- Server-name collisions inside one Hetzner project surface as
+  "no Hetzner server matches hostname …" on the first Attach
+  attempt — keep server names unique.
 
 ## Cleaning up
 
