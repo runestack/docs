@@ -63,3 +63,82 @@ Each instance carries:
 - `StartedAt` / `FinishedAt`.
 
 Use `rune get instance <id> -o yaml` to read all of it. The most useful field for debugging is `LastFailureMessage`.
+
+## Postmortem: failed-instance retention
+
+When an instance is restarted because of a health-check failure, Rune
+preserves the failing container as a **tombstone** instead of removing it
+straight away. The tombstone keeps the underlying docker container in its
+stopped state so operators have time to inspect it — `docker logs`, the
+container filesystem, the env it crashed with — instead of racing the
+reconciler.
+
+Tombstones:
+
+- Appear in `rune get instances --show-failed` (hidden by default).
+- Have `Status=Failed` and a populated `FailedAt` / `FailureReason`.
+- Are named `<original-name>-failed-<short-uuid>`.
+- Keep working with `rune logs <tombstone-id>` until they're reaped.
+- Don't count against the service's desired scale — the reconciler
+  treats them as bookkeeping, not live instances.
+
+```sh
+# Find postmortem candidates for a flapping service
+rune get instances -n prod --show-failed
+
+# Inspect the dead container's logs
+rune logs landing-0-failed-a3b9c1d8 -n prod
+
+# Postmortem exec (the failing app does NOT re-run — server starts an
+# inspection container with a sleep entrypoint instead).
+rune exec --debug landing-0-failed-a3b9c1d8 -- ls /etc/secrets
+```
+
+### Retention policy
+
+A retention GC pass on the reconciler bounds how many tombstones survive
+and for how long. Defaults are baked into the orchestrator for v1
+(per-service cap of 3 tombstones; TTL of 1h, whichever fires first); a
+`failed_instance_retention` block in the runefile lets operators override.
+
+```yaml
+# runefile
+failed_instance_retention:
+  per_service_cap: 5       # keep up to 5 most-recent tombstones per service
+  ttl: 2h                  # hard-evict anything older than 2h
+  snapshot_log_bytes: 200000  # reserved for v2 (post-eviction log snapshot)
+```
+
+When a tombstone is evicted, its container is removed and the instance
+record is marked Deleted; the existing deleted-instance retention sweep
+cleans the store row a few minutes later.
+
+### How `--debug` works under the hood
+
+When you run `rune exec --debug <tombstone-id> -- bash`, the server:
+
+1. Looks up the tombstone (must be `Status=Failed` with a preserved
+   `ContainerID` — rejects Running instances with "drop the flag" and
+   already-evicted tombstones with a "use `rune logs --previous`" hint
+   when that lands).
+2. Builds a fresh docker container config from the tombstone's image,
+   env, mounts, volumes, resources — same template the original used.
+3. **Replaces the entrypoint with `sleep infinity`** so the failing
+   app does *not* re-run when the new container starts. This is the
+   whole reason a flag exists instead of just `docker start` on the
+   stopped container.
+4. Names the sidecar `<tombstone-name>-debug-<short-uuid>` and tags
+   it with a `rune.debug=true` label.
+5. Pulls the image with `IfNotPresent` policy (usually a no-op since
+   the failing instance just ran it).
+6. Starts the sidecar, opens an exec session against it for your
+   command.
+7. **Tears down the sidecar (stop + remove) when your session ends**
+   — clean exit, `Ctrl+C`, or transport disconnect all trigger
+   cleanup via a `sync.Once`-guarded teardown wrapper on the exec
+   stream.
+
+The original failed container is never touched, so `rune logs
+<tombstone-id>` still works on it afterwards. Only the `docker` runner
+supports `--debug` today; the process runner returns
+`FailedPrecondition` because there's no image to clone.
