@@ -108,7 +108,7 @@ You'll see status conditions, restart count, started-at, and the runner-specific
 ## 7. Exec in for debugging
 
 ```sh
-rune exec web sh
+rune exec web
 # or against a specific instance:
 rune exec web-instance-a4f9d2 ls /etc/nginx
 ```

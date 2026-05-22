@@ -37,7 +37,7 @@ The reconciler will replace failing instances automatically. Permanent failures 
 | Action  | Command                                       |
 | ------- | --------------------------------------------- |
 | Logs    | `rune logs <instance-id>`                     |
-| Exec    | `rune exec <instance-id> bash`                |
+| Exec    | `rune exec <instance-id>`                     |
 | Health  | `rune health instance <instance-id> --checks` |
 | Inspect | `rune get instance <instance-id> -o yaml`     |
 | Kill    | `rune delete instance <instance-id>`          |
@@ -49,8 +49,8 @@ Killing an instance returns it to the reconciler, which replaces it. Don't use t
 Most commands accept either a service name or an instance ID. Some, like `exec`, attach to a specific instance — if you pass a service name, Rune picks one for you.
 
 ```sh
-rune exec api bash             # picks any healthy instance of 'api'
-rune exec api-instance-7c2e bash   # specific instance
+rune exec api bash # picks any healthy instance of 'api'
+rune exec api-instance-7c2e bash # specific instance
 ```
 
 ## Per-instance state

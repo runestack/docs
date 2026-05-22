@@ -176,7 +176,7 @@ service:
 ```
 
 ```sh
-rune exec pg-verify -- ls /var/lib/postgresql/data
+rune exec pg-verify ls /var/lib/postgresql/data
 ```
 
 ## Using `local-host` for pre-existing host paths
