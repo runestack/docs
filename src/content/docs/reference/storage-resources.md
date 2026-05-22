@@ -312,7 +312,7 @@ All of the following are checked at cast time and on every API write:
 
 - Exactly one of `claim` / `claimTemplate` per mount entry.
 - `mountPath` is absolute, unique within the service, doesn't overlap any
-  `secretMounts`/`configMounts` path, and isn't in the blocklist.
+  `secretMounts`/`configmapMounts` path, and isn't in the blocklist.
 - For RWO `claim` mounts: `service.scale == 1`.
 - `claimTemplate.accessMode` is in the chosen driver's
   `Capabilities.AccessModes`.
