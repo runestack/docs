@@ -175,9 +175,10 @@ has no volume-snapshot API).
 
 Adding a backend (GCP PD, Azure Disk, …) is a single Go package
 implementing the `driver.Driver` interface — no controller, scheduler, runner,
-API or CLI changes required. See [RUNE-069 design
-notes](https://github.com/runestack/rune/blob/master/_docs/designs/RUNE-069-Storage-Management.md)
-for the contract and conformance suite.
+API or CLI changes required. The interface contract and the shared
+conformance suite live in
+[`pkg/storage/driver`](https://github.com/runestack/rune/tree/master/pkg/storage/driver)
+in the Rune repo.
 
 ## Topology
 
