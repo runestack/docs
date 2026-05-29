@@ -85,6 +85,7 @@ export default defineConfig({
             { label: 'Deploy from GitHub Actions', slug: 'guides/ci-deployments' },
             { label: 'Deploy on AWS EC2 (Terraform)', slug: 'guides/terraform-ec2' },
             { label: 'Deploy on a DigitalOcean droplet', slug: 'guides/digital-ocean-deploy' },
+            { label: 'Provision AWS (Terraform module)', slug: 'guides/terraform-aws' },
             { label: 'Provision DigitalOcean (Terraform module)', slug: 'guides/terraform-digitalocean' },
             { label: 'Provision Hetzner Cloud (Terraform module)', slug: 'guides/terraform-hetzner' },
           ],
@@ -115,9 +116,9 @@ export default defineConfig({
           ],
         },
         {
-          label: 'RefeStorage resources', slug: 'reference/storage-resources' },
-            { label: 'rence',
+          label: 'Reference',
           items: [
+            { label: 'Storage resources', slug: 'reference/storage-resources' },
             { label: 'Service spec', slug: 'reference/service-spec' },
             { label: 'Runefile (server config)', slug: 'reference/runefile' },
             { label: 'Networking CLI', slug: 'reference/cli-network' },

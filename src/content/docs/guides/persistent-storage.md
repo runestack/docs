@@ -85,8 +85,9 @@ Applied to the **mount root only** (subPath ownership is yours to
 manage), idempotently — Rune skips the chown when ownership already
 matches, so subsequent reconciles don't stomp on in-place changes.
 Works for any driver where Rune owns the mount path (`local`,
-`do-volume`, …); skipped automatically when the operator omits the
-field, so `local-host` paths you manage by hand are left alone.
+`do-volume`, `hcloud-volume`, `aws-ebs`, …); skipped automatically when
+the operator omits the field, so `local-host` paths you manage by hand
+are left alone.
 
 This replaces the older `initSteps: chown` recipe for the common
 case — keep `initSteps` for anything more elaborate than chown.
@@ -145,6 +146,7 @@ Snapshot drivers vary:
 
 - `local` — filesystem copy (`cp -a`). Synchronous.
 - `do-volume` — DigitalOcean snapshot API.
+- `aws-ebs` — EBS snapshot API (`CreateSnapshot` / `DeleteSnapshot`).
 - `hcloud-volume` — **not supported**; Hetzner Cloud has no volume-snapshot API.
 - `local-host` — **not supported**; the API rejects the write.
 
@@ -554,6 +556,177 @@ Caveats:
 - Server-name collisions inside one Hetzner project surface as
   "no Hetzner server matches hostname …" on the first Attach
   attempt — keep server names unique.
+
+## Using `aws-ebs` for Amazon EBS
+
+The `aws-ebs` driver provisions, attaches, snapshots and reclaims
+Amazon EBS volumes via the EC2 API. The shape mirrors `do-volume`,
+with two AWS-specific twists:
+
+- **No API token to manage.** On an EC2 node with an instance profile
+  (the [`terraform-aws-rune`](/guides/terraform-aws/) module attaches one
+  by default), the driver reads AWS credentials from the instance role
+  via the standard credential chain — there's no secret to mint or
+  rotate. Off-instance / cross-account controllers can still pass static
+  credentials on `parameters` (see the
+  [reference](/reference/storage-resources/#aws-ebs)).
+- **Volumes are AZ-pinned, not region-pinned.** An EBS volume lives in a
+  single Availability Zone and only attaches to an instance in that same
+  AZ, so the StorageClass names an `availabilityZone` (not just a
+  region).
+
+:::caution[Node must be discoverable by hostname]
+The driver resolves each Rune node to an EC2 instance by its OS
+hostname — matched against the instance's `private-dns-name` (the EC2
+default hostname, e.g. `ip-10-0-1-23`), an `i-…` instance ID, or the
+`Name` tag. A mismatch surfaces as `no EC2 instance matches node "<host>"`
+on the first Attach. The `terraform-aws-rune` module leaves the EC2
+default hostname in place, so this works out of the box.
+:::
+
+:::note[IMDSv2 hop limit]
+runed mints EBS API calls from the instance role through IMDS. The
+module sets `http_tokens = "required"` (IMDSv2) and a hop limit of 2;
+if you bring your own instance, make sure IMDS is reachable from the
+`runed` process.
+:::
+
+### Step 1 — Grant the instance role EBS permissions
+
+The instance profile needs the EC2 volume actions the driver calls.
+The `terraform-aws-rune` module can attach these for you
+(`enable_ebs_volume_access`); to scope a policy by hand:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": [
+      "ec2:CreateVolume", "ec2:DeleteVolume", "ec2:DescribeVolumes",
+      "ec2:AttachVolume", "ec2:DetachVolume", "ec2:ModifyVolume",
+      "ec2:CreateSnapshot", "ec2:DeleteSnapshot", "ec2:DescribeSnapshots",
+      "ec2:DescribeInstances", "ec2:CreateTags"
+    ],
+    "Resource": "*"
+  }]
+}
+```
+
+See the [storage-resources reference](/reference/storage-resources/#aws-ebs)
+for the per-operation breakdown of which permission each Driver method
+needs.
+
+### Step 2 — Create the StorageClass
+
+No secret is required when the node uses an instance role. EBS volumes
+are AZ-pinned, so the class names the zone; for a multi-AZ cluster
+create one StorageClass per AZ.
+
+```yaml
+storageClass:
+  name: ebs-gp3-euw2a
+  driver: aws-ebs
+  parameters:
+    region: eu-west-2
+    availabilityZone: eu-west-2a
+    volumeType: gp3
+    fsType: ext4
+  reclaimPolicy: retain
+  allowedTopologies:
+    - matchLabels:
+        rune.io/zone: eu-west-2a
+```
+
+```sh
+rune storageclass create -f ebs-gp3-euw2a.yaml
+rune get storageclasses
+# NAME            DRIVER    DEFAULT
+# ebs-gp3-euw2a   aws-ebs   false
+```
+
+### Verify
+
+Provision a one-off volume to confirm the role and zone are correct
+before pointing real workloads at the class:
+
+```sh
+cat <<'EOF' | rune cast -
+volume:
+  name: ebs-smoke-test
+  namespace: default
+  storageClassName: ebs-gp3-euw2a
+  size: "10Gi"
+  accessMode: ReadWriteOnce
+EOF
+
+rune get volume ebs-smoke-test -n default
+# STATUS: Available     HANDLE: vol-0abc…
+
+# Attach test using a throw-away service. If this stalls in Pending,
+# the instance role is most likely missing ec2:AttachVolume /
+# ec2:DescribeInstances, or the node's AZ doesn't match the class.
+cat <<'EOF' | rune cast -
+service:
+  name: ebs-smoke
+  image: alpine:3.19
+  command: ["sleep", "infinity"]
+  volumes:
+    - name: data
+      mountPath: /data
+      claim:
+        name: ebs-smoke-test
+EOF
+rune get service ebs-smoke
+# STATUS: Running
+
+rune delete service ebs-smoke
+rune delete volume ebs-smoke-test -n default
+```
+
+### `aws-ebs` gotchas
+
+**Sizing is `ceil(GiB)`.** EBS sizes are whole binary gibibytes with a
+1 GiB minimum. The driver rounds `size` up to the next GiB, so
+`size: 1500Mi` provisions a 2 GiB volume. EBS does not allow shrinking;
+`rune volume resize` to a smaller size is a no-op.
+
+**Online expand, separate filesystem grow.** `rune volume resize` calls
+EBS `ModifyVolume` and returns once AWS accepts the change — the block
+device grows in place while attached (no detach needed). The filesystem
+is grown on the next mount cycle, so the new capacity shows up after the
+consuming service restarts.
+
+**`reclaimPolicy: retain` does not reclaim the EBS volume.** When the
+Rune Volume row is deleted, the EBS volume keeps existing (and being
+billed) until you delete it manually (`aws ec2 delete-volume
+--volume-id vol-…`). Use `reclaimPolicy: delete` to have Rune reap it.
+`retain` is the safer default for irreplaceable data.
+
+### Surviving an instance rebuild
+
+EBS volumes outlive the instance they're attached to — the durability
+story `aws-ebs` exists for. The recovery path when `terraform apply`
+destroys + recreates the instance mirrors DigitalOcean's:
+
+1. Fresh instance boots; the Elastic IP (when `allocate_eip = true`)
+   reattaches.
+2. New `runed` comes up with the same `node-role`; its EC2 hostname
+   resolves the node to the new instance.
+3. The agent's volumes Subsystem walks every Volume row whose
+   `BoundNode` matches this node and calls `Driver.Attach` against the
+   existing EBS volume ID (the `handle` on the row).
+4. `EnsureFormatted` is a no-op — `lsblk` reports the existing
+   filesystem, mkfs is skipped.
+5. Services come up against the existing data.
+
+Caveats:
+- The new instance must land in the **same AZ** as the volume — EBS
+  refuses cross-AZ attaches. Keep the instance and its StorageClass on
+  one zone, or restore via snapshot to move zones.
+- The Volume row's `namespace`/`name` must persist across the rebuild
+  (BoundNode lookups key on them). Re-`cast` the same YAML if you're
+  seeding from a fresh state store.
 
 ## Cleaning up
 
