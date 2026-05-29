@@ -35,7 +35,7 @@ storageClass:
 | Field               | Type           | Required | Notes                                                                 |
 | ------------------- | -------------- | -------- | --------------------------------------------------------------------- |
 | `name`              | string         | yes      | DNS-1123. Cluster-unique.                                             |
-| `driver`            | string         | yes      | Registered driver name (e.g. `local`, `local-host`, `do-volume`, `hcloud-volume`). |
+| `driver`            | string         | yes      | Registered driver name (e.g. `local`, `local-host`, `do-volume`, `hcloud-volume`, `aws-ebs`). |
 | `parameters`        | map[string]string | no    | Driver-specific. See driver tables below.                             |
 | `reclaimPolicy`     | enum           | no       | `retain` (default) or `delete`. Per-volume override allowed.          |
 | `default`           | bool           | no       | At most one class may be `true`. API server enforces uniqueness.      |
@@ -207,6 +207,70 @@ Capabilities:
   mount and exposes the underlying block device at
   `/dev/disk/by-id/scsi-0HC_Volume_<id>`.
 
+#### `aws-ebs`
+
+| Key                  | Notes                                                                  |
+| -------------------- | ---------------------------------------------------------------------- |
+| `region`             | Required. AWS region for the EC2 API client (e.g. `eu-west-2`).        |
+| `availabilityZone`   | Required (or supply a `rune.io/zone` topology label). EBS volumes are AZ-pinned and only attach to instances in the same AZ — e.g. `eu-west-2a`. |
+| `volumeType`         | `gp3` (default), `gp2`, `io2`, `sc1`, `st1`, …                         |
+| `iops`               | Optional. Provisioned IOPS for `gp3`/`io2`. Omitted → AWS default.     |
+| `throughput`         | Optional. Provisioned throughput (MiB/s) for `gp3`. Omitted → AWS default. |
+| `encrypted`          | `true` (default) / `false`. Encrypts the volume at rest.               |
+| `kmsKeyId`           | Optional KMS key ARN/ID for encryption. Omitted → the account default EBS key. |
+| `fsType`             | `ext4` (default), `xfs`.                                               |
+| `accessKeyId` / `secretAccessKey` / `sessionToken` | Optional static credentials for off-instance / cross-account controllers. Accept literals or [secret references](#secret-references-in-parameters). **Omit on an EC2 node with an instance profile** — the driver uses the instance role via the standard AWS credential chain. |
+
+The driver reads AWS credentials from the standard chain (instance
+role first), so the recommended setup attaches an instance profile to
+the node and configures **no** credentials on the StorageClass. The
+[`terraform-aws-rune`](/guides/terraform-aws/) module does this by
+default.
+
+##### Required IAM permissions
+
+The instance role (or supplied credentials) needs these EC2 actions —
+one row per Driver method:
+
+| Action                  | Used by                                          |
+| ----------------------- | ------------------------------------------------ |
+| `ec2:CreateVolume`      | Provision                                        |
+| `ec2:DeleteVolume`      | reclaim Delete                                   |
+| `ec2:DescribeVolumes`   | Provision (adopt-by-tag), Attach/Detach, Expand, observe |
+| `ec2:AttachVolume`      | Attach                                           |
+| `ec2:DetachVolume`      | Detach                                           |
+| `ec2:ModifyVolume`      | Expand (online)                                  |
+| `ec2:CreateSnapshot`    | Snapshot — omit if you don't use `rune snapshot` |
+| `ec2:DeleteSnapshot`    | Snapshot delete                                  |
+| `ec2:DescribeSnapshots` | snapshot observe                                 |
+| `ec2:DescribeInstances` | Attach/Detach — resolve the node's hostname to an EC2 instance |
+| `ec2:CreateTags`        | tag created volumes/snapshots (`rune.io/volume-id`, `Name`) |
+
+The managed policy `AmazonEBSCSIDriverPolicy` is a convenient superset
+of the above (it scopes some actions with conditions on the
+`ebs.csi.aws.com/cluster` tag — fine since the driver tags its
+volumes). `terraform-aws-rune`'s `enable_ebs_volume_access` attaches a
+scoped inline policy instead.
+
+Capabilities:
+
+- `Snapshots: true` — EBS snapshot API.
+- `Expand: true`, `OnlineExpand: true` — `rune volume resize` grows the
+  volume in place via `ModifyVolume` while it stays attached. The
+  filesystem is grown on the next mount.
+- `BlockDevice: true` — the driver formats on first mount and resolves
+  the device via the stable by-id symlink
+  `/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_<vol-id-no-dash>`
+  (Nitro instances).
+
+##### Node → instance resolution
+
+Attach/Detach map a Rune node onto an EC2 instance by the node's OS
+hostname, tried in order: an `i-…` instance ID, the `private-dns-name`
+(EC2 default hostname, matched exactly and as `<name>.*`), then the
+`Name` tag. An ambiguous match (two instances) is an error — keep
+hostnames / Name tags unique.
+
 ### Status fields (read-only)
 
 | Field          | Notes                                                              |
@@ -321,7 +385,7 @@ All of the following are checked at cast time and on every API write:
 - `local-host` `hostPath` is absolute, has no `..`, sits under
   `runefile.[storage].hostPathAllowlist`.
 - Process-runtime services may use `local-host` only; block-device drivers
-  (`do-volume`, `hcloud-volume`) are rejected at cast time.
+  (`do-volume`, `hcloud-volume`, `aws-ebs`) are rejected at cast time.
 - A `Volume` whose `reclaimPolicy: delete` targets the `local-host` driver is
   rejected.
 

@@ -34,9 +34,12 @@ Two storage classes are seeded automatically on first boot:
 `storageClassName` resolves to `local`. Override the boot default with
 `[storage] defaultStorageClass = "..."` in the runefile.
 
-The cloud-backed `do-volume` driver (DigitalOcean Volumes) is shipped in-tree
-but does **not** seed a class — operators define one explicitly with their API
-token reference and region.
+The cloud-backed drivers — `do-volume` (DigitalOcean Volumes),
+`hcloud-volume` (Hetzner Cloud) and `aws-ebs` (Amazon EBS) — are shipped
+in-tree but do **not** seed a class. Operators define one explicitly with
+their region/zone and, where the provider needs it, an API-token secret
+reference (`aws-ebs` instead reads AWS credentials from the node's
+instance role).
 
 ## Volume lifecycle
 
@@ -156,7 +159,9 @@ rune volume restore web-data-restored \
 
 The `local` driver implements snapshots as filesystem copies (`cp -a`).
 `local-host` does not support snapshots; the API rejects the write up-front.
-`do-volume` uses DigitalOcean's snapshot API.
+`do-volume` uses DigitalOcean's snapshot API and `aws-ebs` uses the EBS
+snapshot API. `hcloud-volume` does not support snapshots (Hetzner Cloud
+has no volume-snapshot API).
 
 ## Drivers in v1
 
@@ -165,12 +170,15 @@ The `local` driver implements snapshots as filesystem copies (`cp -a`).
 | `local`      | filesystem   | yes       | RWO          | Default; managed directory per volume. |
 | `local-host` | bind-mount   | no        | RWO, ROX     | Pre-existing host paths only.          |
 | `do-volume`  | block (cloud)| yes       | RWO          | DigitalOcean Volumes; auth via secret. |
+| `hcloud-volume` | block (cloud) | no     | RWO          | Hetzner Cloud volumes; offline expand only, no snapshots. |
+| `aws-ebs`    | block (cloud)| yes       | RWO          | Amazon EBS; AZ-pinned, online expand, auth via instance role. |
 
-Adding a backend (Hetzner, AWS EBS, GCP PD, …) is a single Go package
+Adding a backend (GCP PD, Azure Disk, …) is a single Go package
 implementing the `driver.Driver` interface — no controller, scheduler, runner,
-API or CLI changes required. See [RUNE-069 design
-notes](https://github.com/runestack/rune/blob/master/_docs/designs/RUNE-069-Storage-Management.md)
-for the contract and conformance suite.
+API or CLI changes required. The interface contract and the shared
+conformance suite live in
+[`pkg/storage/driver`](https://github.com/runestack/rune/tree/master/pkg/storage/driver)
+in the Rune repo.
 
 ## Topology
 
@@ -178,8 +186,8 @@ Driver `Provision` requests carry topology labels for placement-aware backends:
 
 | Label                    | Used by      | Meaning                                                |
 | ------------------------ | ------------ | ------------------------------------------------------ |
-| `rune.io/region`         | `do-volume`  | Cloud region (e.g. `nyc3`).                            |
-| `rune.io/zone`           | (cloud)      | Availability zone.                                     |
+| `rune.io/region`         | `do-volume`, `hcloud-volume` | Cloud region / location (e.g. `nyc3`, `nbg1`).         |
+| `rune.io/zone`           | `aws-ebs`    | Availability zone (e.g. `eu-west-2a`). EBS volumes are AZ-pinned. |
 | `rune.io/host-path-root` | `local-host` | Pins a `local-host` volume to a node's allowlist root. |
 
 `StorageClass.allowedTopologies` constrains placement at the class level.
