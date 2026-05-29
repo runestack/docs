@@ -28,83 +28,130 @@ If `Status: Not connected to server`, run `rune login` again or check that the s
 
 ## `rune status`
 
-A health roll-up for a namespace (or the whole cluster with `-A`). Surfaces
-the same `statusReason` / `statusMessage` you'd otherwise dig out with
-`rune get service <name>`, so failed services explain themselves on the
-first line.
+An authoritative, at-a-glance health summary. **With no arguments it reports on
+the whole cluster** — like `docker info` or `nomad status` — showing cluster
+health plus a one-line roll-up for every namespace. Narrow to one namespace with
+`-n` to get the full per-service table. It surfaces the same `statusReason` /
+`statusMessage` you'd otherwise dig out with `rune get service <name>`, so failed
+services explain themselves on the first line.
 
 ```sh
-rune status                         # default namespace
-rune status -n prod                 # specific namespace
-rune status -A                      # all namespaces, one summary line each
-rune status -A --detail             # all namespaces + per-service table
+rune status                         # GLOBAL: cluster + roll-up across all namespaces
+rune status -n prod                 # focus one namespace (full per-service table)
+rune status --detail                # per-service table for every namespace
+rune status --since=30m             # widen the recent-activity window (0 disables)
 rune status -w                      # re-render every 2s (Ctrl+C to exit)
 rune status -o json                 # structured output for scripts/dashboards
 ```
 
-### Default output
+:::note
+The default scope changed: a bare `rune status` is now the **whole-cluster**
+view (it previously defaulted to the current namespace). `-A` /
+`--all-namespaces` is kept as a back-compat alias for that default; use
+`-n <ns>` to focus a single namespace.
+:::
+
+### Default output (global)
+
+The cluster section plus a bounded per-namespace roll-up — no per-service tables
+(use `-n` or `--detail` for those). A cluster-wide recent-activity feed lists
+WARN/ERR events from the last `--since` (default 15m).
 
 ```
-Namespace: prod   ·   12 services   ·   28 instances
+Rune Status   server=prod.example.com:7863   context=prod
 
-  ✓ Running      10
+Cluster
+  Server:     v0.0.1-dev.112
+  Runners:    docker=ready, process=ready
+  Store:      healthy
+  Node:       CPU 38% (8 cores) · Mem 6.2 GiB / 16.0 GiB
+  Network:    cidr=10.96.0.0/16, vips=12, capacity 65534
+  Registries: 2 (ok 2)
+
+NAMESPACE  SERVICES  RUNNING  DEPLOYING  STOPPING  FAILED  PENDING  INSTANCES
+dev        8         7        1          0         0       0        12 (1 starting)
+prod       12        11       1          0         0       0        28
+sys        3         2        0          0         1       0        4 (1 failed)
+
+Recent activity
+  5m    ERR  prod/instance/payments-2  CrashLoopBackOff   ×2
+  9m    ERR  sys/instance/ingress-0    HealthCheckFailure ×4
+```
+
+The **Cluster** section is sourced only from real signals and every line is
+best-effort — an unavailable or admin-only probe (network/registries) is omitted,
+never faked. `Runners: docker=unreachable: …` is the signal for "the server is up
+and the store is fine, but Docker is down, so nothing can deploy." `Node:` is live
+host pressure (actual CPU%/memory), not declared requests; CPU is omitted on
+platforms where it can't be sampled (e.g. macOS).
+
+### Focused output (`-n <ns>`)
+
+```
+Rune Status   server=prod.example.com:7863   context=prod
+
+Namespace: prod   ·   12 services   ·   28 instances   ·   9 secrets   ·   7 configmaps
   ⊙ Deploying     1
-  ⏸ Stopping      0
-  ⚠ Failed        1
-  · Pending       0
+  ✓ Running      11
 
-NAME       STATUS     SCALE   AGE   REASON / MESSAGE
-echo       Failed     1/0     3h    ImageUnreachable — auth failed pulling ghcr.io/echo:1.4
-landing    Deploying  1/0     1m
-api        Running    3/3     14d
-worker     Running    5/5     14d
-ingress    Running    2/2     21d
+  Instances: Running 27 · Starting 1 · Failed 0 · Stalled 0 · Terminating 0
+
+NAME       STATUS     SCALE  IMAGE                 AGE   REASON / MESSAGE
+echo       Failed     0/1    …/echo:1.4            3h    ImageUnreachable — auth failed pulling ghcr.io/echo:1.4
+landing    Deploying  0/1    …/landing:2.0         1m
+api        Running    3/3    …/api:1.4.2           14d
+worker     Running    5/5    …/worker:0.9          14d
 ```
 
 Rows are ordered so what needs attention floats up: `Failed → Stopping →
-Deploying → Pending → Running`. The `SCALE` column reads `desired/ready`,
-so transitions are obvious:
+Deploying → Pending → Running`. The `SCALE` column reads **`ready/desired`** (the
+Kubernetes convention), so transitions are obvious:
 
 | State                       | Status      | Scale | Meaning                                            |
 | --------------------------- | ----------- | ----- | -------------------------------------------------- |
 | Steady                      | `Running`   | `1/1` | Converged.                                         |
 | Drain in flight (`stop`)    | `Stopping`  | `0/1` | Asked to scale to 0; old instance still draining.  |
 | Drain done                  | `Pending`   | `0/0` | No instances; service spec still present.          |
-| Start / restart in flight   | `Deploying` | `1/0` | New instance booting; not yet ready.               |
+| Start / restart in flight   | `Deploying` | `0/1` | New instance booting; not yet ready.               |
 | Healthy after start         | `Running`   | `1/1` |                                                    |
-| Probe / image / OOM failure | `Failed`    | `1/0` | Reason + message shown inline; no second command.  |
-
-### All namespaces (`-A`)
-
-```
-3 namespaces · 24 services · 56 instances
-
-NAMESPACE  SERVICES  RUNNING  DEPLOYING  STOPPING  FAILED  PENDING
-dev        8         7        1          0         0       0
-prod       12        10       1          0         1       0
-staging    4         4        0          0         0       0
-```
-
-Add `--detail` to also emit the per-service table beneath each namespace.
+| Probe / image / OOM failure | `Failed`    | `0/1` | Reason + message shown inline; no second command.  |
 
 ### Structured output
 
-`-o json` and `-o yaml` emit a stable shape — safe to bake into dashboards:
+`-o json` and `-o yaml` emit a stable, **flat and additive** shape — safe to bake
+into dashboards. `cluster` and `recentActivity` are top-level and omitted when
+absent (focused view, non-admin caller, or a quiet cluster):
 
 ```json
 {
+  "server": "prod.example.com:7863",
+  "context": "prod",
+  "cluster": {
+    "serverVersion": "v0.0.1-dev.112",
+    "runners": { "docker": "ready", "process": "ready" },
+    "store": "healthy",
+    "nodeUsage": { "cpuCores": 8, "cpuUsedPercent": 38, "memUsedBytes": 6657199308, "memTotalBytes": 17179869184 },
+    "network": { "cidr": "10.96.0.0/16", "vipsAllocated": 12, "capacity": 65534 },
+    "registries": { "total": 2, "ok": 2, "failing": 0 }
+  },
+  "recentActivity": [
+    { "namespace": "prod", "kind": "instance", "name": "payments-2", "level": "ERR", "reason": "CrashLoopBackOff", "count": 2, "lastSeen": "5m" }
+  ],
   "namespaces": [
     {
       "namespace": "prod",
       "summary": {
-        "total": 12, "running": 10, "deploying": 1,
-        "stopping": 0, "pending": 0, "failed": 1,
-        "instances": 28
+        "total": 12, "running": 11, "deploying": 1,
+        "stopping": 0, "pending": 0, "failed": 0,
+        "instances": 28,
+        "instanceStates": { "running": 27, "starting": 1, "failed": 0, "stalled": 0, "terminating": 0 },
+        "secrets": 9, "configmaps": 7
       },
       "services": [
         {
           "name": "echo",
           "status": "Failed",
+          "image": "ghcr.io/example/echo:1.4",
           "desiredScale": 1,
           "readyInstances": 0,
           "age": "3h",
@@ -120,22 +167,25 @@ Add `--detail` to also emit the per-service table beneath each namespace.
 
 ### Flags
 
-| Flag                       | Default        | Notes                                                                  |
-| -------------------------- | -------------- | ---------------------------------------------------------------------- |
-| `-n, --namespace`          | from context   | Namespace to summarize. Ignored with `-A`.                             |
-| `-A, --all-namespaces`     | `false`        | Summarize every namespace.                                             |
-| `-w, --watch`              | `false`        | Re-render every `--watch-interval` seconds, like `top`. Ctrl+C exits.  |
-| `--watch-interval`         | `2s`           | Refresh cadence for `-w`.                                              |
-| `-o, --output`             | `""` (text)    | `''` (text), `json`, or `yaml`.                                        |
-| `--detail`                 | `false`        | With `-A`, expand each namespace into the per-service table.           |
-| `--no-roll-up`             | `false`        | Hide the bucket header (useful when piping text).                      |
-| `--api-server`             | from context   | One-off API server override.                                           |
+| Flag                       | Default        | Notes                                                                       |
+| -------------------------- | -------------- | --------------------------------------------------------------------------- |
+| `-n, --namespace`          | (all)          | Focus a single namespace and show its per-service table. Omit for global.   |
+| `-A, --all-namespaces`     | `false`        | Back-compat alias for the default global view.                              |
+| `--detail`                 | `false`        | In the global view, expand each namespace into the per-service table.       |
+| `--since`                  | `15m`          | Recent-activity window: show WARN/ERR events from the last N. `0` disables.  |
+| `-w, --watch`              | `false`        | Re-render every `--watch-interval` seconds, like `top`. Ctrl+C exits.       |
+| `--watch-interval`         | `2s`           | Refresh cadence for `-w`.                                                   |
+| `-o, --output`             | `""` (text)    | `''` (text), `json`, or `yaml`.                                             |
+| `--no-roll-up`             | `false`        | Hide the banner / roll-up header (useful when piping text).                 |
+| `--api-server`             | from context   | One-off API server override.                                                |
 
 ### Notes
 
 - Glyphs (`✓ ⊙ ⏸ ⚠ ·`) auto-degrade to ASCII tokens (`OK DEPL STOP FAIL PEND`) when colors are off (`NO_COLOR=1`, non-TTY stdout, Windows without ConEmu/WT).
-- One `ListServices` + one `ListInstances` per namespace — no N+1 even with `-A`.
+- One `ListServices` + one `ListInstances` per namespace — no N+1. The global default keeps each namespace to summary counts, so output size scales with namespace count, not service count.
 - `Stopping` is set server-side whenever the desired scale is below the current instance count; works the same for `rune stop` and the drain phase of `rune restart`.
+- Service statuses are `Running`, `Deploying`, `Stopping`, `Pending`, `Failed` — a service with some unhealthy replicas stays `Running`/`Pending`; the `ready/desired` count is what signals partial readiness.
+- Recent activity reads the persisted event log; it's silently empty if the event service is unavailable. `Node:` / `Network:` / `Registries:` are single-node and admin-gated as noted above.
 
 ## `rune version`
 
