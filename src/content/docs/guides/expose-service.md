@@ -189,6 +189,11 @@ Inbound connections are accepted only from the listed CIDRs, matched against the
 
 When set, the ingress **requires and verifies a client certificate** during the TLS handshake for that host, against the CA bundle in `caSecret` (a Secret with a `ca.crt` data key; same three ref shapes as `tls.secret`). Connections without a cert the CA trusts fail the handshake. This is the **primary** lockdown control — but only as strong as the CA is specific to you: a CDN's *shared* origin-pull CA proves "some account on that CDN," not yours. Use an **account-specific** CA (e.g. Cloudflare's per-zone Authenticated Origin Pulls certificate) for a real lock. Rotate the CA by updating the Secret — the new bundle takes effect on the next reconcile; removing `clientCert` disables mTLS for the host.
 
+The control **fails closed** so a misconfiguration can't quietly leave the origin open:
+
+- **Plaintext HTTP is refused.** Client certs are only exchanged over TLS (`:443`), so the ingress returns `403` for any request to an mTLS host over plain `http://` (`:80`) — you can't reach the origin by dropping to HTTP.
+- **An unresolved CA refuses traffic.** If the `caSecret` is missing, lacks `ca.crt`, or contains no valid certificate, the ingress returns `503` for that host rather than serving it without verifying the client. So a typo'd `caSecret` protects the origin (and is visible as a `503` + a `clientCert: caSecret …` warning in the `runed` log), it doesn't expose it.
+
 ### Notes
 
 - These controls apply only to the external `expose` / ingress path. East-west (service-to-service) traffic over the cluster VIP is unaffected.
