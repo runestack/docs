@@ -85,9 +85,9 @@ Applied to the **mount root only** (subPath ownership is yours to
 manage), idempotently — Rune skips the chown when ownership already
 matches, so subsequent reconciles don't stomp on in-place changes.
 Works for any driver where Rune owns the mount path (`local`,
-`do-volume`, `hcloud-volume`, `aws-ebs`, …); skipped automatically when
-the operator omits the field, so `local-host` paths you manage by hand
-are left alone.
+`do-volume`, `hcloud-volume`, `aws-ebs`, `gce-pd`, …); skipped
+automatically when the operator omits the field, so `local-host` paths
+you manage by hand are left alone.
 
 This replaces the older `initSteps: chown` recipe for the common
 case — keep `initSteps` for anything more elaborate than chown.
@@ -147,6 +147,7 @@ Snapshot drivers vary:
 - `local` — filesystem copy (`cp -a`). Synchronous.
 - `do-volume` — DigitalOcean snapshot API.
 - `aws-ebs` — EBS snapshot API (`CreateSnapshot` / `DeleteSnapshot`).
+- `gce-pd` — GCE disk snapshots (`disks.createSnapshot` / `snapshots.delete`).
 - `hcloud-volume` — **not supported**; Hetzner Cloud has no volume-snapshot API.
 - `local-host` — **not supported**; the API rejects the write.
 
@@ -727,6 +728,148 @@ Caveats:
 - The Volume row's `namespace`/`name` must persist across the rebuild
   (BoundNode lookups key on them). Re-`cast` the same YAML if you're
   seeding from a fresh state store.
+
+## Using `gce-pd` for Google Persistent Disks
+
+The `gce-pd` driver provisions, attaches, snapshots and reclaims Google
+Compute Engine Persistent Disks via the Compute API. The shape mirrors
+`aws-ebs`:
+
+- **No key to manage.** On a GCE instance with a service account (the
+  [`terraform-google-rune`](/guides/terraform-google/) module attaches
+  one), the driver authenticates via Application Default Credentials —
+  there's no secret to mint or rotate. Off-instance / cross-project
+  controllers can pass a service-account key on `parameters.credentialsJSON`
+  (see the [reference](/reference/storage-resources/#gce-pd)).
+- **Disks are zone-pinned.** A zonal Persistent Disk lives in one zone
+  and only attaches to an instance in that same zone, so the StorageClass
+  names a `zone` (not just a region). The `project` is read from the
+  metadata server on GCE, or set it explicitly on `parameters.project`.
+
+:::caution[Node must be discoverable by name]
+The driver resolves each Rune node to a GCE instance by its OS hostname,
+which on GCE equals the instance name. A mismatch surfaces as
+`no GCE instance "<host>" in zone <zone>` on the first Attach. The
+`terraform-google-rune` module leaves the GCE default hostname in place,
+so this works out of the box.
+:::
+
+### Step 1 — Grant the service account disk permissions
+
+The node's service account needs to manage Persistent Disks. The
+`terraform-google-rune` module does this with
+`enable_pd_csi_access = true` (grants `roles/compute.storageAdmin`). To
+scope a custom role by hand, grant these permissions:
+
+```
+compute.disks.create   compute.disks.delete    compute.disks.get
+compute.disks.resize   compute.disks.use       compute.disks.createSnapshot
+compute.snapshots.create compute.snapshots.delete compute.snapshots.get
+compute.instances.attachDisk compute.instances.detachDisk compute.instances.get
+compute.zoneOperations.get   compute.globalOperations.get
+```
+
+### Step 2 — Create the StorageClass
+
+No secret is required when the node uses a service account. PDs are
+zone-pinned, so the class names the zone; for a multi-zone cluster create
+one StorageClass per zone.
+
+```yaml
+storageClass:
+  name: pd-balanced-euw2a
+  driver: gce-pd
+  parameters:
+    zone: europe-west2-a
+    diskType: pd-balanced
+    fsType: ext4
+  reclaimPolicy: retain
+  allowedTopologies:
+    - matchLabels:
+        rune.io/zone: europe-west2-a
+```
+
+```sh
+rune storageclass create -f pd-balanced-euw2a.yaml
+rune get storageclasses
+# NAME                DRIVER   DEFAULT
+# pd-balanced-euw2a   gce-pd   false
+```
+
+### Verify
+
+```sh
+cat <<'EOF' | rune cast -
+volume:
+  name: pd-smoke-test
+  namespace: default
+  storageClassName: pd-balanced-euw2a
+  size: "10Gi"
+  accessMode: ReadWriteOnce
+EOF
+
+rune get volume pd-smoke-test -n default
+# STATUS: Available     HANDLE: rune-default-pd-smoke-test
+
+# Attach test using a throw-away service. If this stalls in Pending, the
+# service account is most likely missing compute.instances.attachDisk /
+# compute.disks.use, or the node's zone doesn't match the class.
+cat <<'EOF' | rune cast -
+service:
+  name: pd-smoke
+  image: alpine:3.19
+  command: ["sleep", "infinity"]
+  volumes:
+    - name: data
+      mountPath: /data
+      claim:
+        name: pd-smoke-test
+EOF
+rune get service pd-smoke
+# STATUS: Running
+
+rune delete service pd-smoke
+rune delete volume pd-smoke-test -n default
+```
+
+### `gce-pd` gotchas
+
+**Minimum size is 10 GiB.** Persistent Disks start at 10 GiB; the driver
+rounds `size` up to the next GiB with a 10 GiB floor. `size: 1Gi`
+provisions a 10 GiB disk.
+
+**Online expand, separate filesystem grow.** `rune volume resize` calls
+`disks.resize` and returns once GCE accepts the change — the disk grows in
+place while attached. The filesystem is grown on the next mount cycle, so
+the new capacity shows up after the consuming service restarts.
+
+**`reclaimPolicy: retain` does not reclaim the disk.** When the Rune
+Volume row is deleted, the Persistent Disk keeps existing (and being
+billed) until you delete it manually (`gcloud compute disks delete <name>
+--zone <zone>`). Use `reclaimPolicy: delete` to have Rune reap it.
+
+### Surviving an instance rebuild
+
+Persistent Disks outlive the instance they're attached to. The recovery
+path when `terraform apply` destroys + recreates the instance mirrors the
+other cloud drivers:
+
+1. Fresh instance boots; the static IP (when `allocate_static_ip = true`)
+   reattaches.
+2. New `runed` comes up with the same `node-role`; its GCE hostname
+   resolves the node to the new instance.
+3. The agent's volumes Subsystem walks every Volume row whose `BoundNode`
+   matches this node and calls `Driver.Attach` against the existing disk
+   (the `handle` is the disk name, derived from namespace+name).
+4. `EnsureFormatted` is a no-op — the existing filesystem is detected.
+5. Services come up against the existing data.
+
+Caveats:
+- The new instance must land in the **same zone** as the disk — GCE
+  refuses cross-zone attaches. Restore via snapshot to move zones.
+- The Volume row's `namespace`/`name` must persist across the rebuild
+  (the disk name is derived from them, and Provision adopts an existing
+  same-named disk).
 
 ## Cleaning up
 

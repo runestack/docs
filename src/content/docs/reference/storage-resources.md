@@ -35,7 +35,7 @@ storageClass:
 | Field               | Type           | Required | Notes                                                                 |
 | ------------------- | -------------- | -------- | --------------------------------------------------------------------- |
 | `name`              | string         | yes      | DNS-1123. Cluster-unique.                                             |
-| `driver`            | string         | yes      | Registered driver name (e.g. `local`, `local-host`, `do-volume`, `hcloud-volume`, `aws-ebs`). |
+| `driver`            | string         | yes      | Registered driver name (e.g. `local`, `local-host`, `do-volume`, `hcloud-volume`, `aws-ebs`, `gce-pd`). |
 | `parameters`        | map[string]string | no    | Driver-specific. See driver tables below.                             |
 | `reclaimPolicy`     | enum           | no       | `retain` (default) or `delete`. Per-volume override allowed.          |
 | `default`           | bool           | no       | At most one class may be `true`. API server enforces uniqueness.      |
@@ -271,6 +271,54 @@ hostname, tried in order: an `i-…` instance ID, the `private-dns-name`
 `Name` tag. An ambiguous match (two instances) is an error — keep
 hostnames / Name tags unique.
 
+#### `gce-pd`
+
+| Key                | Notes                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| `zone`             | Required (or supply a `rune.io/zone` topology label). Persistent Disks are zonal and only attach to instances in the same zone — e.g. `europe-west2-a`. |
+| `project`          | GCP project ID. Optional on a GCE node (read from the metadata server); required for off-instance controllers. |
+| `diskType`         | `pd-balanced` (default), `pd-ssd`, `pd-standard`, `pd-extreme`.        |
+| `fsType`           | `ext4` (default), `xfs`.                                               |
+| `credentialsJSON`  | Optional service-account key (JSON) for off-instance / cross-project controllers. Accepts a literal or a [secret reference](#secret-references-in-parameters). **Omit on a GCE node with a service account** — the driver uses Application Default Credentials. |
+
+The driver reads credentials from Application Default Credentials
+(the instance service account first), so the recommended setup attaches
+a service account to the node and configures **no** credentials on the
+StorageClass. The [`terraform-google-rune`](/guides/terraform-google/)
+module does this when `enable_pd_csi_access = true`.
+
+##### Required IAM permissions
+
+The service account (or supplied key) needs the Compute permissions the
+driver calls — bundled by `roles/compute.storageAdmin`, or a custom role
+with:
+
+| Permission group | Used by |
+| ---------------- | ------- |
+| `compute.disks.create` / `.delete` / `.get` | Provision, Delete, observe |
+| `compute.disks.resize` | Expand (online) |
+| `compute.disks.use` / `compute.instances.attachDisk` / `.detachDisk` | Attach / Detach |
+| `compute.disks.createSnapshot` / `compute.snapshots.create` / `.delete` / `.get` | Snapshot — omit if you don't use `rune snapshot` |
+| `compute.instances.get` | Attach / Detach — resolve the node's hostname to an instance |
+| `compute.zoneOperations.get` / `compute.globalOperations.get` | wait for the disk/snapshot operations to complete |
+
+Capabilities:
+
+- `Snapshots: true` — GCE disk snapshots (global resources).
+- `Expand: true`, `OnlineExpand: true` — `rune volume resize` grows the
+  disk in place via `disks.resize` while attached. The filesystem is
+  grown on the next mount.
+- `BlockDevice: true` — the driver formats on first mount and resolves
+  the device via the stable by-id symlink `/dev/disk/by-id/google-<diskName>`
+  (the disk is attached with `DeviceName == <diskName>`).
+
+##### Node → instance resolution
+
+Attach/Detach map a Rune node onto a GCE instance by the node's OS
+hostname, which on GCE equals the instance name (`compute.instances.get`
+in the StorageClass zone). A name mismatch surfaces as
+`no GCE instance "<host>" in zone <zone>` on the first Attach.
+
 ### Status fields (read-only)
 
 | Field          | Notes                                                              |
@@ -385,7 +433,7 @@ All of the following are checked at cast time and on every API write:
 - `local-host` `hostPath` is absolute, has no `..`, sits under
   `runefile.[storage].hostPathAllowlist`.
 - Process-runtime services may use `local-host` only; block-device drivers
-  (`do-volume`, `hcloud-volume`, `aws-ebs`) are rejected at cast time.
+  (`do-volume`, `hcloud-volume`, `aws-ebs`, `gce-pd`) are rejected at cast time.
 - A `Volume` whose `reclaimPolicy: delete` targets the `local-host` driver is
   rejected.
 
