@@ -70,9 +70,9 @@ service:
       secretName: db-credentials
       mountPath: /etc/secrets/db
 
-  configMounts:
+  configmapMounts:
     - name: app-config
-      configName: app-settings
+      configmapName: app-settings
       mountPath: /etc/config
 
   expose:
@@ -104,7 +104,7 @@ service:
 | `health`       | object  | no       | Liveness probes.                           |
 | `dependencies` | []object | no      | Service dependencies.                      |
 | `secretMounts` | []object | no       | File-mount secrets.                        |
-| `configMounts` | []object | no       | File-mount configmaps.                     |
+| `configmapMounts` | []object | no       | File-mount configmaps.                     |
 | `volumes`      | []object | no       | Persistent volume mounts. See [Storage resources](/reference/storage-resources/). |
 | `expose`       | object  | no       | Single-node host exposure.                 |
 | `discovery`    | object  | no       | Internal service discovery.                |
@@ -186,7 +186,7 @@ dependencies:
     optional: false
 ```
 
-### `secretMounts[]` / `configMounts[]`
+### `secretMounts[]` / `configmapMounts[]`
 
 ```yaml
 secretMounts:
@@ -194,9 +194,9 @@ secretMounts:
     secretName: db-credentials
     mountPath: /etc/secrets/db
 
-configMounts:
+configmapMounts:
   - name: app-config
-    configName: app-settings
+    configmapName: app-settings
     mountPath: /etc/config
 ```
 

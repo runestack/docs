@@ -52,9 +52,9 @@ service:
       secretName: db-credentials
       mountPath: /etc/secrets/db
 
-  configMounts:
+  configmapMounts:
     - name: app-config
-      configName: app-settings
+      configmapName: app-settings
       mountPath: /etc/config
 ```
 
