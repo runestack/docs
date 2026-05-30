@@ -152,6 +152,54 @@ rune cast api-tls.yaml
 
 Rotate by updating the secret — the ingress controller observes the new `Secret.Version` on its next reconcile tick (default 2 s) and pushes the new cert into the loader. No service restart needed.
 
+## Origin hardening (lock the origin to your front door)
+
+A CDN-fronted origin is still reachable by **direct IP** — anyone who learns the node's address can bypass the CDN and its WAF / auth / rate-limiting. Checking the client IP in your app doesn't help: the app-visible IP comes from `X-Forwarded-For`, which the client controls, so it's trivially spoofable. Rune enforces both of the following **at the ingress listener**, against signals the client can't forge:
+
+```yaml
+service:
+  name: api
+  expose:
+    host: api.example.com
+    port: http
+    tls: { mode: manual, secret: shared/cf-origin-cert }
+
+    # Accept connections only from these source ranges (optional).
+    allowCidrs:
+      - 173.245.48.0/20        # e.g. a CDN's published egress ranges
+      - 103.21.244.0/22
+
+    # Require a trusted client certificate / mTLS (optional).
+    clientCert:
+      caSecret: shared/origin-client-ca   # Secret with a `ca.crt` PEM bundle
+      mode: require                        # only "require" today
+```
+
+Both fields are independent and optional; either alone is useful, together they're belt-and-suspenders.
+
+### `allowCidrs` — source-IP allowlist
+
+Inbound connections are accepted only from the listed CIDRs, matched against the **real TCP peer** (not a header). An empty/absent list means no restriction (never deny-all); a connection from outside the list gets `403`. Entries must be CIDRs — a bare IP is rejected at `cast`, so use `203.0.113.4/32` for a single host.
+
+:::caution
+`allowCidrs` is only meaningful when the ingress is the **direct TCP terminator**. If you put an L4 load balancer in front of the node, the peer the ingress sees is the LB, not the client — so the allowlist would match the wrong address. (PROXY-protocol support to recover the real client IP behind an LB is not yet available.)
+:::
+
+### `clientCert` — inbound mTLS
+
+When set, the ingress **requires and verifies a client certificate** during the TLS handshake for that host, against the CA bundle in `caSecret` (a Secret with a `ca.crt` data key; same three ref shapes as `tls.secret`). Connections without a cert the CA trusts fail the handshake. This is the **primary** lockdown control — but only as strong as the CA is specific to you: a CDN's *shared* origin-pull CA proves "some account on that CDN," not yours. Use an **account-specific** CA (e.g. Cloudflare's per-zone Authenticated Origin Pulls certificate) for a real lock. Rotate the CA by updating the Secret — the new bundle takes effect on the next reconcile; removing `clientCert` disables mTLS for the host.
+
+The control **fails closed** so a misconfiguration can't quietly leave the origin open:
+
+- **Plaintext HTTP is refused.** Client certs are only exchanged over TLS (`:443`), so the ingress returns `403` for any request to an mTLS host over plain `http://` (`:80`) — you can't reach the origin by dropping to HTTP.
+- **An unresolved CA refuses traffic.** If the `caSecret` is missing, lacks `ca.crt`, or contains no valid certificate, the ingress returns `503` for that host rather than serving it without verifying the client. So a typo'd `caSecret` protects the origin (and is visible as a `503` + a `clientCert: caSecret …` warning in the `runed` log), it doesn't expose it.
+
+### Notes
+
+- These controls apply only to the external `expose` / ingress path. East-west (service-to-service) traffic over the cluster VIP is unaffected.
+- **Lockout risk:** a wrong CIDR list or a bad `caSecret` blocks *all* traffic to the host, including your CDN. `cast` validates both (CIDRs parse; `caSecret` is required), but double-check the values before relying on them.
+- **Health checks are unaffected** — liveness/readiness probes dial the container directly, not through the ingress, so neither control can break readiness.
+
 ## Common gotchas
 
 - **DNS not propagated yet.** The ACME provider must reach your node. If `dig +short api.example.com` doesn't return your edge node's IP from a public DNS server, the challenge will fail. Wait, then the orchestrator will retry on its own.
