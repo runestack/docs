@@ -35,11 +35,12 @@ Two storage classes are seeded automatically on first boot:
 `[storage] defaultStorageClass = "..."` in the runefile.
 
 The cloud-backed drivers — `do-volume` (DigitalOcean Volumes),
-`hcloud-volume` (Hetzner Cloud) and `aws-ebs` (Amazon EBS) — are shipped
-in-tree but do **not** seed a class. Operators define one explicitly with
-their region/zone and, where the provider needs it, an API-token secret
-reference (`aws-ebs` instead reads AWS credentials from the node's
-instance role).
+`hcloud-volume` (Hetzner Cloud), `aws-ebs` (Amazon EBS) and `gce-pd`
+(Google Persistent Disks) — are shipped in-tree but do **not** seed a
+class. Operators define one explicitly with their region/zone and, where
+the provider needs it, an API-token secret reference (`aws-ebs` and
+`gce-pd` instead read credentials from the node's instance role / service
+account).
 
 ## Volume lifecycle
 
@@ -159,9 +160,9 @@ rune volume restore web-data-restored \
 
 The `local` driver implements snapshots as filesystem copies (`cp -a`).
 `local-host` does not support snapshots; the API rejects the write up-front.
-`do-volume` uses DigitalOcean's snapshot API and `aws-ebs` uses the EBS
-snapshot API. `hcloud-volume` does not support snapshots (Hetzner Cloud
-has no volume-snapshot API).
+`do-volume` uses DigitalOcean's snapshot API, `aws-ebs` uses the EBS
+snapshot API, and `gce-pd` uses GCE disk snapshots. `hcloud-volume` does
+not support snapshots (Hetzner Cloud has no volume-snapshot API).
 
 ## Drivers in v1
 
@@ -172,8 +173,9 @@ has no volume-snapshot API).
 | `do-volume`  | block (cloud)| yes       | RWO          | DigitalOcean Volumes; auth via secret. |
 | `hcloud-volume` | block (cloud) | no     | RWO          | Hetzner Cloud volumes; offline expand only, no snapshots. |
 | `aws-ebs`    | block (cloud)| yes       | RWO          | Amazon EBS; AZ-pinned, online expand, auth via instance role. |
+| `gce-pd`     | block (cloud)| yes       | RWO          | Google Persistent Disks; zone-pinned, online expand, auth via service account. |
 
-Adding a backend (GCP PD, Azure Disk, …) is a single Go package
+Adding a backend (Azure Disk, …) is a single Go package
 implementing the `driver.Driver` interface — no controller, scheduler, runner,
 API or CLI changes required. The interface contract and the shared
 conformance suite live in
@@ -187,7 +189,7 @@ Driver `Provision` requests carry topology labels for placement-aware backends:
 | Label                    | Used by      | Meaning                                                |
 | ------------------------ | ------------ | ------------------------------------------------------ |
 | `rune.io/region`         | `do-volume`, `hcloud-volume` | Cloud region / location (e.g. `nyc3`, `nbg1`).         |
-| `rune.io/zone`           | `aws-ebs`    | Availability zone (e.g. `eu-west-2a`). EBS volumes are AZ-pinned. |
+| `rune.io/zone`           | `aws-ebs`, `gce-pd` | Availability zone (e.g. `eu-west-2a`, `europe-west2-a`). EBS volumes / GCE PDs are zone-pinned. |
 | `rune.io/host-path-root` | `local-host` | Pins a `local-host` volume to a node's allowlist root. |
 
 `StorageClass.allowedTopologies` constrains placement at the class level.
