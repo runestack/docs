@@ -1,0 +1,64 @@
+---
+title: The web dashboard
+description: Enable the embedded dashboard and open it locally or against a remote server.
+---
+
+`runed` ships an embedded **web dashboard** — a single-page app served straight from the server binary — for live cluster operations: services, instances, logs, exec, secrets, networking, and identity/RBAC. It uses the same identity and policies as the CLI, and it's **enabled by default**.
+
+## Ports
+
+The dashboard is served by the server's HTTP listener, separate from the gRPC API:
+
+| Port    | Used by        | Purpose                                                              |
+| ------- | -------------- | ------------------------------------------------------------------- |
+| `:7863` | the `rune` CLI | gRPC API                                                            |
+| `:7861` | your browser   | dashboard (`/ui`), `/healthz`, and same-origin `/grpc` + `/v1` auth |
+
+## Open it
+
+```sh
+rune ui
+```
+
+[`rune ui`](/cli/ui/) opens the dashboard in your browser, signed in with your CLI session. By default it **tunnels the dashboard over your authenticated connection** and opens it on `localhost` — no exposed port, no SSH, and it satisfies `require_tls`. See the command page for `--url` (direct, for TLS-fronted production) and `--no-open`.
+
+## Configuration
+
+Configure the dashboard under `ui:` in the [runefile](/reference/runefile/):
+
+```yaml
+server:
+  http_address: ":7861"     # where the dashboard + gateway listen
+ui:
+  enabled: true             # serve the dashboard (default)
+  path: "/ui"               # mount point (default)
+  handoff_enabled: true     # allow the `rune ui` one-time-code sign-in (default)
+  handoff_ttl: 60s          # lifetime of a handoff code (default)
+  require_tls: true         # refuse plaintext on a non-loopback address (default)
+```
+
+### `require_tls`
+
+With `require_tls: true` (the default) and no TLS configured, the server **binds the HTTP listener to loopback only** and won't serve the dashboard over plaintext on a public address — so bearer-token traffic is never exposed on the wire. This is why `rune ui`'s loopback tunnel "just works" while a bare `http://<public-ip>:7861/ui` does not.
+
+To serve the dashboard directly over the network, terminate TLS (a real domain + certificate, or a TLS-terminating reverse proxy) and then use `rune ui --url https://your-domain`.
+
+## Accessing a remote server
+
+The dashboard and CLI share the same client/server split: the CLI is a thin gRPC client, `runed` is the control plane. Point the CLI at a remote server and everything works over gRPC:
+
+```sh
+rune login --server prod.example.com
+rune ui
+```
+
+Two things to know for remote setups:
+
+- **Bootstrap and admin are localhost-only by default.** Run the initial [`rune admin bootstrap`](/start/bootstrap/) _on the server_, create a token, then log in with it from your machine. To manage users / tokens / RBAC remotely (CLI or dashboard), set [`auth.allow_remote_admin: true`](/operations/security/) — and use TLS when you do.
+- **`rune ui` rides the `port-forward` permission.** The tunnel uses the same RBAC as [`rune port-forward`](/cli/port-forward/) (the `port-forward` verb on `services`), so an operator who can already port-forward can open the dashboard remotely with no extra ports opened.
+
+## See also
+
+- [`rune ui`](/cli/ui/) — the command reference
+- [Security hardening](/operations/security/) — TLS, `allow_remote_admin`
+- [Identity & RBAC](/concepts/identity-rbac/) — the policies the dashboard enforces

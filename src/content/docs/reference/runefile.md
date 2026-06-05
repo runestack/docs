@@ -78,7 +78,7 @@ docker:
 | Field        | Default          | Notes                                       |
 | ------------ | ---------------- | ------------------------------------------- |
 | `grpc-addr`  | `:7863`          | gRPC listen address.                        |
-| `http-addr`  | `:7861`          | REST gateway listen address.                |
+| `http-addr`  | `:7861`          | REST gateway + [web dashboard](/guides/dashboard/) listen address. |
 | `data-dir`   | OS-specific      | BadgerDB + state. Persist across restarts.  |
 | `log-level`  | `info`           | `debug`, `info`, `warn`, `error`.           |
 | `log-format` | `text`           | `text` or `json`.                           |
@@ -92,6 +92,18 @@ docker:
 | `tls.enabled`        | `false` | **Recommend `true` in production.**                     |
 | `tls.cert-file`      | —       | Server cert.                                            |
 | `tls.key-file`       | —       | Server key.                                             |
+
+### `ui`
+
+The embedded [web dashboard](/guides/dashboard/), served on `server.http-addr`.
+
+| Field             | Default | Notes                                                                                     |
+| ----------------- | ------- | ----------------------------------------------------------------------------------------- |
+| `enabled`         | `true`  | Serve the dashboard at `path`.                                                            |
+| `path`            | `/ui`   | Mount point.                                                                              |
+| `handoff_enabled` | `true`  | Allow the [`rune ui`](/cli/ui/) one-time-code browser sign-in.                            |
+| `handoff_ttl`     | `60s`   | Lifetime of a handoff code.                                                               |
+| `require_tls`     | `true`  | Without TLS, bind the HTTP listener to loopback only — no plaintext on a public address.  |
 
 ### `crypto.kek`
 
