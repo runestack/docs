@@ -28,6 +28,7 @@ Most subcommands also accept:
 | ------------------ | ------------------------------------------------------------------- |
 | **Core**           | [`cast`](/cli/cast/), [`get`](/cli/get/), [`scale`](/cli/scale/), [`restart` / `stop`](/cli/restart-stop/) |
 | **Inspection**     | [`logs`](/cli/logs/), [`exec`](/cli/exec/), [`port-forward`](/cli/port-forward/), [`health`](/cli/health/), [`deps`](/cli/deps/) |
+| **Dashboard**      | [`ui`](/cli/ui/)                                                    |
 | **Resources**      | [`create`](/cli/create/), [`delete`](/cli/delete/)                  |
 | **Authoring**      | [`lint`](/cli/lint/), [`pack`](/cli/pack/)                          |
 | **Auth & config**  | [`login` / `config`](/cli/login-config/), [`admin`](/cli/admin/)    |
