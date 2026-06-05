@@ -1,24 +1,20 @@
-# build output
-dist/
-# generated types
-.astro/
-# generated LLM corpus
-public/llms.txt
-public/llms-full.md
-
 # dependencies
 node_modules/
 
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# markline / next build artifacts
+.markline/
+.next/
+out/
 
+# search index + generated llms files (regenerated on build)
+public/pagefind/
+public/llms.txt
+public/llms-full.txt
 
 # environment variables
 .env
-.env.production
+.env.*
 
-# macOS-specific files
+# misc
 .DS_Store
+*.log

@@ -12,33 +12,24 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build site
-        env:
-          # Optional: set these repo variables to override the defaults in astro.config.mjs
-          # SITE_URL=https://docs.runehq.io  SITE_BASE=/
-          SITE_URL: ${{ vars.SITE_URL }}
-          SITE_BASE: ${{ vars.SITE_BASE }}
-        run: npm run build
-
+      - run: npm install
+      # Served from the custom domain docs.runestack.io (see public/CNAME),
+      # so the site builds at the root path — no MARKLINE_BASE_PATH.
+      - run: npx markline export
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: out
 
   deploy:
     needs: build

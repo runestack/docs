@@ -1,0 +1,164 @@
+---
+title: rune admin
+lede: Server administration — bootstrap, users, policies, tokens, and registry credentials.
+---
+
+`rune admin *` covers everything that's not day-to-day workload management. Most of it is gated to localhost on the server side unless `auth.allow_remote_admin` is enabled.
+
+## Subcommand groups
+
+```sh
+rune admin bootstrap
+rune admin user      [create | list]
+rune admin service   [create]
+rune admin policy    [create | get | list | attach | detach | delete]
+rune admin token     [create | list | revoke]
+rune admin registry [add | list | remove]
+```
+
+## `rune admin bootstrap`
+
+Mints the root token. Only works on a fresh server.
+
+```sh
+rune admin bootstrap --out-file ~/.rune/token
+```
+
+| Flag         | Notes                                              |
+| ------------ | -------------------------------------------------- |
+| `--out-file` | Write token to file (`0600`). Else stdout.         |
+
+## `rune admin user`
+
+```sh
+# Create or update
+rune admin user create alice --email alice@example.com
+
+# List
+rune admin user list
+```
+
+User fields: `name`, `email`, `policies` (attached). Use `policy attach` / `policy detach` to manage policies.
+
+## `rune admin service`
+
+Mint **service accounts** — non-human identities for CI pipelines, deploy bots, and other automation. They authenticate exactly like users (bearer token), but their tokens carry `subject-type=service` so they're easy to audit and revoke separately from human users.
+
+```sh
+# Scoped CI token for one namespace (recommended).
+rune admin service create ci-stg \
+  --namespace stg \
+  --permissions cast \
+  --ttl 90d \
+  --description "GitHub Actions deploys to stg" \
+  --out-file ci-stg.token
+
+# Cluster-wide read-only token (no --namespace).
+rune admin service create dashboard \
+  --permissions read \
+  --ttl 720h \
+  --out-file dashboard.token
+```
+
+| Flag             | Notes                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------- |
+| `--namespace`    | Pin granted permissions to this namespace. Omit for cluster-wide.                           |
+| `--permissions`  | One or more of `cast`, `read`, `admin` (comma-separated, default `cast`).                   |
+| `--ttl`          | Token lifetime (e.g. `720h`, `90d`). Omit for no expiry.                                    |
+| `--description`  | Free-text description (shown in `admin token list`).                                        |
+| `--out-file`     | Write token to file (mode `0600`) instead of stdout.                                        |
+
+**Permission shorthands:**
+
+| Shorthand | Resolves to    | Use for                                                              |
+| --------- | -------------- | -------------------------------------------------------------------- |
+| `cast`    | `cast` policy  | CI deploys (`rune cast` + read instances/logs). Recommended for CI.  |
+| `read`    | `readonly`     | Dashboards, monitoring exporters.                                    |
+| `admin`   | `admin`        | Full access. Use sparingly.                                          |
+
+When `--namespace` is given, the granted policy is **derived** — a copy of the built-in is written as `<service>-<perm>` (e.g. `ci-stg-cast`) with every rule pinned to that namespace, so the service account cannot reach into other namespaces. Rules touching the cluster-scoped `namespaces` resource stay unpinned so `rune cast --create-namespace` still works.
+
+The plaintext token is printed (or written to `--out-file`) **once**. Treat it like a password.
+
+## `rune admin policy`
+
+```sh
+# Create from a file
+rune admin policy create -f policy.yaml
+
+# Inspect
+rune admin policy get readwrite
+rune admin policy list
+
+# Attach / detach
+rune admin policy attach readwrite --to-user alice
+rune admin policy detach readwrite --from-user alice
+
+# Delete
+rune admin policy delete obsolete-policy
+```
+
+Policy YAML:
+
+```yaml
+name: editor-prod
+description: Edit services in 'prod' only
+rules:
+  - resource: service
+    verbs: [get, list, watch, create, update, delete, scale, exec]
+    namespace: prod
+```
+
+Built-in policies (`root`, `admin`, `readwrite`, `readonly`, `cast`) are seeded automatically and cannot be modified or deleted.
+
+## `rune admin token`
+
+```sh
+# Create
+rune admin token create alice-laptop \
+  --subject-name alice \
+  --policies readwrite \
+  --ttl 720h \
+  --out-file ./alice.token
+
+# List
+rune admin token list
+
+# Revoke
+rune admin token revoke <token-id>
+```
+
+| Flag              | Notes                                                          |
+| ----------------- | -------------------------------------------------------------- |
+| `--subject-name`  | Existing user name.                                            |
+| `--subject-id`    | Existing user ID (alternative to name).                        |
+| `--policies`      | Comma-separated policy names (attached if missing).            |
+| `--ttl`           | Duration (`720h`, `30d`). Omit for no expiry.                  |
+| `--description`   | Free-text description.                                         |
+| `--out-file`      | Write token secret to file (mode `0600`). Else stdout.         |
+
+The plaintext secret is printed once. Store it like a password.
+
+## `rune admin registry`
+
+Manage Docker registry credentials so `runed` can pull private images:
+
+```sh
+rune admin registry add \
+  --name ghcr-private \
+  --server ghcr.io \
+  --username my-bot \
+  --password-file ./ghcr.token
+
+rune admin registry list
+
+rune admin registry remove ghcr-private
+```
+
+ECR is supported via AWS credentials inferred from the host environment (or the runefile).
+
+## See also
+
+- [Identity & RBAC](/concepts/identity-rbac)
+- [Bootstrap & first user](/start/bootstrap)
+- [Security hardening](/operations/security)

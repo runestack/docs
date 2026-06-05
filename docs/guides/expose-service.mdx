@@ -1,0 +1,214 @@
+---
+title: Expose a service to the internet
+lede: Add an `expose:` block to your service spec, point DNS at an edge node, and let Rune's ingress controller terminate HTTPS with an automatically-issued Let's Encrypt certificate.
+---
+
+This guide walks you from "service running internally" to "publicly reachable on `https://api.example.com`" using Rune's built-in ingress controller and ACME orchestrator. It assumes you already have a single-node cluster running (see [Quick start](/start/quick-start)) on a host with a public IP.
+
+If you're starting from scratch on a fresh VM, skip to the [DigitalOcean deploy guide](/guides/digital-ocean-deploy) which covers the host-side setup as well.
+
+## What you need
+
+1. A `runed` node reachable from the public internet on `:80` and `:443`.
+2. The node started with `--node-role=edge` (this enables the ingress controller and the ACME orchestrator on that node). **Tip:** if you're on a laptop using `--dev-mode`, edge is enabled automatically — no separate flag needed.
+3. A DNS A record pointing your hostname at the node's public IP. ACME's HTTP-01 challenge requires this — the certificate authority will hit `http://<host>/.well-known/acme-challenge/<token>` and expect to land on your node.
+4. An `acme.email` configured. Let's Encrypt rejects accounts without a contact address.
+
+## Step 1 — start `runed` as an edge node
+
+The minimum extra flags on top of a normal startup:
+
+```bash
+runed \
+  --data-dir=/var/lib/rune \
+  --node-role=edge \
+  --acme-email=ops@example.com
+```
+
+Or, equivalently, in `/etc/rune/runefile.toml`:
+
+```toml
+data_dir = "/var/lib/rune"
+
+[node]
+role = "edge"
+
+[acme]
+email = "ops@example.com"
+# directory = ""  # defaults to Let's Encrypt production
+```
+
+Restart `runed`. You'll see two new lines in the log:
+
+```
+Ingress + ACME enabled (edge node) http=:80 https=:443
+acme orchestrator started
+```
+
+If the ports fail to bind (`permission denied`), either run `runed` as root, give the binary the `cap_net_bind_service` capability, or run in `--dev-mode` for laptop testing.
+
+## Step 2 — add `expose:` to your service
+
+```yaml
+service:
+  name: api
+  namespace: default
+  image: ghcr.io/example/api:1.4.0
+  scale: 2
+  ports:
+    - { name: http, port: 8080 }
+  expose:
+    host: api.example.com
+    port: http
+    tls:
+      auto: true            # use ACME (default Let's Encrypt prod)
+```
+
+Apply it:
+
+```bash
+rune cast api.yaml
+```
+
+That's the entire developer-facing change. The orchestrator publishes endpoints, the edge node adds the route to its ingress router, and the ACME orchestrator queues a certificate request.
+
+## Step 3 — watch the certificate land
+
+```bash
+$ rune get ingresses
+NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
+default    api      api.example.com  acme  pending   -
+
+# … 10–30 seconds later …
+
+$ rune get ingresses
+NAMESPACE  SERVICE  HOST             TLS   CERT      EXPIRES
+default    api      api.example.com  acme  ready     89d
+```
+
+For more detail (including the last error if a request failed):
+
+```bash
+rune get ingress api -n default -o yaml
+```
+
+The orchestrator retries on failure with exponential backoff, capped at the `acme_renewal_window` (default: 30 days before expiry). Existing certificates keep serving traffic while a renewal is in flight, so a temporary issuance error never causes a public-facing outage.
+
+## Step 4 — verify
+
+```bash
+curl -I https://api.example.com/healthz
+# HTTP/2 200
+# server: rune-ingress
+```
+
+`Server: rune-ingress` confirms the request went through Rune's edge proxy. The TLS handshake will use the freshly issued certificate.
+
+## Manual TLS (BYO certificate)
+
+If you manage certificates out of band — wildcard certs from your CA, Cloudflare Origin Certs, mTLS rigs, etc. — set `tls.mode: manual` and reference a `Secret` containing the cert and key:
+
+```yaml
+service:
+  name: api
+  expose:
+    host: api.example.com
+    port: http
+    tls:
+      mode: manual
+      secret: api-tls           # Secret must contain `tls.crt` and `tls.key`
+```
+
+`tls.secret` accepts three shapes — same convention as other typed refs in Rune:
+
+| Shape                                       | Resolves to                              |
+| ------------------------------------------- | ---------------------------------------- |
+| `api-tls`                                   | service's own namespace                  |
+| `shared/cf-origin`                          | cross-namespace shorthand                |
+| `secret:cf-origin.shared.rune`              | FQDN secret ref                          |
+
+The cross-namespace forms are the right pick for a single wildcard cert (or a Cloudflare Origin Cert) you want to share across services in many namespaces — park it once in `shared`, reference it everywhere.
+
+Create the secret as a normal Rune secret containing `tls.crt` and `tls.key`:
+
+```yaml
+secret:
+  name: api-tls
+  namespace: default
+  data:
+    tls.crt: |
+      -----BEGIN CERTIFICATE-----
+      ...
+      -----END CERTIFICATE-----
+    tls.key: |
+      -----BEGIN PRIVATE KEY-----
+      ...
+      -----END PRIVATE KEY-----
+```
+
+```bash
+rune cast api-tls.yaml
+```
+
+Rotate by updating the secret — the ingress controller observes the new `Secret.Version` on its next reconcile tick (default 2 s) and pushes the new cert into the loader. No service restart needed.
+
+## Origin hardening (lock the origin to your front door)
+
+A CDN-fronted origin is still reachable by **direct IP** — anyone who learns the node's address can bypass the CDN and its WAF / auth / rate-limiting. Checking the client IP in your app doesn't help: the app-visible IP comes from `X-Forwarded-For`, which the client controls, so it's trivially spoofable. Rune enforces both of the following **at the ingress listener**, against signals the client can't forge:
+
+```yaml
+service:
+  name: api
+  expose:
+    host: api.example.com
+    port: http
+    tls: { mode: manual, secret: shared/cf-origin-cert }
+
+    # Accept connections only from these source ranges (optional).
+    allowCidrs:
+      - 173.245.48.0/20        # e.g. a CDN's published egress ranges
+      - 103.21.244.0/22
+
+    # Require a trusted client certificate / mTLS (optional).
+    clientCert:
+      caSecret: shared/origin-client-ca   # Secret with a `ca.crt` PEM bundle
+      mode: require                        # only "require" today
+```
+
+Both fields are independent and optional; either alone is useful, together they're belt-and-suspenders.
+
+### `allowCidrs` — source-IP allowlist
+
+Inbound connections are accepted only from the listed CIDRs, matched against the **real TCP peer** (not a header). An empty/absent list means no restriction (never deny-all); a connection from outside the list gets `403`. Entries must be CIDRs — a bare IP is rejected at `cast`, so use `203.0.113.4/32` for a single host.
+
+:::caution
+`allowCidrs` is only meaningful when the ingress is the **direct TCP terminator**. If you put an L4 load balancer in front of the node, the peer the ingress sees is the LB, not the client — so the allowlist would match the wrong address. (PROXY-protocol support to recover the real client IP behind an LB is not yet available.)
+:::
+
+### `clientCert` — inbound mTLS
+
+When set, the ingress **requires and verifies a client certificate** during the TLS handshake for that host, against the CA bundle in `caSecret` (a Secret with a `ca.crt` data key; same three ref shapes as `tls.secret`). Connections without a cert the CA trusts fail the handshake. This is the **primary** lockdown control — but only as strong as the CA is specific to you: a CDN's *shared* origin-pull CA proves "some account on that CDN," not yours. Use an **account-specific** CA (e.g. Cloudflare's per-zone Authenticated Origin Pulls certificate) for a real lock. Rotate the CA by updating the Secret — the new bundle takes effect on the next reconcile; removing `clientCert` disables mTLS for the host.
+
+The control **fails closed** so a misconfiguration can't quietly leave the origin open:
+
+- **Plaintext HTTP is refused.** Client certs are only exchanged over TLS (`:443`), so the ingress returns `403` for any request to an mTLS host over plain `http://` (`:80`) — you can't reach the origin by dropping to HTTP.
+- **An unresolved CA refuses traffic.** If the `caSecret` is missing, lacks `ca.crt`, or contains no valid certificate, the ingress returns `503` for that host rather than serving it without verifying the client. So a typo'd `caSecret` protects the origin (and is visible as a `503` + a `clientCert: caSecret …` warning in the `runed` log), it doesn't expose it.
+
+### Notes
+
+- These controls apply only to the external `expose` / ingress path. East-west (service-to-service) traffic over the cluster VIP is unaffected.
+- **Lockout risk:** a wrong CIDR list or a bad `caSecret` blocks *all* traffic to the host, including your CDN. `cast` validates both (CIDRs parse; `caSecret` is required), but double-check the values before relying on them.
+- **Health checks are unaffected** — liveness/readiness probes dial the container directly, not through the ingress, so neither control can break readiness.
+
+## Common gotchas
+
+- **DNS not propagated yet.** The ACME provider must reach your node. If `dig +short api.example.com` doesn't return your edge node's IP from a public DNS server, the challenge will fail. Wait, then the orchestrator will retry on its own.
+- **Port 80 blocked upstream.** HTTP-01 needs port 80 specifically. Cloud firewalls and security groups must allow inbound 80 *and* 443. (If only 443 is allowed, switch to manual TLS.)
+- **`acme.directory` left at default in CI.** Tests should point at a Pebble URL — Let's Encrypt's production endpoint has rate limits that you will hit.
+- **Multiple edge nodes.** Phase 1 ships single-node ingress. Multi-node leader election lands with Phase 2; for now run one edge node and front it with your cloud's L4 load balancer if you need HA.
+
+## Reference
+
+- [`rune get ingress`](/reference/cli-network/#rune-get-ingresses) — list, inspect.
+- [`networking.md`](/concepts/networking) — what's happening behind the scenes.
+- [`runefile.md`](/reference/runefile) — every `acme.*` and `ingress.*` knob.

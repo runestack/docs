@@ -1,0 +1,95 @@
+---
+title: rune snapshot
+lede: Manage volume snapshots — list, get, create, delete, restore.
+---
+
+```sh
+rune snapshot <subcommand> [flags]
+rune snap     <subcommand> [flags]    # short alias
+```
+
+A `Snapshot` is a namespaced point-in-time copy of one volume. See the
+[storage concept](/concepts/storage) for the lifecycle.
+
+Only drivers that advertise `Capabilities.Snapshots = true` accept snapshot
+writes. The API server rejects unsupported writes up-front (`local-host`
+volumes cannot be snapshotted, for example).
+
+## Subcommands
+
+| Command                          | Purpose                                            |
+| -------------------------------- | -------------------------------------------------- |
+| `rune snapshot list`             | List snapshots in a namespace.                     |
+| `rune snapshot get <name>`       | Show one snapshot.                                 |
+| `rune snapshot create <volume>`  | Snapshot an existing volume.                       |
+| `rune snapshot delete <name>`    | Delete a snapshot (two-phase via the driver).      |
+| `rune snapshot restore <name>`   | Provision a new volume from a snapshot.            |
+
+## Examples
+
+```sh
+# List
+rune snapshot list -n prod
+
+# Across all namespaces
+rune snap list -A
+
+# Take an ad-hoc snapshot — name auto-generated
+rune snapshot create pgdata-postgres-0 -n prod
+
+# Take a named snapshot
+rune snapshot create pgdata-postgres-0 \
+  --name pgdata-2025-11-15 \
+  -n prod
+
+# Inspect
+rune snapshot get pgdata-2025-11-15 -n prod -o yaml
+
+# Delete
+rune snapshot delete pgdata-2025-11-15 -n prod
+
+# Restore into a new volume row
+rune snapshot restore pgdata-2025-11-15 \
+  --as pgdata-restore \
+  -n prod
+```
+
+`rune snapshot restore` is a thin alias of [`rune volume restore`](/cli/volume).
+
+## Flags
+
+### `list`
+
+| Flag                   | Default   | Notes                                  |
+| ---------------------- | --------- | -------------------------------------- |
+| `-n, --namespace`      | `default` | Target namespace.                      |
+| `-A, --all-namespaces` | false     | List across every namespace.           |
+| `-o, --output`         | `table`   | `table`, `json`, `yaml`, `name`.       |
+| `-l, --selector`       | —         | Label selector.                        |
+
+### `get <name>` / `delete <name>`
+
+| Flag                | Default   | Notes                |
+| ------------------- | --------- | -------------------- |
+| `-n, --namespace`   | `default` | Target namespace.    |
+| `-o, --output`      | `table`   | `get` only.          |
+
+### `create <volume>`
+
+| Flag                  | Default                    | Notes                                              |
+| --------------------- | -------------------------- | -------------------------------------------------- |
+| `-n, --namespace`     | `default`                  | Source volume namespace.                           |
+| `--name`              | `<volume>-snap-<unix>`     | Snapshot name.                                     |
+| `--ensure-namespace`  | false                      | Auto-create the target namespace if missing.       |
+
+### `restore <snapshot>`
+
+| Flag                | Default   | Notes                                              |
+| ------------------- | --------- | -------------------------------------------------- |
+| `-n, --namespace`   | `default` | Source snapshot namespace.                         |
+| `--as`              | —         | Required. Name of the new volume.                  |
+
+## See also
+
+- [`rune volume`](/cli/volume) · [`rune storageclass`](/cli/storageclass)
+- [Persistent storage guide](/guides/persistent-storage)

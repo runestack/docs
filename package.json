@@ -1,18 +1,13 @@
 {
-  "name": "docs",
-  "type": "module",
-  "version": "0.0.1",
+  "name": "ml-probe",
+  "private": true,
   "scripts": {
-    "build:llms": "node ./scripts/generate-llms.mjs",
-    "dev": "astro dev",
-    "start": "astro dev",
-    "build": "npm run build:llms && astro build",
-    "preview": "astro preview",
-    "astro": "astro"
+    "dev": "markline dev",
+    "build": "markline build",
+    "start": "markline start",
+    "export": "markline export"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.38.4",
-    "astro": "^6.1.9",
-    "sharp": "^0.34.5"
+    "@markline/markline": "^0.1.0"
   }
 }

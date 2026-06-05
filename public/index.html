@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rune — single-binary orchestration</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="landing.css" />
+</head>
+<body>
+
+<!-- =================== NAV =================== -->
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="#top">rune<span class="dot">.</span><span class="tag">docs</span></a>
+    <nav class="nav-links">
+      <a href="/start/what-is-rune">Docs</a>
+      <a href="/concepts/architecture">Concepts</a>
+      <a href="/cli/overview">CLI</a>
+      <a href="/reference/service-spec">Reference</a>
+      <a href="#compare">Compare</a>
+    </nav>
+    <div class="nav-right">
+      <button class="kbtn" id="kbtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg><span class="ktxt">Search docs…</span><kbd>⌘K</kbd></button>
+      <a class="gh" href="https://github.com/runestack/rune" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.7c-2.78.62-3.37-1.22-3.37-1.22-.46-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.36-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05A9.4 9.4 0 0112 6.84c.85 0 1.71.12 2.51.34 1.91-1.32 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.81c0 .27.18.6.69.49A10.06 10.06 0 0022 12.25C22 6.58 17.52 2 12 2z"/></svg><b>3.8k</b><span class="ghl">stars</span></a>
+      <a class="btn primary sm" href="/start/quick-start">Get started</a>
+    </div>
+  </div>
+</header>
+
+<a id="top"></a>
+<div class="page">
+<div class="rails">
+
+  <!-- =================== HERO =================== -->
+  <section class="section">
+    <div class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">Rune <span class="dot">·</span> single-binary orchestration</div>
+          <h1 class="display">Orchestration that fits in <em>one binary</em>.</h1>
+          <p class="lede">Rune runs your services as containers or raw processes, wires up networking, secrets, storage and RBAC, and gives you a Kubernetes-grade workflow — driven entirely from the command line. One binary on the server. One CLI in your hand. Self-host it anywhere.</p>
+          <div class="hero-cta">
+            <a class="btn primary" href="/start/quick-start">Quick start <span class="arr">→</span></a>
+            <a class="btn ghost" href="/start/what-is-rune">Read the docs</a>
+          </div>
+          <div class="install">
+            <code><span class="pr">$</span> curl -fsSL https://get.runestack.io | sh</code>
+            <button class="copy" data-copy="curl -fsSL https://get.runestack.io | sh" title="Copy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9h9a1 1 0 011 1v9a1 1 0 01-1 1h-9a1 1 0 01-1-1v-9a1 1 0 011-1zM5 15a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2"/></svg></button>
+          </div>
+          <div class="hero-meta">
+            <span><i></i>single binary · ~28&nbsp;MB</span>
+            <span><i></i>no control plane</span>
+            <span><i></i>Linux · macOS</span>
+          </div>
+        </div>
+        <div class="term" id="hero-term">
+          <div class="term-bar"><div class="dots"><i></i><i></i><i></i></div><div class="ttl">ore@rune-prod — rune cli</div></div>
+          <div class="term-body" id="term-body"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== RUNS-ON STRIP =================== -->
+  <section class="section">
+    <div class="strip">
+      <span class="lbl">Runs on</span>
+      <div class="chips">
+        <span class="chip">DigitalOcean</span>
+        <span class="chip">AWS&nbsp;EC2</span>
+        <span class="chip">Hetzner</span>
+        <span class="chip">Google&nbsp;Cloud</span>
+        <span class="chip">Docker</span>
+        <span class="chip">systemd</span>
+        <span class="chip">Terraform</span>
+        <span class="chip">GitHub&nbsp;Actions</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== PILLARS =================== -->
+  <section class="section reveal">
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pn">01</div>
+        <h3>One binary</h3>
+        <p>No etcd, no control-plane sprawl. <code class="mono">runed</code> is a single static binary you drop on a box and start.</p>
+      </div>
+      <div class="pillar">
+        <div class="pn">02</div>
+        <h3>Containers <span class="mono" style="color:var(--text-3)">or</span> processes</h3>
+        <p>Schedule OCI images or plain executables side by side, under one scheduler with the same lifecycle.</p>
+      </div>
+      <div class="pillar">
+        <div class="pn">03</div>
+        <h3>CLI-driven</h3>
+        <p>Everything is a <code class="mono">rune</code> command — cast, scale, log, exec. Declarative files, imperative speed.</p>
+      </div>
+      <div class="pillar">
+        <div class="pn">04</div>
+        <h3>Yours to host</h3>
+        <p>Provision with Terraform on any cloud, or a single droplet. Your data and keys never leave your box.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== CONCEPTS =================== -->
+  <section class="section" id="concepts">
+    <div class="sec-head"><span class="num">01</span><span>Core concepts</span><span class="ln"></span></div>
+    <div class="block" style="padding-top:28px;padding-bottom:0">
+      <div class="block-head">
+        <h2 class="title">A small set of primitives, <em>composed</em>.</h2>
+        <p class="lede">Rune borrows the mental model you already know from Kubernetes and Nomad — services, namespaces, secrets, policy — and strips it to the parts that earn their keep.</p>
+      </div>
+    </div>
+    <div class="concepts">
+      <a class="concept" href="/concepts/services">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7v7H4zM13 13h7v7h-7zM13 4h7v5h-7zM4 13h7v7H4z"/></svg>
+        <div class="c-name">Services</div>
+        <div class="c-desc">Declarative workloads with image, instances, ports and health checks.</div>
+        <div class="c-arr">concepts/services →</div>
+      </a>
+      <a class="concept" href="/concepts/instances">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <div class="c-name">Instances</div>
+        <div class="c-desc">The running replicas of a service, scheduled across your nodes.</div>
+        <div class="c-arr">concepts/instances →</div>
+      </a>
+      <a class="concept" href="/concepts/namespaces">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4zM3 12l9 4 9-4M3 17l9 4 9-4"/></svg>
+        <div class="c-name">Namespaces</div>
+        <div class="c-desc">Logical partitions that scope services, secrets and policy.</div>
+        <div class="c-arr">concepts/namespaces →</div>
+      </a>
+      <a class="concept" href="/concepts/runesets">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7zM12 12l9-5M12 12v10M12 12L3 7"/></svg>
+        <div class="c-name">Runesets</div>
+        <div class="c-desc">Packaged, versioned bundles of services — your deploy unit.</div>
+        <div class="c-arr">concepts/runesets →</div>
+      </a>
+      <a class="concept" href="/concepts/secrets-configmaps">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11V8a6 6 0 0112 0v3M5 11h14v10H5zM12 15v3"/></svg>
+        <div class="c-name">Secrets &amp; Config</div>
+        <div class="c-desc">Envelope-encrypted secrets and plaintext configmaps, mounted at deploy.</div>
+        <div class="c-arr">concepts/secrets →</div>
+      </a>
+      <a class="concept" href="/concepts/networking">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/></svg>
+        <div class="c-name">Networking</div>
+        <div class="c-desc">Service discovery plus default-deny network policy, built in.</div>
+        <div class="c-arr">concepts/networking →</div>
+      </a>
+      <a class="concept" href="/concepts/storage">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+        <div class="c-name">Storage</div>
+        <div class="c-desc">Volumes, storage classes and snapshots for stateful services.</div>
+        <div class="c-arr">concepts/storage →</div>
+      </a>
+      <a class="concept" href="/concepts/identity-rbac">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M9.5 11a4 4 0 100-8 4 4 0 000 8zM21 21v-2a4 4 0 00-3-3.87"/></svg>
+        <div class="c-name">Identity &amp; RBAC</div>
+        <div class="c-desc">Users, service accounts and roles scoped per namespace or cluster.</div>
+        <div class="c-arr">concepts/identity →</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- =================== CLI SHOWCASE =================== -->
+  <section class="section" id="cli">
+    <div class="sec-head"><span class="num">02</span><span>The CLI is the platform</span><span class="ln"></span></div>
+    <div class="block">
+      <div class="split">
+        <div>
+          <h2 class="title">Cast it. Watch it <em>roll</em>.</h2>
+          <p class="lede" style="margin-top:16px">One verb deploys a service from a declarative file; the rest of the surface is the same muscle memory you'd expect — get, scale, logs, exec. No kubectl context juggling, no YAML archaeology.</p>
+          <div class="feat-list">
+            <div class="feat"><span class="fk">rune cast</span><span class="fv"><b>Apply</b> a service or runeset; rolls instances with health gating.</span></div>
+            <div class="feat"><span class="fk">rune get</span><span class="fv"><b>Inspect</b> services, instances, secrets — tables or <span class="mono">-o yaml</span>.</span></div>
+            <div class="feat"><span class="fk">rune scale</span><span class="fv"><b>Resize</b> a service to N instances, live.</span></div>
+            <div class="feat"><span class="fk">rune logs</span><span class="fv"><b>Stream</b> structured logs with <span class="mono">-f</span> follow.</span></div>
+            <div class="feat"><span class="fk">rune exec</span><span class="fv"><b>Shell</b> straight into a running instance.</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="tabs" id="cli-tabs">
+            <button class="on" data-pane="cast">cast</button>
+            <button data-pane="get">get</button>
+            <button data-pane="scale">scale</button>
+            <button data-pane="logs">logs</button>
+            <button data-pane="exec">exec</button>
+          </div>
+          <div class="codewell" id="cli-well">
+            <div class="pane on" data-pane="cast"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune cast</span> <span class="t-flag">-f</span> service.rune
+<span class="t-ok">✓</span> <span class="t-dim">parsed service.rune · 1 service</span>
+<span class="t-ok">✓</span> <span class="t-dim">pushed ghcr.io/acme/api-core:1.4.0</span>
+<span class="t-num">→</span> rolling out <span class="t-cmd">api-core</span>  <span class="t-dim">production</span>
+  <span class="t-ok">✓</span> instance api-core-7fk2d  <span class="t-ok">ready</span>
+  <span class="t-ok">✓</span> instance api-core-9xb1c  <span class="t-ok">ready</span>
+  <span class="t-ok">✓</span> instance api-core-2mn8p  <span class="t-ok">ready</span>
+<span class="t-ok">✓</span> api-core cast to <span class="t-cmd">production</span> at <span class="t-num">v4</span>  <span class="t-dim">3/3 ready · 1.8s</span></div></div>
+            <div class="pane" data-pane="get"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune get</span> services <span class="t-flag">-n</span> production
+<span class="t-dim">NAME           READY   STATUS     VERSION   AGE</span>
+web-gateway    3/3     <span class="t-ok">running</span>    1.24.0    14d
+api-core       4/4     <span class="t-ok">running</span>    3.11.2    6d
+auth-service   2/2     <span class="t-ok">running</span>    2.0.7     14d
+payments       2/3     <span class="t-warn">degraded</span>   1.8.4     2d
+worker-queue   5/5     <span class="t-ok">running</span>    1.8.4     2d
+postgres       1/1     <span class="t-ok">running</span>    16.3      29d</div></div>
+            <div class="pane" data-pane="scale"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune scale</span> worker-queue <span class="t-flag">--to</span> <span class="t-num">5</span>
+<span class="t-num">→</span> scaling <span class="t-cmd">worker-queue</span>  3 <span class="t-dim">→</span> 5
+  <span class="t-ok">✓</span> instance worker-queue-a1  <span class="t-ok">ready</span>
+  <span class="t-ok">✓</span> instance worker-queue-b2  <span class="t-ok">ready</span>
+<span class="t-ok">✓</span> worker-queue scaled to <span class="t-num">5</span>  <span class="t-dim">5/5 ready</span></div></div>
+            <div class="pane" data-pane="logs"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune logs</span> api-core <span class="t-flag">-f</span>
+<span class="t-dim">12:04:41.882</span> <span class="t-key">info</span>  request completed <span class="t-dim">method=GET path=/v1/orders status=200 dur=42ms</span>
+<span class="t-dim">12:04:41.903</span> <span class="t-key">info</span>  db pool acquired <span class="t-dim">conn=11/25 wait=0ms</span>
+<span class="t-dim">12:04:42.140</span> <span class="t-warn">warn</span>  upstream latency high <span class="t-dim">service=payments p99=820ms</span>
+<span class="t-dim">12:04:42.512</span> <span class="t-key">info</span>  grpc auth.Verify ok <span class="t-dim">subject=user:48211 dur=8ms</span>
+<span class="t-dim">12:04:42.770</span> <span class="t-key">info</span>  request completed <span class="t-dim">method=POST path=/v1/checkout status=201 dur=118ms</span></div></div>
+            <div class="pane" data-pane="exec"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune exec</span> api-core <span class="t-flag">--</span> sh
+<span class="t-dim"># in api-core-7fk2d</span>
+<span class="t-pr">$</span> ls /etc/secrets/db
+url  username  password
+<span class="t-pr">$</span> cat /etc/config/log.level
+info
+<span class="t-pr">$</span> env | grep DATABASE
+DATABASE_URL=postgres://acme_app:***@postgres:5432/acme</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== RUNESETS =================== -->
+  <section class="section" id="runesets">
+    <div class="sec-head"><span class="num">03</span><span>Runesets</span><span class="ln"></span></div>
+    <div class="block">
+      <div class="split rev">
+        <div>
+          <div class="filecard">
+            <div class="fc-bar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4"/></svg><span class="fname">api-core.rune</span><span class="badge">service spec</span></div>
+            <pre><span class="t-key">service</span>:
+  <span class="t-key">name</span>: <span class="t-cmd">api-core</span>
+  <span class="t-key">image</span>: <span class="t-str">ghcr.io/acme/api-core:1.4.0</span>
+  <span class="t-key">namespace</span>: <span class="t-cmd">production</span>
+  <span class="t-key">instances</span>: <span class="t-num">3</span>
+  <span class="t-key">ports</span>:
+    - <span class="t-str">8080/http</span>
+  <span class="t-key">envFrom</span>:
+    - <span class="t-key">secretRef</span>: <span class="t-cmd">db-credentials</span>
+    - <span class="t-key">configRef</span>: <span class="t-cmd">api-config</span>
+  <span class="t-key">secretMounts</span>:
+    - <span class="t-key">secretName</span>: <span class="t-cmd">jwt-signing-key</span>
+      <span class="t-key">mountPath</span>: <span class="t-str">/etc/secrets/jwt</span>
+  <span class="t-key">health</span>:
+    <span class="t-key">http</span>: <span class="t-str">/healthz</span>
+    <span class="t-key">interval</span>: <span class="t-str">10s</span></pre>
+          </div>
+        </div>
+        <div>
+          <h2 class="title">Package once. <em>Version</em> forever.</h2>
+          <p class="lede" style="margin-top:16px">A runeset bundles the services, secrets refs, config and policy for an app into one versioned artifact — Rune's answer to a Helm chart. Lint it, pack it, cast it, roll it back. The file above is all it takes to stand a service up with secrets, config and health checks wired in.</p>
+          <div class="feat-list">
+            <div class="feat"><span class="fk">rune lint</span><span class="fv">Static-check a runeset before it ever touches a cluster.</span></div>
+            <div class="feat"><span class="fk">rune pack</span><span class="fv">Bundle into a versioned, distributable artifact.</span></div>
+            <div class="feat"><span class="fk">rune deps</span><span class="fv">Resolve and visualize service dependency order.</span></div>
+          </div>
+          <a class="btn ghost sm" style="margin-top:22px" href="/concepts/runesets">Runeset reference →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== DEPLOY ANYWHERE =================== -->
+  <section class="section">
+    <div class="sec-head"><span class="num">04</span><span>Deploy anywhere</span><span class="ln"></span></div>
+    <div class="block" style="padding-bottom:56px">
+      <div class="block-head">
+        <h2 class="title">From a single droplet to a <em>Terraform</em> fleet.</h2>
+        <p class="lede" style="margin-top:16px">Official Terraform modules provision <code class="mono">runed</code> across the major clouds. <code class="mono">terraform apply</code>, point your CLI at the context, and cast.</p>
+      </div>
+      <div class="providers">
+        <div class="prov"><div class="pv-name">DigitalOcean</div><div class="pv-mod">module "rune/digitalocean"</div><div class="pv-sub">Droplet + block storage</div></div>
+        <div class="prov"><div class="pv-name">AWS</div><div class="pv-mod">module "rune/aws"</div><div class="pv-sub">EC2 + EBS + security groups</div></div>
+        <div class="prov"><div class="pv-name">Hetzner</div><div class="pv-mod">module "rune/hetzner"</div><div class="pv-sub">Cloud server + volumes</div></div>
+        <div class="prov"><div class="pv-name">Google Cloud</div><div class="pv-mod">module "rune/google"</div><div class="pv-sub">Compute Engine + PD</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== COMPARISON =================== -->
+  <section class="section" id="compare">
+    <div class="sec-head"><span class="num">05</span><span>How it compares</span><span class="ln"></span></div>
+    <div class="block">
+      <div class="block-head">
+        <h2 class="title">The orchestrator, <em>right-sized</em>.</h2>
+        <p class="lede" style="margin-top:16px">Rune isn't trying to run Google. It's trying to run your stack — with the smallest surface area that still feels like a real platform.</p>
+      </div>
+      <table class="cmp">
+        <thead>
+          <tr><th>Capability</th><th class="rune">Rune</th><th>Kubernetes</th><th>Nomad</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="cap">Install footprint</td><td class="rune"><span class="mono">single 28MB binary</span></td><td><span class="mono">control plane + etcd + kubelet</span></td><td><span class="mono">server + agents</span></td></tr>
+          <tr><td class="cap">Runs containers</td><td class="rune"><span class="yes">●</span> yes</td><td><span class="yes">●</span> yes</td><td><span class="yes">●</span> yes</td></tr>
+          <tr><td class="cap">Runs raw processes</td><td class="rune"><span class="yes">●</span> yes</td><td><span class="no">—</span></td><td><span class="yes">●</span> yes</td></tr>
+          <tr><td class="cap">Encrypted secrets built-in</td><td class="rune"><span class="yes">●</span> envelope encryption</td><td><span class="mono">base64 + addons</span></td><td><span class="mono">via Vault</span></td></tr>
+          <tr><td class="cap">Networking &amp; policy</td><td class="rune"><span class="yes">●</span> built-in</td><td><span class="mono">CNI plugins</span></td><td><span class="mono">via Consul</span></td></tr>
+          <tr><td class="cap">Identity &amp; RBAC</td><td class="rune"><span class="yes">●</span> built-in</td><td><span class="yes">●</span> yes</td><td><span class="mono">ACLs</span></td></tr>
+          <tr><td class="cap">Control API</td><td class="rune"><span class="mono">gRPC + REST</span></td><td><span class="mono">REST</span></td><td><span class="mono">HTTP</span></td></tr>
+          <tr><td class="cap">Time to first deploy</td><td class="rune"><span class="mono">minutes</span></td><td><span class="mono">days</span></td><td><span class="mono">hours</span></td></tr>
+        </tbody>
+      </table>
+      <p class="cmp-note">// Reflects typical out-of-the-box setups · June 2026 · Kubernetes and Nomad are excellent at scale — this is about fit, not winners.</p>
+    </div>
+  </section>
+
+  <!-- =================== ARCHITECTURE =================== -->
+  <section class="section">
+    <div class="sec-head"><span class="num">06</span><span>Architecture</span><span class="ln"></span></div>
+    <div class="block" style="padding-bottom:56px">
+      <div class="block-head">
+        <h2 class="title">One server. <em>n</em> nodes. A CLI.</h2>
+        <p class="lede" style="margin-top:16px"><code class="mono">runed</code> holds desired state and schedules work; lightweight agents run instances on each node; your CLI and CI speak to the API over gRPC or REST.</p>
+      </div>
+      <div class="arch">
+        <div class="arch-row">
+          <div class="arch-side"><div class="as-k">Control</div><div class="as-v">runed</div></div>
+          <div class="arch-main">
+            <span class="node accent">scheduler</span>
+            <span class="node accent">state store</span>
+            <span class="node accent">secret KEK</span>
+            <span class="node accent">gRPC + REST API</span>
+          </div>
+        </div>
+        <div class="arch-row">
+          <div class="arch-side"><div class="as-k">Data plane</div><div class="as-v">agents</div></div>
+          <div class="arch-main">
+            <span class="node">node-01 <span style="color:var(--text-4)">· instances</span></span>
+            <span class="arch-arrow">·</span>
+            <span class="node">node-02</span>
+            <span class="arch-arrow">·</span>
+            <span class="node">node-03</span>
+          </div>
+        </div>
+        <div class="arch-row">
+          <div class="arch-side"><div class="as-k">Clients</div><div class="as-v">rune cli</div></div>
+          <div class="arch-main">
+            <span class="node cyan">rune cli</span>
+            <span class="arch-arrow">→</span>
+            <span class="node cyan">GitHub Actions</span>
+            <span class="arch-arrow">→</span>
+            <span class="node cyan">Terraform</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== API THREE-PANE =================== -->
+  <section class="section" id="api">
+    <div class="sec-head"><span class="num">07</span><span>API reference</span><span class="ln"></span></div>
+    <div class="block" style="padding-bottom:56px">
+      <div class="block-head">
+        <h2 class="title">A reference you <em>host</em>.</h2>
+        <p class="lede" style="margin-top:16px">Rune's gRPC + REST surface renders as a Markline three-pane reference — endpoints, schemas and a request explorer — generated on every build and served from your own box.</p>
+      </div>
+      <div class="threepane">
+        <div class="tp-nav">
+          <div class="tp-grp">Services</div>
+          <div class="tp-ep on"><span class="verb post">POST</span> Cast service</div>
+          <div class="tp-ep"><span class="verb get">GET</span> List services</div>
+          <div class="tp-ep"><span class="verb get">GET</span> Get service</div>
+          <div class="tp-ep"><span class="verb del">DEL</span> Delete service</div>
+          <div class="tp-grp">Secrets</div>
+          <div class="tp-ep"><span class="verb post">POST</span> Create secret</div>
+          <div class="tp-ep"><span class="verb get">GET</span> List secrets</div>
+          <div class="tp-grp">Volumes</div>
+          <div class="tp-ep"><span class="verb post">POST</span> Create volume</div>
+        </div>
+        <div class="tp-mid">
+          <div class="ep-title">Cast service</div>
+          <div class="ep-url"><span style="color:var(--green)">POST</span> https://rune-prod:7700/v1/services:cast</div>
+          <div class="ep-desc">Apply a service spec. Creates or updates the service and rolls its instances with health gating. Idempotent on <span class="mono">(namespace, name)</span>.</div>
+          <div class="ep-ph">Body parameters</div>
+          <div class="param"><span class="pk">spec<span class="req">required</span></span><span class="pt">ServiceSpec</span><span class="pd">The full service definition — image, instances, ports, mounts.</span></div>
+          <div class="param"><span class="pk">namespace</span><span class="pt">string</span><span class="pd">Target namespace. Defaults to <span class="mono">default</span>.</span></div>
+          <div class="param"><span class="pk">dryRun</span><span class="pt">boolean</span><span class="pd">Validate and diff without applying.</span></div>
+        </div>
+        <div class="tp-right">
+          <div class="rq-bar"><span class="on">grpcurl</span><span>curl</span><span>Go</span></div>
+          <pre><span class="t-pr">$</span> grpcurl -d '{
+  "namespace":"production",
+  "spec":{ "name":"api-core" }
+}' rune-prod:7700 \
+  rune.v1.Services/Cast</pre>
+          <div class="resp">
+            <div class="status">● 200 OK · 1.8s</div>
+            <pre>{
+  <span class="t-key">"service"</span>: <span class="t-str">"api-core"</span>,
+  <span class="t-key">"version"</span>: <span class="t-num">4</span>,
+  <span class="t-key">"ready"</span>: <span class="t-str">"3/3"</span>
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== COMMUNITY =================== -->
+  <section class="section">
+    <div class="sec-head"><span class="num">08</span><span>Open source</span><span class="ln"></span></div>
+    <div class="block" style="padding-bottom:0">
+      <div class="block-head">
+        <h2 class="title">Read the source. <em>Run</em> the source.</h2>
+        <p class="lede" style="margin-top:16px">Rune is MIT-licensed and built in the open. No SaaS, no seats, no phone-home — the same binary you read is the one you ship.</p>
+      </div>
+    </div>
+    <div class="community">
+      <div class="cstat"><div class="cv">3.8k</div><div class="ck">GitHub stars</div></div>
+      <div class="cstat"><div class="cv">MIT</div><div class="ck">License · fork it</div></div>
+      <div class="cstat"><div class="cv">1</div><div class="ck">Binary to deploy</div></div>
+      <div class="cstat"><div class="cv">v0.34</div><div class="ck">Latest release</div></div>
+    </div>
+  </section>
+
+  <!-- =================== CTA =================== -->
+  <section class="section" style="border-bottom:none">
+    <div class="cta">
+      <div class="eyebrow" style="justify-content:center;display:flex">Ship in minutes</div>
+      <h2 class="display" style="margin-top:18px">Own your <em>platform</em>.</h2>
+      <p class="lede" style="margin:18px auto 0;text-align:center">One binary to install. One CLI to learn. Zero control planes to babysit.</p>
+      <div class="install">
+        <code><span class="pr">$</span> curl -fsSL https://get.runestack.io | sh</code>
+        <button class="copy" data-copy="curl -fsSL https://get.runestack.io | sh" title="Copy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9h9a1 1 0 011 1v9a1 1 0 01-1 1h-9a1 1 0 01-1-1v-9a1 1 0 011-1zM5 15a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2"/></svg></button>
+      </div>
+      <div class="cta-btns">
+        <a class="btn primary" href="/start/quick-start">Quick start <span class="arr">→</span></a>
+        <a class="btn ghost" href="https://github.com/runestack/rune" target="_blank" rel="noopener">Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /rails -->
+</div><!-- /page -->
+
+<!-- =================== FOOTER =================== -->
+<footer class="footer">
+  <div class="footer-in">
+    <div class="f-brand">
+      <a class="brand" href="#top">rune<span class="dot">.</span></a>
+      <p>Single-binary orchestration. Kubernetes-grade workflow, none of the weight.</p>
+    </div>
+    <div class="f-col">
+      <h4>Start</h4>
+      <a href="/start/what-is-rune">What is Rune?</a>
+      <a href="/start/installation">Installation</a>
+      <a href="/start/quick-start">Quick start</a>
+      <a href="/start/bootstrap">Bootstrap</a>
+    </div>
+    <div class="f-col">
+      <h4>Concepts</h4>
+      <a href="/concepts/services">Services</a>
+      <a href="/concepts/runesets">Runesets</a>
+      <a href="/concepts/secrets-configmaps">Secrets &amp; Config</a>
+      <a href="/concepts/networking">Networking</a>
+    </div>
+    <div class="f-col">
+      <h4>Reference</h4>
+      <a href="/cli/overview">CLI</a>
+      <a href="/reference/service-spec">Service spec</a>
+      <a href="/reference/api">API surface</a>
+      <a href="/reference/errors">Exit codes</a>
+    </div>
+    <div class="f-col">
+      <h4>Operate</h4>
+      <a href="/operations/runed">Running runed</a>
+      <a href="/operations/security">Security</a>
+      <a href="/operations/upgrades">Upgrades</a>
+      <a href="https://github.com/runestack/rune" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </div>
+  <div class="footer-base">
+    <span>© 2026 Rune · MIT</span>
+    <span>rune v0.34.2</span>
+    <span class="built">built with <a href="https://markline.dev/" target="_blank" rel="noopener">Markline</a></span>
+  </div>
+</footer>
+
+<!-- =================== ⌘K PALETTE =================== -->
+<div class="cmdk-scrim" id="cmdk-scrim"></div>
+<div class="cmdk" id="cmdk" role="dialog" aria-label="Search docs">
+  <div class="cmdk-in">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input id="cmdk-input" placeholder="Search the docs…" autocomplete="off" spellcheck="false" />
+    <span class="esc">ESC</span>
+  </div>
+  <div class="cmdk-list" id="cmdk-list"></div>
+</div>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#161513"/>
+    <g stroke="#9e8cfc" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 30v40"/><path d="M40 32l16 9-16 9"/><path d="M48 48l10 22"/>
+    </g>
+  </svg>
+</template>
+
+<script src="landing.js"></script>
+</body>
+</html>
