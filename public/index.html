@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rune — single-binary orchestration</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="landing.css" />
+<style>
+/* ============ RUNESIGHT TEASER ============ */
+#runesight .rs-demo {
+  display: grid; grid-template-columns: 210px 1fr;
+  border: 1px solid var(--border-strong); border-radius: 14px;
+  overflow: hidden; background: var(--bg-2); margin-top: 4px;
+}
+.rs-rail { border-right: 1px solid var(--border); padding: 14px 12px; }
+.rs-rail .rs-grp { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-4); margin: 16px 6px 7px; }
+.rs-rail .rs-grp:first-child { margin-top: 0; }
+.rs-lab { display: flex; align-items: center; gap: 9px; padding: 5px 8px; border-radius: 6px; font-family: var(--mono); font-size: 11.5px; color: var(--text-2); }
+.rs-lab .rs-dot { width: 7px; height: 7px; border-radius: 2px; flex: none; }
+.rs-lab .rs-c { margin-left: auto; color: var(--text-4); font-size: 10.5px; }
+.rs-lab.on { background: var(--accent-dim); color: var(--text); }
+
+.rs-main { display: flex; flex-direction: column; min-width: 0; }
+.rs-qbar { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.rs-q { flex: 1; font-family: var(--mono); font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-q .k { color: var(--cyan); } .rs-q .v { color: var(--green); } .rs-q .op { color: var(--text-4); } .rs-q .m { color: var(--accent-2); }
+.rs-live { font-family: var(--mono); font-size: 10.5px; color: var(--green); display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.rs-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent); }
+.rs-range { font-family: var(--mono); font-size: 10.5px; color: var(--text-3); border: 1px solid var(--border-strong); border-radius: 5px; padding: 2px 8px; white-space: nowrap; }
+
+.rs-hist { display: flex; align-items: flex-end; gap: 2px; height: 56px; padding: 12px 15px 9px; border-bottom: 1px solid var(--border-faint); }
+.rs-hist .b { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: 2px; }
+.rs-hist .b i { display: block; width: 100%; border-radius: 1px 1px 0 0; }
+
+.rs-lines { padding: 5px 0 7px; }
+.rs-line { display: grid; grid-template-columns: 88px 46px 102px 1fr; gap: 12px; padding: 5px 15px; align-items: baseline; font-family: var(--mono); font-size: 12px; border-left: 2px solid transparent; }
+.rs-line:hover { background: var(--surface); }
+.rs-line.err { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 5%, transparent); }
+.rs-line .ts { color: var(--text-4); }
+.rs-line .lv { font-size: 9.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.rs-line .lv.error { color: var(--red); } .rs-line .lv.warn { color: var(--amber); } .rs-line .lv.info { color: var(--green); }
+.rs-line .sv { color: var(--accent-2); }
+.rs-line .ms { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rs-line .ms .d { color: var(--text-4); }
+
+.rs-feats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--border-faint); border-left: 1px solid var(--border-faint); margin-top: 32px; }
+.rs-feat { border-right: 1px solid var(--border-faint); border-bottom: 1px solid var(--border-faint); padding: 22px 20px 24px; }
+.rs-feat .rf-ic { margin-bottom: 14px; display: block; }
+.rs-feat h4 { font-family: var(--serif); font-weight: 500; font-size: 18px; margin: 0 0 8px; letter-spacing: -.01em; color: var(--text); }
+.rs-feat p { color: var(--text-3); font-size: 12.5px; margin: 0; line-height: 1.55; }
+
+.rs-cta { margin-top: 32px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.rs-cta .rs-note { font-family: var(--mono); font-size: 11px; color: var(--text-4); }
+
+@media (max-width: 1000px) {
+  #runesight .rs-demo { grid-template-columns: 1fr; }
+  .rs-rail { display: none; }
+  .rs-feats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .rs-feats { grid-template-columns: 1fr; }
+  .rs-line { grid-template-columns: 70px 40px 1fr; }
+  .rs-line .sv { display: none; }
+}
+
+/* ===== PILLAR ILLUSTRATIONS (image-1 motifs) ===== */
+.pillars .pillar { display: flex; flex-direction: column; }
+.pillars .pillar:nth-child(3) .pn { color: var(--c-purple); }
+.pill-art { position: relative; height: 118px; display: flex; align-items: center; justify-content: center; margin: 8px 0 18px; }
+.pill-art::after { display: none; }
+.pillars .pillar:nth-child(1) .pill-art::after { background: var(--c-green); }
+.pillars .pillar:nth-child(2) .pill-art::after { background: var(--c-cyan); }
+.pillars .pillar:nth-child(3) .pill-art::after { background: var(--c-purple); }
+.pillars .pillar:nth-child(4) .pill-art::after { background: var(--c-orange); }
+.pill-art > * { position: relative; z-index: 1; }
+
+.art-binary { width: 64px; padding: 13px 10px 11px; border: 1.4px solid color-mix(in srgb, var(--c-green) 55%, transparent); border-radius: 11px; background: color-mix(in srgb, var(--c-green) 6%, transparent); display: flex; flex-direction: column; align-items: center; gap: 9px; }
+.ab-name { font-family: var(--mono); font-size: 25px; font-weight: 600; color: var(--c-green); letter-spacing: .01em; line-height: 1; }
+.ab-sub { font-family: var(--mono); font-size: 12px; color: var(--text-3); margin-top: 5px; }
+.ab-div { height: 1px; background: var(--border); margin: 14px 2px; }
+.ab-bits { font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--c-green); letter-spacing: .14em; text-align: center; }
+.ab-dot { width: 6px; height: 6px; border-radius: 50%; border: 1.4px solid color-mix(in srgb, var(--c-green) 55%, transparent); }
+
+.art-cont { display: flex; flex-direction: column; align-items: center; color: var(--c-cyan); }
+.art-cont .ac-row { display: flex; gap: 10px; }
+.ac-tile { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+.ac-tile svg { width: 16px; height: 16px; }
+.ac-tile.cyan { border: 1.5px solid color-mix(in srgb, var(--c-cyan) 55%, transparent); background: color-mix(in srgb, var(--c-cyan) 6%, transparent); color: var(--c-cyan); }
+.ac-tile.dim { border: 1.4px solid var(--border-strong); color: var(--text-2); font-family: var(--mono); font-size: 10.5px; }
+.ac-wires { width: 128px; height: 26px; color: color-mix(in srgb, var(--c-cyan) 70%, transparent); }
+
+.art-term { width: 100px; border: 1.4px solid color-mix(in srgb, var(--c-purple) 55%, transparent); border-radius: 10px; overflow: hidden; background: color-mix(in srgb, var(--c-purple) 6%, transparent); }
+.at-bar { display: flex; align-items: center; padding: 6px 8px; border-bottom: 1px solid color-mix(in srgb, var(--c-purple) 28%, transparent); }
+.at-pr { font-family: var(--mono); font-size: 13px; color: var(--c-purple); font-weight: 600; white-space: nowrap; }
+.at-dots { display: flex; gap: 4px; } .at-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--text-4); }
+.at-body { padding: 11px 12px 13px; display: flex; align-items: center; }
+.at-prompt { font-family: var(--mono); font-size: 19px; font-weight: 600; color: var(--c-purple); line-height: 1; }
+
+.art-host { width: 146px; height: auto; }
+
+@media (max-width: 600px) { .pill-art { height: 108px; } }
+
+/* ===== OXIDE-STYLE FEATURE PANELS ===== */
+.oxgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; padding: 40px var(--pad) 58px; }
+.oxcard { display: flex; flex-direction: column; }
+.oxcard:nth-child(1) { --ox-accent: var(--c-green); }
+.oxcard:nth-child(2) { --ox-accent: var(--c-cyan); }
+.oxcard:nth-child(3) { --ox-accent: var(--c-purple); }
+.oxcard:nth-child(4) { --ox-accent: var(--c-red); }
+.oxhead { font-family: var(--mono); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--text-2); display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.oxhead .oxcaret { color: var(--ox-accent); font-size: 8px; }
+.oxpanel { height: 232px; border: 1px solid var(--border); border-radius: 8px; background: var(--inset); overflow: hidden; display: flex; flex-direction: column; }
+.oxp-strip { height: 30px; border-bottom: 1px solid var(--border-faint); flex: none; }
+.oxspecs { margin-top: 20px; }
+.oxspec { font-size: 13.5px; color: var(--text-3); padding: 10px 0; border-bottom: 1px solid var(--border-faint); text-wrap: pretty; }
+.oxspec:last-child { border-bottom: none; }
+.oxspec b { color: var(--text); font-weight: 600; }
+.oxspec b.mono { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+
+.oxp-bin .oxp-body { display: flex; padding: 14px; flex: 1; min-height: 0; }
+.oxgrid-cells { display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(9, 1fr); gap: 4px; flex: 1; }
+.oxgrid-cells i { border-radius: 2px; border: 1px solid color-mix(in srgb, var(--c-green) 30%, transparent); }
+.oxgrid-cells i.mid { background: color-mix(in srgb, var(--c-green) 38%, transparent); border-color: transparent; }
+.oxgrid-cells i.on { background: var(--c-green); border-color: var(--c-green); }
+.oxsidecard { width: 100px; margin-left: 12px; border: 1px solid var(--border); border-radius: 6px; align-self: flex-start; background: var(--bg-2); }
+.oxsc-h { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: var(--text-4); padding: 8px 10px; border-bottom: 1px solid var(--border-faint); }
+.oxsc-row { font-family: var(--mono); font-size: 11px; color: var(--text-2); padding: 8px 10px; border-bottom: 1px solid var(--border-faint); }
+.oxsc-row:last-child { border-bottom: none; }
+.oxsc-row.on { color: var(--c-green); background: color-mix(in srgb, var(--c-green) 9%, transparent); box-shadow: inset 2px 0 0 var(--c-green); }
+
+.oxwl-body { padding: 14px; display: flex; flex-direction: column; gap: 9px; justify-content: center; flex: 1; }
+.oxwl-row { display: grid; grid-template-columns: 17px auto 1fr auto; align-items: center; gap: 10px; padding: 10px 11px; border: 1px solid var(--border); border-radius: 6px; font-family: var(--mono); }
+.oxwl-row.on { border-color: color-mix(in srgb, var(--c-cyan) 50%, transparent); background: color-mix(in srgb, var(--c-cyan) 8%, transparent); }
+.oxck { width: 15px; height: 15px; border: 1.4px solid var(--border-strong); border-radius: 4px; position: relative; }
+.oxck.on { border-color: var(--c-cyan); background: color-mix(in srgb, var(--c-cyan) 20%, transparent); }
+.oxck.on::after { content: "\2713"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--c-cyan); }
+.oxtag { font-size: 9px; letter-spacing: .05em; color: var(--c-cyan); border: 1px solid color-mix(in srgb, var(--c-cyan) 38%, transparent); border-radius: 4px; padding: 3px 6px; background: color-mix(in srgb, var(--c-cyan) 8%, transparent); }
+.oxtag.alt { color: var(--text-3); border-color: var(--border-strong); background: transparent; }
+.oxname { font-size: 12px; color: var(--text-2); }
+.oxwl-row.on .oxname { color: var(--text); }
+.oxstat { font-size: 11px; color: var(--c-green); display: inline-flex; align-items: center; gap: 6px; }
+.oxstat::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c-green); flex: none; }
+
+.oxp-cli { padding: 14px; justify-content: center; }
+.oxcli-top { position: relative; height: 50px; border-bottom: 1px solid var(--border-faint); margin-bottom: 8px; }
+.oxwave { position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 34px; color: var(--c-purple); }
+.oxcli-name { position: absolute; left: 0; bottom: 0; white-space: nowrap; font-family: var(--mono); font-size: 10.5px; color: color-mix(in srgb, var(--c-purple) 60%, var(--text-2)); }
+.oxcli-val { position: absolute; right: 0; bottom: 0; white-space: nowrap; font-family: var(--mono); font-size: 10.5px; color: var(--text-3); }
+.oxcli-list { display: flex; flex-direction: column; gap: 2px; }
+.oxcli-row { display: flex; justify-content: space-between; gap: 12px; white-space: nowrap; font-family: var(--mono); font-size: 12px; color: var(--text-2); padding: 6px 8px; border-radius: 5px; }
+.oxcli-row span { white-space: nowrap; }
+.oxcli-row .v { color: var(--text-4); transition: opacity .3s ease; }
+.oxcli-row.on { background: color-mix(in srgb, var(--c-purple) 14%, transparent); color: var(--c-purple); }
+.oxcli-row.on .v { color: var(--c-purple); }
+.oxcli-row.dim { color: var(--text-4); }
+
+.oxhost-body { padding: 16px; flex: 1; display: flex; flex-direction: column; }
+.oxhost-h { display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 12.5px; color: var(--text); letter-spacing: .05em; }
+.oxhost-h svg { color: var(--c-orange); flex: none; }
+.oxbar { display: flex; gap: 3px; height: 15px; margin: 18px 0 22px; }
+.oxbar i { border-radius: 2px; }
+.oxbar .used { flex: 6; background: var(--c-orange); }
+.oxbar .res { flex: 2; background: color-mix(in srgb, var(--c-purple) 65%, transparent); }
+.oxbar .free { flex: 3; background: var(--surface-3); }
+.oxhost-stats { display: flex; gap: 34px; margin-top: auto; }
+.oxstatk .k { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-4); white-space: nowrap; }
+.oxstatk .v { font-family: var(--serif); font-size: 22px; color: var(--text); margin-top: 5px; line-height: 1; }
+
+@media (max-width: 1000px) { .oxgrid { grid-template-columns: repeat(2, 1fr); gap: 24px 22px; } }
+@media (max-width: 600px) { .oxgrid { grid-template-columns: 1fr; } }
+
+/* ===== OXIDE host v2 + subtle animations ===== */
+.oxnodes { display: flex; gap: 20px; align-items: center; margin: 16px 0 20px; }
+.oxng { display: flex; align-items: center; gap: 8px; }
+.oxng > svg { width: 17px; height: 17px; flex: none; }
+.oxng-bars { display: flex; gap: 4px; }
+.oxng-bars i { width: 11px; height: 22px; border-radius: 3px; display: inline-block; }
+.oxng.onprem { color: var(--c-orange); }
+.oxng.onprem .oxng-bars i { background: var(--c-orange); }
+.oxng.cloud { color: var(--c-purple); }
+.oxng.cloud .oxng-bars i { background: color-mix(in srgb, var(--c-purple) 88%, transparent); }
+.oxhost-stats { display: flex; gap: 24px; margin-top: auto; }
+.oxstatk.onp .v { color: var(--c-orange); }
+.oxstatk.cld .v { color: var(--c-purple); }
+.oxlive { width: 6px; height: 6px; border-radius: 50%; background: var(--c-green); display: inline-block; margin-left: 5px; vertical-align: 1px; }
+@keyframes oxpulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes oxbreathe { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+@keyframes oxblink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .oxgrid-cells i.pulse { animation: oxpulse 2.4s ease-in-out infinite; }
+  .oxlive { animation: oxblink 1.5s steps(2) infinite; }
+  .oxstat::before { animation: oxbreathe 2.8s ease-in-out infinite; }
+  .oxng-bars i.lead { animation: oxbreathe 2.6s ease-in-out infinite; }
+  .oxcli-row.on .cmd::after { content: ""; display: inline-block; width: 6px; height: 12px; background: var(--c-purple); margin-left: 8px; vertical-align: -1px; animation: oxblink 1s steps(2) infinite; }
+}
+
+/* ===== OXIDE host v3 — sovereignty vault ===== */
+.oxhost-body { padding: 16px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.oxvault { border: 1.5px solid color-mix(in srgb, var(--c-red) 42%, transparent); border-radius: 10px; overflow: hidden; background: color-mix(in srgb, var(--c-red) 4%, transparent); }
+.oxvault-tab { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid color-mix(in srgb, var(--c-red) 20%, transparent); font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--c-red); }
+.oxvault-tab svg { width: 14px; height: 14px; color: var(--c-red); flex: none; }
+.oxvault-tab span { white-space: nowrap; }
+.oxvault-srv { display: flex; gap: 14px; justify-content: center; padding: 22px 12px; }
+.oxsrv { position: relative; color: var(--c-red); }
+.oxsrv svg { width: 26px; height: 26px; display: block; }
+.oxsrv i { position: absolute; top: -3px; right: -3px; width: 5px; height: 5px; border-radius: 50%; background: var(--c-green); }
+.oxvault-foot { display: flex; align-items: center; gap: 7px; padding: 9px 12px; border-top: 1px solid color-mix(in srgb, var(--c-red) 20%, transparent); font-family: var(--mono); font-size: 9.5px; color: var(--text-3); white-space: nowrap; }
+.oxvault-foot svg { width: 13px; height: 13px; color: var(--c-red); flex: none; }
+.oxvault-foot .oxegress { margin-left: auto; color: color-mix(in srgb, var(--c-red) 65%, var(--text-3)); white-space: nowrap; }
+@media (prefers-reduced-motion: no-preference) {
+  .oxsrv i { animation: oxbreathe 2.6s ease-in-out infinite; }
+  .oxsrv:nth-child(2) i { animation-delay: .5s; }
+  .oxsrv:nth-child(3) i { animation-delay: 1s; }
+  .oxsrv:nth-child(4) i { animation-delay: 1.5s; }
+}
+
+/* ===== OXIDE host v4 (exploration) — resilience field ===== */
+.oxp-resil { padding: 0; }
+.oxresil { display: grid; grid-template-columns: 0.82fr 1.18fr; height: 100%; }
+.oxr-left { padding: 14px; display: flex; flex-direction: column; justify-content: center; gap: 7px; border-right: 1px solid var(--border); }
+.oxr-row { display: grid; grid-template-columns: 15px 1fr auto; align-items: center; gap: 9px; font-family: var(--mono); font-size: 12.5px; color: var(--text-2); }
+.oxr-ic { width: 13px; height: 13px; color: var(--text-4); }
+.oxr-row .n { letter-spacing: .04em; }
+.oxr-row .ms { color: var(--text-4); font-size: 11.5px; }
+.oxr-row.dim, .oxr-row.dim .ms { color: var(--text-4); }
+.oxr-row.dim .oxr-ic { opacity: .55; }
+.oxfield { position: relative; overflow: hidden; background-image: radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--text) 13%, transparent) 1px, transparent 0); background-size: 17px 17px; background-position: 6px 6px; }
+.oxpill { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--mono); font-size: 11px; padding: 3px 7px; border-radius: 5px; white-space: nowrap; transition: left .8s cubic-bezier(.4,0,.2,1), top .8s cubic-bezier(.4,0,.2,1), transform .25s ease, opacity .25s ease; }
+.oxpill.green { color: var(--c-green); border: 1px solid color-mix(in srgb, var(--c-green) 55%, transparent); background: color-mix(in srgb, var(--c-green) 14%, transparent); }
+.oxpill.purple { color: #fff; background: var(--c-purple); }
+.oxpill.pop { transform: translate(-50%, -50%) scale(.2); opacity: 0; }
+.oxcur { position: absolute; left: 50%; top: 50%; transition: left 1.1s cubic-bezier(.45,0,.2,1), top 1.1s cubic-bezier(.45,0,.2,1); pointer-events: none; color: var(--c-green); }
+.oxcur svg { width: 17px; height: 17px; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.55)); }
+.oxcur.purple { color: var(--c-purple); }
+
+/* ===== per-card sand field (concept grid) ===== */
+.concepts .concept { overflow: hidden; }
+.concepts .concept .sandfx { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.concepts .concept > :not(.sandfx) { position: relative; z-index: 1; }
+
+/* ===== runesight histogram — hover wave ===== */
+#rs-hist .b { transform-origin: center bottom; transition: transform .3s cubic-bezier(.22,.61,.36,1); will-change: transform; }
+</style>
+</head>
+<body>
+
+<!-- =================== NAV =================== -->
+<header class="nav">
+  <div class="nav-in">
+    <a class="brand" href="#top">rune<span class="dot">.</span><span class="tag">docs</span></a>
+    <nav class="nav-links">
+      <a href="#concepts">Concepts</a>
+      <a href="#cli">CLI</a>
+      <a href="#runesets">Runesets</a>
+      <a href="#api">API</a>
+      <a href="#runesight">RuneSight</a>
+      <a href="#compare">Compare</a>
+    </nav>
+    <div class="nav-right">
+      <button class="kbtn" id="kbtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg><span class="ktxt">Search docs…</span><kbd>⌘K</kbd></button>
+      <a class="gh" href="https://github.com/runestack/rune" target="_blank" rel="noopener"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.7c-2.78.62-3.37-1.22-3.37-1.22-.46-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.36-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05A9.4 9.4 0 0112 6.84c.85 0 1.71.12 2.51.34 1.91-1.32 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.81-4.57 5.06.36.32.68.94.68 1.9l-.01 2.81c0 .27.18.6.69.49A10.06 10.06 0 0022 12.25C22 6.58 17.52 2 12 2z"/></svg><b>3.8k</b><span class="ghl">stars</span></a>
+      <a class="btn primary sm" href="/start/quick-start">Get started</a>
+    </div>
+  </div>
+</header>
+
+<a id="top"></a>
+<div class="page">
+<div class="rails">
+
+  <!-- =================== HERO =================== -->
+  <section class="section">
+    <div class="hero">
+      <div class="hero-aura" aria-hidden="true"></div>
+      <div class="hero-grid">
+        <div>
+          <h1 class="display">Simple orchestration for <em>modern services</em>.</h1>
+          <p class="lede">Deploy your services and processes with a single binary, from one server to production infrastructure.</p>
+          <div class="hero-cta">
+            <a class="btn primary" href="/start/quick-start">Quick start <span class="arr">→</span></a>
+            <a class="btn ghost" href="/start/what-is-rune">Read the docs</a>
+          </div>
+          <div class="install">
+            <code><span class="pr">$</span> curl -fsSL https://get.runestack.io | sh</code>
+            <button class="copy" data-copy="curl -fsSL https://get.runestack.io | sh" title="Copy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9h9a1 1 0 011 1v9a1 1 0 01-1 1h-9a1 1 0 01-1-1v-9a1 1 0 011-1zM5 15a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== RUNS-ON STRIP =================== -->
+  <section class="section">
+    <div class="strip">
+      <span class="lbl">Runs on</span>
+      <div class="chips">
+        <span class="chip">DigitalOcean</span>
+        <span class="chip">AWS&nbsp;EC2</span>
+        <span class="chip">Hetzner</span>
+        <span class="chip">Google&nbsp;Cloud</span>
+        <span class="chip">Docker</span>
+        <span class="chip">systemd</span>
+        <span class="chip">Terraform</span>
+        <span class="chip">GitHub&nbsp;Actions</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== FEATURE PANELS (Oxide) =================== -->
+  <section class="section reveal">
+    <div class="oxgrid">
+
+      <div class="oxcard">
+        <div class="oxhead">One binary <span class="oxcaret">&#9654;</span></div>
+        <div class="oxpanel oxp-bin">
+          <div class="oxp-strip"></div>
+          <div class="oxp-body">
+            <div class="oxgrid-cells" id="oxcells"></div>
+            <div class="oxsidecard">
+              <div class="oxsc-h">ARTIFACT</div>
+              <div class="oxsc-row on">runed</div>
+              <div class="oxsc-row">28 MB</div>
+              <div class="oxsc-row">linux/amd64</div>
+            </div>
+          </div>
+        </div>
+        <div class="oxspecs">
+          <div class="oxspec"><b>One</b> static binary</div>
+          <div class="oxspec"><b>Zero</b> control-plane sprawl</div>
+          <div class="oxspec"><b>28 MB</b> drop-and-run</div>
+        </div>
+      </div>
+
+      <div class="oxcard">
+        <div class="oxhead">Containers or processes <span class="oxcaret">&#9654;</span></div>
+        <div class="oxpanel oxp-wl">
+          <div class="oxp-strip"></div>
+          <div class="oxwl-body">
+            <div class="oxwl-row">
+              <span class="oxck"></span><span class="oxtag">CONTAINER</span><span class="oxname">web-gateway</span><span class="oxstat">ready</span>
+            </div>
+            <div class="oxwl-row on">
+              <span class="oxck on"></span><span class="oxtag alt">PROCESS</span><span class="oxname">worker-queue</span><span class="oxstat">ready</span>
+            </div>
+            <div class="oxwl-row">
+              <span class="oxck"></span><span class="oxtag">CONTAINER</span><span class="oxname">postgres</span><span class="oxstat">ready</span>
+            </div>
+          </div>
+        </div>
+        <div class="oxspecs">
+          <div class="oxspec"><b>OCI</b> image workloads</div>
+          <div class="oxspec"><b>Native</b> process supervision</div>
+          <div class="oxspec"><b>One</b> unified scheduler</div>
+        </div>
+      </div>
+
+      <div class="oxcard">
+        <div class="oxhead">CLI-driven <span class="oxcaret">&#9654;</span></div>
+        <div class="oxpanel oxp-cli">
+          <div class="oxcli-list">
+            <div class="oxcli-row" data-t="1.8s"><span class="cmd">rune cast</span><span class="v">1.8s</span></div>
+            <div class="oxcli-row on" data-t="12ms"><span class="cmd">rune get</span><span class="v">12ms</span></div>
+            <div class="oxcli-row" data-t="0.4s"><span class="cmd">rune scale</span><span class="v">0.4s</span></div>
+            <div class="oxcli-row" data-t="live"><span class="cmd">rune logs</span><span class="v">live</span></div>
+            <div class="oxcli-row" data-t="&mdash;"><span class="cmd">rune exec</span><span class="v">&mdash;</span></div>
+          </div>
+        </div>
+        <div class="oxspecs">
+          <div class="oxspec"><b>Declarative</b> service specs</div>
+          <div class="oxspec"><b class="mono">cast &middot; scale &middot; logs &middot; exec</b></div>
+          <div class="oxspec"><b>gRPC + REST</b> control API</div>
+        </div>
+      </div>
+
+      <div class="oxcard">
+        <div class="oxhead">Yours to host <span class="oxcaret">&#9654;</span></div>
+        <!-- ============ PARKED · sovereignty vault (kept for reference) ============
+        <div class="oxpanel oxp-host">
+          <div class="oxp-strip"></div>
+          <div class="oxhost-body">
+            <div class="oxvault">
+              <div class="oxvault-tab"><span>SELF-HOSTED</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+              <div class="oxvault-srv">
+                <span class="oxsrv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><line x1="7.5" y1="7.5" x2="7.5" y2="7.5"/><line x1="7.5" y1="16.5" x2="7.5" y2="16.5"/></svg><i></i></span>
+                <span class="oxsrv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><line x1="7.5" y1="7.5" x2="7.5" y2="7.5"/><line x1="7.5" y1="16.5" x2="7.5" y2="16.5"/></svg><i></i></span>
+                <span class="oxsrv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><line x1="7.5" y1="7.5" x2="7.5" y2="7.5"/><line x1="7.5" y1="16.5" x2="7.5" y2="16.5"/></svg><i></i></span>
+                <span class="oxsrv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><line x1="7.5" y1="7.5" x2="7.5" y2="7.5"/><line x1="7.5" y1="16.5" x2="7.5" y2="16.5"/></svg><i></i></span>
+              </div>
+              <div class="oxvault-foot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="4"/><path d="M11 11l9 9M17 17l2-2"/></svg><span>encrypted &middot; local</span><span class="oxegress">&#8856; no egress</span></div>
+            </div>
+          </div>
+        </div>
+        ============================================================ -->
+        <div class="oxpanel oxp-host oxp-resil">
+          <div class="oxresil">
+            <div class="oxr-left">
+              <div class="oxr-row"><svg class="oxr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg><span class="n">WEB_1</span><span class="ms">26ms</span></div>
+              <div class="oxr-row"><svg class="oxr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg><span class="n">WEB_2</span><span class="ms">22ms</span></div>
+              <div class="oxr-row"><svg class="oxr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V5l7-2v18M13 21V9l5 1.5V21M9 8h0M9 12h0"/></svg><span class="n">IOS_1</span><span class="ms">76ms</span></div>
+              <div class="oxr-row dim"><svg class="oxr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M6 21V5l7-2v18M13 21V9l5 1.5V21M9 8h0M9 12h0"/></svg><span class="n">TEST</span><span class="ms">25ms</span></div>
+            </div>
+            <div class="oxr-right oxfield" id="oxfield">
+              <span class="oxpill green" id="oxpill-g">WEB_1</span>
+              <span class="oxpill purple" id="oxpill-p">WEB_2</span>
+              <span class="oxcur green" id="oxcur-g"><svg viewBox="0 0 24 24"><path d="M4 3 L18 10 L11 11.4 L8.4 18 Z" fill="currentColor"/></svg></span>
+              <span class="oxcur purple" id="oxcur-p"><svg viewBox="0 0 24 24"><path d="M4 3 L18 10 L11 11.4 L8.4 18 Z" fill="currentColor"/></svg></span>
+            </div>
+          </div>
+        </div>
+        <div class="oxspecs">
+          <div class="oxspec"><b>Self-host</b> anywhere</div>
+          <div class="oxspec"><b>Terraform</b> any cloud</div>
+          <div class="oxspec"><b>Local</b> data &amp; keys</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- =================== CONCEPTS =================== -->
+  <section class="section" id="concepts">
+    <div class="block" style="padding-top:28px;padding-bottom:0">
+      <div class="block-head">
+        <h2 class="title">A small set of primitives, <em>composed</em>.</h2>
+        <p class="lede">Rune borrows the mental model you already know from Kubernetes and Nomad — services, namespaces, secrets, policy — and strips it to the parts that earn their keep.</p>
+      </div>
+    </div>
+    <div class="concepts">
+      <a class="concept" href="/concepts/services">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h7v7H4zM13 13h7v7h-7zM13 4h7v5h-7zM4 13h7v7H4z"/></svg>
+        <div class="c-name">Services</div>
+        <div class="c-desc">Declarative workloads with image, instances, ports and health checks.</div>
+        <div class="c-arr">concepts/services →</div>
+      </a>
+      <a class="concept" href="/concepts/instances">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <div class="c-name">Instances</div>
+        <div class="c-desc">The running replicas of a service, scheduled across your nodes.</div>
+        <div class="c-arr">concepts/instances →</div>
+      </a>
+      <a class="concept" href="/concepts/namespaces">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4zM3 12l9 4 9-4M3 17l9 4 9-4"/></svg>
+        <div class="c-name">Namespaces</div>
+        <div class="c-desc">Logical partitions that scope services, secrets and policy.</div>
+        <div class="c-arr">concepts/namespaces →</div>
+      </a>
+      <a class="concept" href="/concepts/runesets">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7zM12 12l9-5M12 12v10M12 12L3 7"/></svg>
+        <div class="c-name">Runesets</div>
+        <div class="c-desc">Packaged, versioned bundles of services — your deploy unit.</div>
+        <div class="c-arr">concepts/runesets →</div>
+      </a>
+      <a class="concept" href="/concepts/secrets-configmaps">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11V8a6 6 0 0112 0v3M5 11h14v10H5zM12 15v3"/></svg>
+        <div class="c-name">Secrets &amp; Config</div>
+        <div class="c-desc">Envelope-encrypted secrets and plaintext configmaps, mounted at deploy.</div>
+        <div class="c-arr">concepts/secrets →</div>
+      </a>
+      <a class="concept" href="/concepts/networking">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M7 7l3 3M17 7l-3 3M7 17l3-3M17 17l-3-3"/></svg>
+        <div class="c-name">Networking</div>
+        <div class="c-desc">Service discovery plus default-deny network policy, built in.</div>
+        <div class="c-arr">concepts/networking →</div>
+      </a>
+      <a class="concept" href="/concepts/storage">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+        <div class="c-name">Storage</div>
+        <div class="c-desc">Volumes, storage classes and snapshots for stateful services.</div>
+        <div class="c-arr">concepts/storage →</div>
+      </a>
+      <a class="concept" href="/concepts/identity-rbac">
+        <svg class="c-ico" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2M9.5 11a4 4 0 100-8 4 4 0 000 8zM21 21v-2a4 4 0 00-3-3.87"/></svg>
+        <div class="c-name">Identity &amp; RBAC</div>
+        <div class="c-desc">Users, service accounts and roles scoped per namespace or cluster.</div>
+        <div class="c-arr">concepts/identity →</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- =================== CLI SHOWCASE =================== -->
+  <section class="section" id="cli">
+    <div class="block">
+      <div class="split">
+        <div>
+          <h2 class="title">Cast it. Watch it <em>roll</em>.</h2>
+          <p class="lede" style="margin-top:16px">One verb deploys a service from a declarative file; the rest of the surface is the same muscle memory you'd expect — get, scale, logs, exec. No kubectl context juggling, no YAML archaeology.</p>
+          <div class="feat-list">
+            <div class="feat"><span class="fk">rune cast</span><span class="fv"><b>Apply</b> a service or runeset; rolls instances with health gating.</span></div>
+            <div class="feat"><span class="fk">rune get</span><span class="fv"><b>Inspect</b> services, instances, secrets — tables or <span class="mono">-o yaml</span>.</span></div>
+            <div class="feat"><span class="fk">rune scale</span><span class="fv"><b>Resize</b> a service to N instances, live.</span></div>
+            <div class="feat"><span class="fk">rune logs</span><span class="fv"><b>Stream</b> structured logs with <span class="mono">-f</span> follow.</span></div>
+            <div class="feat"><span class="fk">rune exec</span><span class="fv"><b>Shell</b> straight into a running instance.</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="tabs" id="cli-tabs">
+            <button class="on" data-pane="cast">cast</button>
+            <button data-pane="get">get</button>
+            <button data-pane="scale">scale</button>
+            <button data-pane="logs">logs</button>
+            <button data-pane="exec">exec</button>
+          </div>
+          <div class="codewell" id="cli-well">
+            <div class="pane on" data-pane="cast"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune cast</span> <span class="t-flag">-f</span> service.rune
+<span class="t-ok">✓</span> <span class="t-dim">parsed service.rune · 1 service</span>
+<span class="t-ok">✓</span> <span class="t-dim">pushed ghcr.io/acme/api-core:1.4.0</span>
+<span class="t-num">→</span> rolling out <span class="t-cmd">api-core</span>  <span class="t-dim">production</span>
+  <span class="t-ok">✓</span> instance api-core-7fk2d  <span class="t-ok">ready</span>
+  <span class="t-ok">✓</span> instance api-core-9xb1c  <span class="t-ok">ready</span>
+  <span class="t-ok">✓</span> instance api-core-2mn8p  <span class="t-ok">ready</span>
+<span class="t-ok">✓</span> api-core cast to <span class="t-cmd">production</span> at <span class="t-num">v4</span>  <span class="t-dim">3/3 ready · 1.8s</span></div></div>
+            <div class="pane" data-pane="get"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune get</span> services <span class="t-flag">-n</span> production
+<span class="t-dim">NAME           READY   STATUS     VERSION   AGE</span>
+web-gateway    3/3     <span class="t-ok">running</span>    1.24.0    14d
+api-core       4/4     <span class="t-ok">running</span>    3.11.2    6d
+auth-service   2/2     <span class="t-ok">running</span>    2.0.7     14d
+payments       2/3     <span class="t-warn">degraded</span>   1.8.4     2d
+worker-queue   5/5     <span class="t-ok">running</span>    1.8.4     2d
+postgres       1/1     <span class="t-ok">running</span>    16.3      29d</div></div>
+            <div class="pane" data-pane="scale"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune scale</span> worker-queue <span class="t-flag">--to</span> <span class="t-num">5</span>
+<span class="t-num">→</span> scaling <span class="t-cmd">worker-queue</span>  3 <span class="t-dim">→</span> 5
+  <span class="t-ok">✓</span> instance worker-queue-a1  <span class="t-ok">ready</span>
+  <span class="t-ok">✓</span> instance worker-queue-b2  <span class="t-ok">ready</span>
+<span class="t-ok">✓</span> worker-queue scaled to <span class="t-num">5</span>  <span class="t-dim">5/5 ready</span></div></div>
+            <div class="pane" data-pane="logs"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune logs</span> api-core <span class="t-flag">-f</span>
+<span class="t-dim">12:04:41.882</span> <span class="t-key">info</span>  request completed <span class="t-dim">method=GET path=/v1/orders status=200 dur=42ms</span>
+<span class="t-dim">12:04:41.903</span> <span class="t-key">info</span>  db pool acquired <span class="t-dim">conn=11/25 wait=0ms</span>
+<span class="t-dim">12:04:42.140</span> <span class="t-warn">warn</span>  upstream latency high <span class="t-dim">service=payments p99=820ms</span>
+<span class="t-dim">12:04:42.512</span> <span class="t-key">info</span>  grpc auth.Verify ok <span class="t-dim">subject=user:48211 dur=8ms</span>
+<span class="t-dim">12:04:42.770</span> <span class="t-key">info</span>  request completed <span class="t-dim">method=POST path=/v1/checkout status=201 dur=118ms</span></div></div>
+            <div class="pane" data-pane="exec"><div class="cl"><span class="t-pr">$</span> <span class="t-cmd">rune exec</span> api-core <span class="t-flag">--</span> sh
+<span class="t-dim"># in api-core-7fk2d</span>
+<span class="t-pr">$</span> ls /etc/secrets/db
+url  username  password
+<span class="t-pr">$</span> cat /etc/config/log.level
+info
+<span class="t-pr">$</span> env | grep DATABASE
+DATABASE_URL=postgres://acme_app:***@postgres:5432/acme</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== RUNESETS =================== -->
+  <section class="section" id="runesets">
+    <div class="block">
+      <div class="split rev">
+        <div>
+          <div class="filecard">
+            <div class="fc-bar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6v18h12V7zM14 3v4h4"/></svg><span class="fname">api-core.rune</span><span class="badge">service spec</span></div>
+            <pre><span class="t-key">service</span>:
+  <span class="t-key">name</span>: <span class="t-cmd">api-core</span>
+  <span class="t-key">image</span>: <span class="t-str">ghcr.io/acme/api-core:1.4.0</span>
+  <span class="t-key">namespace</span>: <span class="t-cmd">production</span>
+  <span class="t-key">instances</span>: <span class="t-num">3</span>
+  <span class="t-key">ports</span>:
+    - <span class="t-str">8080/http</span>
+  <span class="t-key">envFrom</span>:
+    - <span class="t-key">secretRef</span>: <span class="t-cmd">db-credentials</span>
+    - <span class="t-key">configRef</span>: <span class="t-cmd">api-config</span>
+  <span class="t-key">secretMounts</span>:
+    - <span class="t-key">secretName</span>: <span class="t-cmd">jwt-signing-key</span>
+      <span class="t-key">mountPath</span>: <span class="t-str">/etc/secrets/jwt</span>
+  <span class="t-key">health</span>:
+    <span class="t-key">http</span>: <span class="t-str">/healthz</span>
+    <span class="t-key">interval</span>: <span class="t-str">10s</span></pre>
+          </div>
+        </div>
+        <div>
+          <h2 class="title">Package once. <em>Version</em> forever.</h2>
+          <p class="lede" style="margin-top:16px">A runeset bundles the services, secrets refs, config and policy for an app into one versioned artifact — Rune's answer to a Helm chart. Lint it, pack it, cast it, roll it back. The file above is all it takes to stand a service up with secrets, config and health checks wired in.</p>
+          <div class="feat-list">
+            <div class="feat"><span class="fk">rune lint</span><span class="fv">Static-check a runeset before it ever touches a cluster.</span></div>
+            <div class="feat"><span class="fk">rune pack</span><span class="fv">Bundle into a versioned, distributable artifact.</span></div>
+            <div class="feat"><span class="fk">rune deps</span><span class="fv">Resolve and visualize service dependency order.</span></div>
+          </div>
+          <a class="btn ghost sm" style="margin-top:22px" href="/concepts/runesets">Runeset reference →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== DEPLOY ANYWHERE =================== -->
+  <section class="section">
+    <div class="block" style="padding-bottom:56px">
+      <div class="block-head">
+        <h2 class="title">From a single droplet to a <em>Terraform</em> fleet.</h2>
+        <p class="lede" style="margin-top:16px">Official Terraform modules provision <code class="mono">runed</code> across the major clouds. <code class="mono">terraform apply</code>, point your CLI at the context, and cast.</p>
+      </div>
+      <div class="providers">
+        <div class="prov"><div class="pv-name">DigitalOcean</div><div class="pv-mod">module "rune/digitalocean"</div><div class="pv-sub">Droplet + block storage</div></div>
+        <div class="prov"><div class="pv-name">AWS</div><div class="pv-mod">module "rune/aws"</div><div class="pv-sub">EC2 + EBS + security groups</div></div>
+        <div class="prov"><div class="pv-name">Hetzner</div><div class="pv-mod">module "rune/hetzner"</div><div class="pv-sub">Cloud server + volumes</div></div>
+        <div class="prov"><div class="pv-name">Google Cloud</div><div class="pv-mod">module "rune/google"</div><div class="pv-sub">Compute Engine + PD</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== COMPARISON =================== -->
+  <section class="section" id="compare">
+    <div class="block">
+      <div class="block-head">
+        <h2 class="title">The orchestrator, <em>right-sized</em>.</h2>
+        <p class="lede" style="margin-top:16px">Rune isn't trying to run Google. It's trying to run your stack — with the smallest surface area that still feels like a real platform.</p>
+      </div>
+      <table class="cmp">
+        <thead>
+          <tr><th>Capability</th><th class="rune">Rune</th><th>Kubernetes</th><th>Nomad</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="cap">Install footprint</td><td class="rune"><span class="mono">single 28MB binary</span></td><td><span class="mono">control plane + etcd + kubelet</span></td><td><span class="mono">server + agents</span></td></tr>
+          <tr><td class="cap">Runs containers</td><td class="rune"><span class="yes">●</span> yes</td><td><span class="yes">●</span> yes</td><td><span class="yes">●</span> yes</td></tr>
+          <tr><td class="cap">Runs raw processes</td><td class="rune"><span class="yes">●</span> yes</td><td><span class="no">—</span></td><td><span class="yes">●</span> yes</td></tr>
+          <tr><td class="cap">Encrypted secrets built-in</td><td class="rune"><span class="yes">●</span> envelope encryption</td><td><span class="mono">base64 + addons</span></td><td><span class="mono">via Vault</span></td></tr>
+          <tr><td class="cap">Networking &amp; policy</td><td class="rune"><span class="yes">●</span> built-in</td><td><span class="mono">CNI plugins</span></td><td><span class="mono">via Consul</span></td></tr>
+          <tr><td class="cap">Identity &amp; RBAC</td><td class="rune"><span class="yes">●</span> built-in</td><td><span class="yes">●</span> yes</td><td><span class="mono">ACLs</span></td></tr>
+          <tr><td class="cap">Control API</td><td class="rune"><span class="mono">gRPC + REST</span></td><td><span class="mono">REST</span></td><td><span class="mono">HTTP</span></td></tr>
+          <tr><td class="cap">Time to first deploy</td><td class="rune"><span class="mono">minutes</span></td><td><span class="mono">days</span></td><td><span class="mono">hours</span></td></tr>
+        </tbody>
+      </table>
+      <p class="cmp-note">// Reflects typical out-of-the-box setups · June 2026 · Kubernetes and Nomad are excellent at scale — this is about fit, not winners.</p>
+    </div>
+  </section>
+
+  <!-- =================== API THREE-PANE =================== -->
+  <section class="section" id="api">
+    <div class="block" style="padding-bottom:56px">
+      <div class="block-head">
+        <h2 class="title">A reference you <em>host</em>.</h2>
+        <p class="lede" style="margin-top:16px">Rune's gRPC + REST surface renders as a Markline three-pane reference — endpoints, schemas and a request explorer — generated on every build and served from your own box.</p>
+      </div>
+      <div class="threepane">
+        <div class="tp-nav">
+          <div class="tp-grp">Services</div>
+          <div class="tp-ep on"><span class="verb post">POST</span> Cast service</div>
+          <div class="tp-ep"><span class="verb get">GET</span> List services</div>
+          <div class="tp-ep"><span class="verb get">GET</span> Get service</div>
+          <div class="tp-ep"><span class="verb del">DEL</span> Delete service</div>
+          <div class="tp-grp">Secrets</div>
+          <div class="tp-ep"><span class="verb post">POST</span> Create secret</div>
+          <div class="tp-ep"><span class="verb get">GET</span> List secrets</div>
+          <div class="tp-grp">Volumes</div>
+          <div class="tp-ep"><span class="verb post">POST</span> Create volume</div>
+        </div>
+        <div class="tp-mid">
+          <div class="ep-title">Cast service</div>
+          <div class="ep-url"><span style="color:var(--green)">POST</span> https://rune-prod:7700/v1/services:cast</div>
+          <div class="ep-desc">Apply a service spec. Creates or updates the service and rolls its instances with health gating. Idempotent on <span class="mono">(namespace, name)</span>.</div>
+          <div class="ep-ph">Body parameters</div>
+          <div class="param"><span class="pk">spec<span class="req">required</span></span><span class="pt">ServiceSpec</span><span class="pd">The full service definition — image, instances, ports, mounts.</span></div>
+          <div class="param"><span class="pk">namespace</span><span class="pt">string</span><span class="pd">Target namespace. Defaults to <span class="mono">default</span>.</span></div>
+          <div class="param"><span class="pk">dryRun</span><span class="pt">boolean</span><span class="pd">Validate and diff without applying.</span></div>
+        </div>
+        <div class="tp-right">
+          <div class="rq-bar"><span class="on">grpcurl</span><span>curl</span><span>Go</span></div>
+          <pre><span class="t-pr">$</span> grpcurl -d '{
+  "namespace":"production",
+  "spec":{ "name":"api-core" }
+}' rune-prod:7700 \
+  rune.v1.Services/Cast</pre>
+          <div class="resp">
+            <div class="status">● 200 OK · 1.8s</div>
+            <pre>{
+  <span class="t-key">"service"</span>: <span class="t-str">"api-core"</span>,
+  <span class="t-key">"version"</span>: <span class="t-num">4</span>,
+  <span class="t-key">"ready"</span>: <span class="t-str">"3/3"</span>
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== RUNESIGHT =================== -->
+  <section class="section" id="runesight">
+    <div class="block" style="padding-bottom:64px">
+      <div class="block-head">
+        <h2 class="title">Every line your cluster emits, <em>queryable</em>.</h2>
+        <p class="lede" style="margin-top:16px"><span class="mono" style="color:var(--accent-2)">rune.sight</span> is the log explorer that ships with <code class="mono">runed</code> — label-based search, saved views, log-based alerts and retention, served from the same box. No agents to wire up, no external SaaS to pay for.</p>
+      </div>
+
+      <div class="rs-demo">
+        <aside class="rs-rail">
+          <div class="rs-grp">level</div>
+          <div class="rs-lab on"><span class="rs-dot" style="background:var(--red)"></span>error<span class="rs-c">41</span></div>
+          <div class="rs-lab"><span class="rs-dot" style="background:var(--amber)"></span>warn<span class="rs-c">128</span></div>
+          <div class="rs-lab"><span class="rs-dot" style="background:var(--green)"></span>info<span class="rs-c">2.4k</span></div>
+          <div class="rs-lab"><span class="rs-dot" style="background:var(--text-4)"></span>debug<span class="rs-c">610</span></div>
+          <div class="rs-grp">service</div>
+          <div class="rs-lab on"><span class="rs-dot" style="background:var(--c-orange)"></span>payments<span class="rs-c">612</span></div>
+          <div class="rs-lab on"><span class="rs-dot" style="background:var(--c-green)"></span>api-core<span class="rs-c">1.4k</span></div>
+          <div class="rs-lab"><span class="rs-dot" style="background:var(--c-cyan)"></span>web-gateway<span class="rs-c">980</span></div>
+          <div class="rs-lab"><span class="rs-dot" style="background:var(--c-purple)"></span>auth-service<span class="rs-c">221</span></div>
+        </aside>
+        <div class="rs-main">
+          <div class="rs-qbar">
+            <div class="rs-q"><span class="op">{</span><span class="k">service</span><span class="op">=~</span><span class="v">"payments|api-core"</span><span class="op">}</span> <span class="m">|=</span> <span class="v">"503"</span> <span class="m">|</span> <span class="k">level</span><span class="op">=~</span><span class="v">"error|warn"</span></div>
+            <span class="rs-live"><i></i>Live</span>
+            <span class="rs-range">1h</span>
+          </div>
+          <div class="rs-hist" id="rs-hist"></div>
+          <div class="rs-lines">
+            <div class="rs-line err"><span class="ts">14:32:01.882</span><span class="lv error">error</span><span class="sv">payments</span><span class="ms">checkout failed: upstream returned 503 <span class="d">retry=2/3 order_id=ord_9f2ab1c4</span></span></div>
+            <div class="rs-line"><span class="ts">14:31:58.140</span><span class="lv warn">warn</span><span class="sv">api-core</span><span class="ms">upstream latency high <span class="d">service=payments p99=820ms</span></span></div>
+            <div class="rs-line err"><span class="ts">14:31:55.512</span><span class="lv error">error</span><span class="sv">payments</span><span class="ms">500 internal error <span class="d">path=/v1/payments/intent request_id=req_8c1d04</span></span></div>
+            <div class="rs-line"><span class="ts">14:31:52.903</span><span class="lv info">info</span><span class="sv">api-core</span><span class="ms">request completed <span class="d">method=POST path=/v1/checkout status=201 dur=118ms</span></span></div>
+            <div class="rs-line"><span class="ts">14:31:49.220</span><span class="lv info">info</span><span class="sv">web-gateway</span><span class="ms">db pool acquired <span class="d">conn=11/25 wait=0ms</span></span></div>
+            <div class="rs-line"><span class="ts">14:31:46.071</span><span class="lv warn">warn</span><span class="sv">api-core</span><span class="ms">retry scheduled <span class="d">attempt=1/3 backoff=200ms</span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rs-feats">
+        <div class="rs-feat">
+          <svg class="rf-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--c-green)"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <h4>Log Explorer</h4>
+          <p>Search every line by label — namespace, service, level, node — with live facets and a severity histogram.</p>
+        </div>
+        <div class="rs-feat">
+          <svg class="rf-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--c-cyan)"><path d="M6 3h12v18l-6-4-6 4z"/></svg>
+          <h4>Saved Views</h4>
+          <p>Pin the queries your team runs daily and share them across the cluster.</p>
+        </div>
+        <div class="rs-feat">
+          <svg class="rf-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--c-pink)"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <h4>Alert Rules</h4>
+          <p>Fire on log patterns — error rates, 5xx spikes, ingest drops — straight from a saved query.</p>
+        </div>
+        <div class="rs-feat">
+          <svg class="rf-ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--c-orange)"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+          <h4>Ingestion</h4>
+          <p>Per-node rates, top streams and 14-day retention — all stored on your own box.</p>
+        </div>
+      </div>
+
+      <div class="rs-cta">
+        <a class="btn primary" href="/guides/logs-exec">Open RuneSight <span class="arr">→</span></a>
+        <span class="rs-note">// ships with runed 0.34 · no external SaaS</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== COMMUNITY =================== -->
+  <section class="section">
+    <div class="block" style="padding-bottom:0">
+      <div class="block-head">
+        <h2 class="title">Read the source. <em>Run</em> the source.</h2>
+        <p class="lede" style="margin-top:16px">Rune is MIT-licensed and built in the open. No SaaS, no seats, no phone-home — the same binary you read is the one you ship.</p>
+      </div>
+    </div>
+    <div class="community">
+      <div class="cstat"><div class="cv">3.8k</div><div class="ck">GitHub stars</div></div>
+      <div class="cstat"><div class="cv">MIT</div><div class="ck">License · fork it</div></div>
+      <div class="cstat"><div class="cv">1</div><div class="ck">Binary to deploy</div></div>
+      <div class="cstat"><div class="cv">v0.34</div><div class="ck">Latest release</div></div>
+    </div>
+  </section>
+
+  <!-- =================== CTA =================== -->
+  <section class="section" style="border-bottom:none">
+    <div class="cta">
+      <div class="eyebrow" style="justify-content:center;display:flex">Ship in minutes</div>
+      <h2 class="display" style="margin-top:18px">Own your <em>platform</em>.</h2>
+      <p class="lede" style="margin:18px auto 0;text-align:center">One binary to install. One CLI to learn. Zero control planes to babysit.</p>
+      <div class="install">
+        <code><span class="pr">$</span> curl -fsSL https://get.runestack.io | sh</code>
+        <button class="copy" data-copy="curl -fsSL https://get.runestack.io | sh" title="Copy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 9h9a1 1 0 011 1v9a1 1 0 01-1 1h-9a1 1 0 01-1-1v-9a1 1 0 011-1zM5 15a2 2 0 01-2-2V5a2 2 0 012-2h8a2 2 0 012 2"/></svg></button>
+      </div>
+      <div class="cta-btns">
+        <a class="btn primary" href="/start/quick-start">Quick start <span class="arr">→</span></a>
+        <a class="btn ghost" href="https://github.com/runestack/rune" target="_blank" rel="noopener">Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /rails -->
+</div><!-- /page -->
+
+<!-- =================== FOOTER =================== -->
+<footer class="footer">
+  <div class="footer-in">
+    <div class="f-brand">
+      <a class="brand" href="#top">rune<span class="dot">.</span></a>
+      <p>Single-binary orchestration. Kubernetes-grade workflow, none of the weight.</p>
+    </div>
+    <div class="f-col">
+      <h4>Start</h4>
+      <a href="/start/what-is-rune">What is Rune?</a>
+      <a href="/start/installation">Installation</a>
+      <a href="/start/quick-start">Quick start</a>
+      <a href="/start/bootstrap">Bootstrap</a>
+    </div>
+    <div class="f-col">
+      <h4>Concepts</h4>
+      <a href="/concepts/services">Services</a>
+      <a href="/concepts/runesets">Runesets</a>
+      <a href="/concepts/secrets-configmaps">Secrets &amp; Config</a>
+      <a href="/concepts/networking">Networking</a>
+    </div>
+    <div class="f-col">
+      <h4>Reference</h4>
+      <a href="/cli/overview">CLI</a>
+      <a href="/reference/service-spec">Service spec</a>
+      <a href="/reference/api">API surface</a>
+      <a href="/reference/errors">Exit codes</a>
+    </div>
+    <div class="f-col">
+      <h4>Operate</h4>
+      <a href="/guides/logs-exec">RuneSight — logs</a>
+      <a href="/operations/runed">Running runed</a>
+      <a href="/operations/security">Security</a>
+      <a href="/operations/upgrades">Upgrades</a>
+      <a href="https://github.com/runestack/rune" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </div>
+  <div class="footer-base">
+    <span>© 2026 Rune · MIT</span>
+    <span>rune v0.34.2</span>
+    <span class="built">built with <a href="https://markline.dev/" target="_blank" rel="noopener">Markline</a></span>
+  </div>
+</footer>
+
+<!-- =================== ⌘K PALETTE =================== -->
+<div class="cmdk-scrim" id="cmdk-scrim"></div>
+<div class="cmdk" id="cmdk" role="dialog" aria-label="Search docs">
+  <div class="cmdk-in">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input id="cmdk-input" placeholder="Search the docs…" autocomplete="off" spellcheck="false" />
+    <span class="esc">ESC</span>
+  </div>
+  <div class="cmdk-list" id="cmdk-list"></div>
+</div>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#161513"/>
+    <g stroke="#9e8cfc" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M40 30v40"/><path d="M40 32l16 9-16 9"/><path d="M48 48l10 22"/>
+    </g>
+  </svg>
+</template>
+
+<script src="landing.js"></script>
+<script>
+(function(){
+  var hist=document.getElementById('rs-hist'); if(!hist) return;
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var rnd=rng(20260605), N=52;
+  for(var i=0;i<N;i++){
+    var burst=(i>32&&i<42)?Math.max(0,1-Math.abs(37-i)/5):0;
+    var info=3+Math.round(rnd()*7)+Math.round(burst*5);
+    var warn=Math.round(rnd()*2)+Math.round(burst*4);
+    var err=burst>0?Math.round(burst*10)+Math.round(rnd()*2):(rnd()<0.1?1:0);
+    var b=document.createElement('div'); b.className='b';
+    b.innerHTML='<i style="height:'+err+'px;background:var(--red)"></i>'
+      +'<i style="height:'+warn+'px;background:var(--amber)"></i>'
+      +'<i style="height:'+info+'px;background:var(--surface-3)"></i>';
+    hist.appendChild(b);
+  }
+})();
+</script>
+<script>
+(function(){
+  var el=document.getElementById('oxcells'); if(!el) return;
+  function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  var rnd=rng(424242), COLS=12, ROWS=9;
+  for(var r=0;r<ROWS;r++){for(var c=0;c<COLS;c++){
+    var p=1-(c/COLS)*0.72; var x=rnd();
+    var cls = x < p*0.5 ? 'on' : (x < p*0.82 ? 'mid' : '');
+    var i=document.createElement('i'); if(cls) i.className=cls;
+    if(cls==='on' && rnd()<0.16){ i.classList.add('pulse'); i.style.animationDelay=(rnd()*2.4).toFixed(2)+'s'; }
+    el.appendChild(i);
+  }}
+})();
+</script>
+<script>
+(function(){
+  if(!window.matchMedia || !matchMedia('(prefers-reduced-motion: no-preference)').matches) return;
+  var list=document.querySelector('.oxcli-list'); if(!list) return;
+  var rows=[].slice.call(list.querySelectorAll('.oxcli-row'));
+  if(!rows.length) return;
+  var i=0;
+  function tick(){
+    rows.forEach(function(r){ r.classList.remove('on'); });
+    var row=rows[i]; row.classList.add('on');
+    var v=row.querySelector('.v'); var fin=row.getAttribute('data-t')||v.textContent;
+    v.style.opacity='0';
+    setTimeout(function(){ v.textContent='\u00b7\u00b7\u00b7'; v.style.opacity='.5'; }, 250);
+    setTimeout(function(){ v.textContent=fin; v.style.opacity='1'; }, 850);
+    i=(i+1)%rows.length;
+  }
+  tick(); setInterval(tick, 8000);
+})();
+</script>
+<script>
+(function(){
+  var field=document.getElementById('oxfield'); if(!field) return;
+  var slots=[{x:24,y:26},{x:55,y:20},{x:80,y:34},{x:34,y:55},{x:68,y:58},{x:48,y:78},{x:20,y:72},{x:82,y:70}];
+  var pg=document.getElementById('oxpill-g'), pp=document.getElementById('oxpill-p');
+  var cg=document.getElementById('oxcur-g'), cp=document.getElementById('oxcur-p');
+  function setPill(el,x,y){ el.style.left=x+'%'; el.style.top=y+'%'; }
+  function setCur(el,x,y){ el.style.left='calc('+x+'% - 4px)'; el.style.top='calc('+y+'% - 3px)'; }
+  var gRef={i:0}, pRef={i:1}; gRef.o=pRef; pRef.o=gRef;
+  setPill(pg,slots[0].x,slots[0].y); setPill(pp,slots[1].x,slots[1].y);
+  setCur(cg,slots[0].x,slots[0].y); setCur(cp,slots[1].x,slots[1].y);
+  if(!window.matchMedia || !matchMedia('(prefers-reduced-motion: no-preference)').matches) return;
+  function pick(a,b){ var s; do{ s=Math.floor(Math.random()*slots.length); }while(s===a||s===b); return s; }
+  function loop(pill,cur,ref){
+    var s=slots[ref.i]; setCur(cur,s.x,s.y);
+    setTimeout(function(){
+      pill.classList.add('pop');
+      setTimeout(function(){
+        ref.i=pick(ref.i, ref.o.i); var ns=slots[ref.i];
+        setPill(pill,ns.x,ns.y); pill.classList.remove('pop');
+        setTimeout(function(){ setCur(cur,ns.x,ns.y); }, 220);
+      }, 300);
+    }, 1150);
+  }
+  setTimeout(function(){ loop(pg,cg,gRef); setInterval(function(){loop(pg,cg,gRef);},3600); }, 900);
+  setTimeout(function(){ loop(pp,cp,pRef); setInterval(function(){loop(pp,cp,pRef);},3600); }, 2600);
+})();
+</script>
+<script>
+(function(){
+  var cards = document.querySelectorAll('.concepts .concept');
+  if(!cards.length) return;
+  var reduce = window.matchMedia && !matchMedia('(prefers-reduced-motion: no-preference)').matches;
+  var DPR = Math.min(window.devicePixelRatio||1, 2);
+  var PAL = [[48,164,108],[103,221,253],[218,161,110],[158,140,252],[246,217,8],[214,64,159],[247,104,9],[229,72,77]];
+  var items = [], raf;
+  cards.forEach(function(card, ci){
+    var cv = document.createElement('canvas'); cv.className='sandfx';
+    card.insertBefore(cv, card.firstChild);
+    var ctx = cv.getContext('2d');
+    var col = PAL[ci % PAL.length];
+    var it = { card:card, cv:cv, ctx:ctx, w:0, h:0, ps:[], mx:-999, my:-999, active:false, col:col };
+    function size(){
+      var r=card.getBoundingClientRect(); if(!r.width) return;
+      it.w=r.width; it.h=r.height;
+      cv.width=Math.floor(it.w*DPR); cv.height=Math.floor(it.h*DPR);
+      cv.style.width=it.w+'px'; cv.style.height=it.h+'px';
+      ctx.setTransform(DPR,0,0,DPR,0,0);
+      var n=Math.max(60, Math.min(150, Math.floor(it.w*it.h/520)));
+      it.ps=[]; for(var i=0;i<n;i++){ it.ps.push({x:Math.random()*it.w,y:Math.random()*it.h,bx:Math.random()*it.w,by:Math.random()*it.h,tw:Math.random()*6.28}); }
+    }
+    it.size=size; size();
+    card.addEventListener('pointermove',function(e){ var r=card.getBoundingClientRect(); it.mx=e.clientX-r.left; it.my=e.clientY-r.top; it.active=true; });
+    card.addEventListener('pointerleave',function(){ it.active=false; });
+    items.push(it);
+  });
+  var t=0;
+  function frame(){
+    t+=1;
+    for(var k=0;k<items.length;k++){
+      var it=items[k], ctx=it.ctx; if(!it.w) continue;
+      ctx.clearRect(0,0,it.w,it.h);
+      var cr=it.col, R=82;
+      for(var i=0;i<it.ps.length;i++){
+        var p=it.ps[i];
+        p.x += (p.bx-p.x)*0.012 + Math.sin(t*0.01+p.tw)*0.12;
+        p.y += (p.by-p.y)*0.012 + Math.cos(t*0.012+p.tw)*0.12;
+        if(it.active){
+          var dx=p.x-it.mx, dy=p.y-it.my, d2=dx*dx+dy*dy;
+          if(d2<R*R && d2>1){ var d=Math.sqrt(d2), f=1-d/R;
+            p.x += (-dy/d)*f*1.5 + (it.mx-p.x)*f*0.05;
+            p.y += ( dx/d)*f*1.5 + (it.my-p.y)*f*0.05;
+          }
+        }
+        if(p.x<0)p.x=0; else if(p.x>it.w)p.x=it.w;
+        if(p.y<0)p.y=0; else if(p.y>it.h)p.y=it.h;
+        var tw=0.6+0.4*Math.sin(t*0.05+p.tw);
+        var a=(it.active?0.20:0.07)*tw;
+        ctx.fillStyle='rgba('+cr[0]+','+cr[1]+','+cr[2]+','+a.toFixed(3)+')';
+        ctx.fillRect(p.x,p.y,1,1);
+      }
+    }
+    if(!reduce) raf=requestAnimationFrame(frame);
+  }
+  function start(){ items.forEach(function(it){it.size();}); cancelAnimationFrame(raf); frame(); }
+  window.addEventListener('resize', start);
+  window.addEventListener('load', start);
+  setTimeout(start,0); setTimeout(start,400);
+})();
+</script>
+<script>
+(function(){
+  var hist=document.getElementById('rs-hist'); if(!hist) return;
+  var bars=[].slice.call(hist.querySelectorAll('.b'));
+  if(!bars.length) return;
+  var rect=null, centers=null;
+  function calc(){ rect=hist.getBoundingClientRect(); centers=bars.map(function(b){ var br=b.getBoundingClientRect(); return br.left+br.width/2-rect.left; }); }
+  hist.addEventListener('pointermove', function(e){
+    if(!centers) calc();
+    var mxp=e.clientX-rect.left;
+    var sigma=rect.width*0.12;
+    for(var i=0;i<bars.length;i++){
+      var d=mxp-centers[i];
+      var amt=Math.exp(-(d*d)/(2*sigma*sigma));
+      bars[i].style.transform='scaleY('+(1+amt*0.85).toFixed(3)+')';
+    }
+  });
+  hist.addEventListener('pointerleave', function(){ for(var i=0;i<bars.length;i++) bars[i].style.transform='scaleY(1)'; });
+  window.addEventListener('resize', function(){ centers=null; });
+})();
+</script>
+</body>
+</html>

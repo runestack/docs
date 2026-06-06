@@ -1,0 +1,202 @@
+{
+  "name": "Rune",
+  "theme": {
+    "appearance": "dark",
+    "logo": { "light": "/logo-rune-light.svg", "dark": "/logo-rune-dark.svg", "text": "rune" },
+    "favicon": "/favicon.svg",
+    "colors": { "primary": "#6c5ce0", "primaryDark": "#9e8cfc" },
+    "font": { "sans": "Hanken Grotesk", "mono": "JetBrains Mono" },
+    "cssVariables": {
+      "dark": {
+        "--bg": "#0f0f0f",
+        "--bg-2": "#0b0b0b",
+        "--panel": "#161616",
+        "--panel-2": "#1d1d1f",
+        "--panel-hi": "#252528",
+        "--ink": "#ededef",
+        "--ink-2": "#b3b3bc",
+        "--ink-3": "#7d7d88",
+        "--ink-4": "#54545d",
+        "--line": "rgba(255,255,255,0.09)",
+        "--line-2": "rgba(255,255,255,0.14)",
+        "--line-soft": "rgba(255,255,255,0.045)",
+        "--accent": "#9e8cfc",
+        "--accent-ink": "#b8acff",
+        "--accent-dim": "rgba(158,140,252,0.14)",
+        "--accent-line": "rgba(158,140,252,0.42)",
+        "--c-paper": "15 15 15",
+        "--c-paper-2": "22 22 24",
+        "--c-ink": "237 237 239",
+        "--c-brand": "158 140 252",
+        "--c-on-brand": "24 20 31"
+      },
+      "light": {
+        "--c-paper": "247 247 245",
+        "--c-ink": "22 21 28",
+        "--accent": "#6c5ce0",
+        "--accent-ink": "#7c6ae8",
+        "--accent-dim": "rgba(108,92,224,0.12)",
+        "--accent-line": "rgba(108,92,224,0.4)",
+        "--c-brand": "108 92 224",
+        "--c-on-brand": "255 255 255"
+      }
+    }
+  },
+  "topbar": {
+    "badge": "v0.34",
+    "links": [
+      { "label": "Home", "href": "/" },
+      { "label": "GitHub ↗", "href": "https://github.com/runestack/rune" }
+    ],
+    "cta": { "label": "Quick start", "href": "/start/quick-start" }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "id": "documentation",
+        "label": "Documentation",
+        "href": "/start/what-is-rune",
+        "match": ["__default__"],
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              { "href": "/start/what-is-rune", "label": "What is Rune?" },
+              { "href": "/start/installation", "label": "Installation" },
+              { "href": "/start/quick-start", "label": "Quick start" },
+              { "href": "/start/bootstrap", "label": "Bootstrap & first user" }
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              { "href": "/concepts/architecture", "label": "Architecture" },
+              { "href": "/concepts/services", "label": "Services" },
+              { "href": "/concepts/instances", "label": "Instances" },
+              { "href": "/concepts/namespaces", "label": "Namespaces" },
+              { "href": "/concepts/runesets", "label": "Runesets" },
+              { "href": "/concepts/secrets-configmaps", "label": "Secrets & ConfigMaps" },
+              { "href": "/concepts/networking", "label": "Networking" },
+              { "href": "/concepts/storage", "label": "Storage" },
+              { "href": "/concepts/identity-rbac", "label": "Identity & RBAC" }
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              { "href": "/guides/first-service", "label": "Deploy your first service" },
+              { "href": "/guides/expose-service", "label": "Expose a service" },
+              { "href": "/guides/secrets-configmaps", "label": "Use secrets & configmaps" },
+              { "href": "/guides/dependencies", "label": "Service dependencies" },
+              { "href": "/guides/health", "label": "Health checks" },
+              { "href": "/guides/init-steps", "label": "Init steps" },
+              { "href": "/guides/logs-exec", "label": "Logs & exec" },
+              { "href": "/guides/persistent-storage", "label": "Persistent storage" },
+              { "href": "/guides/process-runner", "label": "Process runner" },
+              { "href": "/guides/network-policy", "label": "Write a network policy" },
+              { "href": "/guides/scale-restart", "label": "Scale & restart" },
+              { "href": "/guides/runesets", "label": "Package a runeset" },
+              { "href": "/guides/ghcr-auth", "label": "Pull from GHCR" },
+              { "href": "/guides/ci-deployments", "label": "Deploy from GitHub Actions" },
+              { "href": "/guides/dashboard", "label": "The web dashboard" }
+            ]
+          },
+          {
+            "group": "Deploy",
+            "pages": [
+              { "href": "/guides/digital-ocean-deploy", "label": "DigitalOcean droplet" },
+              { "href": "/guides/terraform-ec2", "label": "AWS EC2 with Terraform" },
+              { "href": "/guides/terraform-aws", "label": "Provision AWS" },
+              { "href": "/guides/terraform-digitalocean", "label": "Provision DigitalOcean" },
+              { "href": "/guides/terraform-google", "label": "Provision Google Cloud" },
+              { "href": "/guides/terraform-hetzner", "label": "Provision Hetzner" }
+            ]
+          },
+          {
+            "group": "Tutorial",
+            "pages": [
+              { "href": "/tutorial/overview", "label": "Build a full project" },
+              { "href": "/tutorial/layout", "label": "Part 1 — Project layout" },
+              { "href": "/tutorial/terraform", "label": "Part 2 — Provision" },
+              { "href": "/tutorial/runeset", "label": "Part 3 — Author your runeset" },
+              { "href": "/tutorial/ci-cd", "label": "Part 4 — Wire up CI/CD" },
+              { "href": "/tutorial/deploy", "label": "Part 5 — Deploy & verify" }
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              { "href": "/operations/runed", "label": "Running runed" },
+              { "href": "/operations/configuration", "label": "Configuration" },
+              { "href": "/operations/security", "label": "Security hardening" },
+              { "href": "/operations/upgrades", "label": "Upgrades" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cli",
+        "label": "CLI",
+        "href": "/cli/overview",
+        "match": ["/cli"],
+        "groups": [
+          {
+            "group": "CLI",
+            "pages": [
+              { "href": "/cli/overview", "label": "Overview" }
+            ]
+          },
+          {
+            "group": "Commands",
+            "pages": [
+              { "href": "/cli/cast", "label": "rune cast" },
+              { "href": "/cli/get", "label": "rune get" },
+              { "href": "/cli/scale", "label": "rune scale" },
+              { "href": "/cli/logs", "label": "rune logs" },
+              { "href": "/cli/exec", "label": "rune exec" },
+              { "href": "/cli/create", "label": "rune create" },
+              { "href": "/cli/delete", "label": "rune delete" },
+              { "href": "/cli/deps", "label": "rune deps" },
+              { "href": "/cli/lint", "label": "rune lint" },
+              { "href": "/cli/pack", "label": "rune pack" },
+              { "href": "/cli/port-forward", "label": "rune port-forward" },
+              { "href": "/cli/restart-stop", "label": "rune restart / stop" },
+              { "href": "/cli/snapshot", "label": "rune snapshot" },
+              { "href": "/cli/storageclass", "label": "rune storageclass" },
+              { "href": "/cli/volume", "label": "rune volume" },
+              { "href": "/cli/health", "label": "rune health" },
+              { "href": "/cli/ui", "label": "rune ui" },
+              { "href": "/cli/admin", "label": "rune admin" },
+              { "href": "/cli/login-config", "label": "rune login / context" },
+              { "href": "/cli/misc", "label": "whoami / status / version" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "reference",
+        "label": "Reference",
+        "href": "/reference/service-spec",
+        "match": ["/reference"],
+        "groups": [
+          {
+            "group": "Reference",
+            "pages": [
+              { "href": "/reference/service-spec", "label": "Service spec" },
+              { "href": "/reference/runefile", "label": "Runefile (server config)" },
+              { "href": "/reference/storage-resources", "label": "Storage resources" },
+              { "href": "/reference/api", "label": "API surface (gRPC + REST)" },
+              { "href": "/reference/cli-network", "label": "Networking CLI" },
+              { "href": "/reference/errors", "label": "Exit codes & errors" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "editUrl": "https://github.com/runestack/rune/edit/master/docs",
+  "seo": {
+    "title": "Rune — single-binary orchestration",
+    "description": "Rune is a lightweight, single-binary orchestration platform. Kubernetes-grade workflow, none of the weight — driven entirely from the command line."
+  }
+}
