@@ -1,36 +1,46 @@
 /* ============================================================
    RUNE — docs landing (Markline-framed)
-   Warm near-black Rune brand × Oxide technical density.
+   steel.dev cool near-black × 8-color categorical palette.
    Spectral display · Hanken Grotesk UI · JetBrains Mono data.
    ============================================================ */
 
 :root {
-  --bg:          #161513;
-  --bg-2:        #131210;
-  --surface:     #1c1a18;
-  --surface-2:   #232120;
-  --surface-3:   #2a2724;
-  --inset:       #100f0d;
+  --bg:          #0f0f0f;
+  --bg-2:        #0b0b0b;
+  --surface:     #161616;
+  --surface-2:   #1d1d1f;
+  --surface-3:   #252528;
+  --inset:       #0a0a0a;
 
-  --border:        #2c2925;
-  --border-strong: #3a3631;
-  --border-faint:  #232120;
-  --rail:          #242120;
+  --border:        #262628;
+  --border-strong: #34343a;
+  --border-faint:  #1b1b1d;
+  --rail:          #1f1f22;
 
-  --text:    #ECE8E1;
-  --text-2:  #A6A097;
-  --text-3:  #726C63;
-  --text-4:  #534E47;
+  --text:    #ededef;
+  --text-2:  #b3b3bc;
+  --text-3:  #7d7d88;
+  --text-4:  #54545d;
 
   --accent:      #9e8cfc;
   --accent-2:    #b8acff;
-  --accent-dim:  rgba(158, 140, 252, 0.13);
-  --accent-line: rgba(158, 140, 252, 0.30);
+  --accent-dim:  rgba(158, 140, 252, 0.14);
+  --accent-line: rgba(158, 140, 252, 0.34);
 
-  --green:  #5cc98e;
+  /* steel.dev 8-color categorical palette */
+  --c-green:  #30a46c;
+  --c-pink:   #d6409f;
+  --c-orange: #f76809;
+  --c-tan:    #daa16e;
+  --c-purple: #9e8cfc;
+  --c-red:    #e5484d;
+  --c-yellow: #f6d908;
+  --c-cyan:   #67ddfd;
+
+  --green:  #30a46c;
   --cyan:   #67ddfd;
   --amber:  #daa16e;
-  --red:    #e5848a;
+  --red:    #e5484d;
 
   --sans:  "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --serif: "Spectral", Georgia, serif;
@@ -65,7 +75,7 @@ a { color: inherit; text-decoration: none; }
 .page {
   position: relative;
   background:
-    radial-gradient(circle at 1px 1px, rgba(236,233,226,0.022) 1px, transparent 0);
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.022) 1px, transparent 0);
   background-size: 26px 26px;
 }
 .rails {
@@ -163,7 +173,7 @@ h2.title em { font-style: italic; color: var(--accent-2); }
    HERO
    ============================================================ */
 .hero { padding: 64px var(--pad) 60px; position: relative; }
-.hero-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
+.hero-grid { display: block; }
 .hero h1 { font-size: clamp(40px, 5.6vw, 72px); margin: 18px 0 0; }
 .hero .lede { margin-top: 22px; }
 .hero-cta { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
@@ -431,3 +441,68 @@ h2.title em { font-style: italic; color: var(--accent-2); }
   .cmp { font-size: 12px; }
   .cmp th, .cmp td { padding: 10px 10px; }
 }
+
+/* ============================================================
+   STEEL CATEGORICAL ACCENTS
+   Purple leads (CTA / links / hero); the rest of the 8-color
+   palette is spread across categorical surfaces, steel-style.
+   ============================================================ */
+
+/* Concept grid — one palette color per concept icon (8 concepts, 8 colors) */
+.concept:nth-child(1) .c-ico { color: var(--c-green); }
+.concept:nth-child(2) .c-ico { color: var(--c-cyan); }
+.concept:nth-child(3) .c-ico { color: var(--c-tan); }
+.concept:nth-child(4) .c-ico { color: var(--c-purple); }
+.concept:nth-child(5) .c-ico { color: var(--c-yellow); }
+.concept:nth-child(6) .c-ico { color: var(--c-pink); }
+.concept:nth-child(7) .c-ico { color: var(--c-orange); }
+.concept:nth-child(8) .c-ico { color: var(--c-red); }
+/* keep the categorical hue on hover (override the generic accent hover) */
+.concept:hover .c-ico { filter: brightness(1.18) saturate(1.1); }
+
+/* Pillars — number markers cycle the palette */
+.pillar:nth-child(1) .pn { color: var(--c-green); }
+.pillar:nth-child(2) .pn { color: var(--c-cyan); }
+.pillar:nth-child(3) .pn { color: var(--c-pink); }
+.pillar:nth-child(4) .pn { color: var(--c-orange); }
+
+/* Hero meta dots — green / cyan / pink */
+.hero-meta span:nth-child(1) i { background: var(--c-green); }
+.hero-meta span:nth-child(2) i { background: var(--c-cyan); }
+.hero-meta span:nth-child(3) i { background: var(--c-pink); }
+
+/* Community stat figures — palette per stat */
+.cstat:nth-child(1) .cv { color: var(--c-green); }
+.cstat:nth-child(2) .cv { color: var(--c-purple); }
+.cstat:nth-child(3) .cv { color: var(--c-orange); }
+.cstat:nth-child(4) .cv { color: var(--c-cyan); }
+
+/* Architecture control-plane nodes pick up palette variety */
+.arch-row:nth-child(1) .node.accent:nth-child(2) { color: var(--c-green); border-color: color-mix(in srgb, var(--c-green) 34%, transparent); background: color-mix(in srgb, var(--c-green) 12%, transparent); }
+.arch-row:nth-child(1) .node.accent:nth-child(3) { color: var(--c-yellow); border-color: color-mix(in srgb, var(--c-yellow) 34%, transparent); background: color-mix(in srgb, var(--c-yellow) 12%, transparent); }
+
+/* ============================================================
+   HERO AURA
+   Warm gradient bloom behind the hero, in the steel palette.
+   Drop a real image at /hero-aura.jpg and it layers on top of
+   the CSS fallback automatically (cover); blended onto the dark
+   canvas via screen + a radial mask so it melts into #0f0f0f.
+   ============================================================ */
+.hero { overflow: hidden; }
+.hero-grid { position: relative; z-index: 1; }
+.hero-aura {
+  position: absolute; z-index: 0; pointer-events: none;
+  left: 0; right: 0; bottom: 0; height: 66%;   /* short bottom strip */
+  background:
+    url("/hero-aura.jpg") center 250% / cover no-repeat,
+    radial-gradient(90% 80% at 50% 100%, rgba(247, 104, 9, 0.42), transparent 62%),
+    radial-gradient(60% 70% at 32% 108%, rgba(246, 217, 8, 0.30), transparent 60%),
+    radial-gradient(60% 70% at 70% 108%, rgba(214, 64, 159, 0.28), transparent 60%);
+  filter: blur(6px) saturate(1.2) contrast(1.03);
+  opacity: 0.9;
+  mix-blend-mode: screen;
+  /* cover shows the warm CENTER band of the image; fade up into the dark */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 52%);
+          mask-image: linear-gradient(180deg, transparent 0%, #000 52%);
+}
+@media (max-width: 1000px) { .hero-aura { height: 58%; opacity: 0.7; } }
