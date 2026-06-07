@@ -201,7 +201,7 @@
     "enabled": true,
     "mode": "proxy",
     "provider": "openrouter",
-    "model": "openai/gpt-4o-mini",
+    "model": "deepseek/deepseek-v4-flash",
     "endpoint": "https://ask.runestack.io",
     "label": "Ask AI",
     "maxTokens": 1024,

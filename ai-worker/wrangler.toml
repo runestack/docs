@@ -17,8 +17,8 @@ routes = [
 [vars]
 MARKLINE_AI_PROVIDER = "openrouter"
 # Cheap + fast default. Swap for any OpenRouter model id, e.g.
-# "google/gemini-2.0-flash-001" or "deepseek/deepseek-chat".
-MARKLINE_AI_MODEL = "openai/gpt-4o-mini"
+# "google/gemini-2.0-flash-001" or "openai/gpt-4o-mini".
+MARKLINE_AI_MODEL = "deepseek/deepseek-v4-flash"
 MARKLINE_AI_MAX_TOKENS = "1024"
 # Comma-separated docs origin(s) allowed to call this Worker (CORS + abuse
 # allow-list). Pin to the docs domain; "*" allows any origin (not recommended).
