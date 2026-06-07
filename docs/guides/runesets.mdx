@@ -140,14 +140,14 @@ Installing a runeset produces a tracked release. Manage it with [`rune release`]
 
 ```sh
 rune release list                       # all releases + revision + status
-rune release status my-app-prod         # owned resources, health, drift
+rune release status my-app-prod         # owned resources, references, revision
 rune release history my-app-prod        # every revision
 rune release diff my-app-prod           # what a re-cast would change
 rune release rollback my-app-prod --to 2  # roll forward to a prior revision
 rune release delete my-app-prod --yes   # uninstall everything it owns
 ```
 
-Uninstall removes only what the release owns, in dependency order, honoring volume reclaim policy — shared `StorageClass` and `Namespace` resources are referenced, not owned, so they survive. By default a soft `uninstalled` tombstone is kept so the release can be reinstalled or rolled back; `--purge` forgets it.
+Uninstall removes only what the release owns, in reverse dependency order — shared `StorageClass` and `Namespace` resources are referenced, not owned, so they survive. Pass `--keep-volumes` to retain volume data. By default a soft `uninstalled` tombstone is kept so the release can be reinstalled or rolled back; `--purge` forgets it.
 
 ## Package and distribute
 

@@ -55,8 +55,11 @@ rune release status my-app-prod
 rune release get my-app-prod -o yaml
 ```
 
-Because a release's owned set is authoritative, status is also where **drift**
-surfaces — resources deleted out of band, modified, or unhealthy.
+:::note
+The owned set is authoritative, which lays the groundwork for **drift** reporting
+(resources deleted out of band, modified, or unhealthy). That comparison isn't
+surfaced yet — today `status` shows the recorded owned set, references, and status.
+:::
 
 ## `release history`
 
