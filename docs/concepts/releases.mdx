@@ -31,7 +31,8 @@ Rune does *not* copy Helm's model here. Helm stores a snapshot of the manifests 
 
 Instead, a persisted **`Release`** object is the source of truth, and every owned
 resource carries a **system owner reference** in its metadata (not a user label)
-as a verifiable back-pointer. GC and drift detection become deterministic.
+as a verifiable back-pointer — making GC deterministic and giving drift detection a
+verifiable baseline.
 
 ## The Release object
 
@@ -91,8 +92,13 @@ See [the cast pipeline](/cli/cast#the-cast-pipeline) for the command-side view.
 
 Pruning runs **only after** creates and updates apply cleanly — never on a failed
 upgrade. Pruned resources go through Rune's normal deletion + finalizer path in
-dependency order (services → configmaps/secrets → volumes), and **volume reclaim
-policy is honored**: a `retain` volume is released, not destroyed.
+reverse dependency order (services → secrets → configmaps → volumes).
+
+:::note
+Honoring per-volume **reclaim policy** in the prune path (`retain` → release
+instead of destroy) is in progress. Today, to retain volume data on teardown, use
+`rune release delete --keep-volumes`, which skips volumes entirely.
+:::
 
 ### Failure
 
@@ -118,11 +124,13 @@ deletes. By default it keeps a soft `uninstalled` **tombstone** so the release s
 visible in `release list --all` and can be reinstalled or rolled back; `--purge`
 forgets it entirely. `--keep-volumes` retains volume data instead of reclaiming it.
 
-### Drift detection
+### Drift detection (planned)
 
-Because `Owns` is authoritative, `rune release status X` compares the recorded
-desired state against live state and reports resources deleted out of band,
-modified, or unhealthy — impossible without a persisted release.
+The persisted `Owns` set plus each revision's `RenderedDigest` give Rune an
+authoritative baseline to diff live state against — the foundation for reporting
+resources deleted out of band, modified, or unhealthy. Surfacing this comparison
+in `rune release status` is on the roadmap; today `status` reports the recorded
+owned set, references, revision, and status.
 
 ## Inline releases
 
@@ -158,8 +166,10 @@ has live releases.
 A release **owns only what it created**. Inherently shared, cluster-scoped kinds —
 **`StorageClass`** and **`Namespace`** — are recorded as *referenced dependencies*
 and **never deleted on uninstall**, even when `--create-namespace` created them.
-There is no refcounting (a deliberate choice — it's a bug farm). Orphaned shared
-resources can be reclaimed later with an explicit prune, never via runtime counters.
+There is no refcounting (a deliberate choice — it's a bug farm). The trade-off is
+that orphaned shared resources may linger after the last release leaves; the design
+calls for reclaiming them with an explicit, operator-driven step rather than runtime
+counters.
 
 ### Partial failure
 
@@ -170,8 +180,7 @@ Auto-rollback can compound failure, and a `failed` record is debuggable.
 
 Uninstall keeps an `uninstalled` tombstone by default — tracking is the whole point
 of releases, so `release list --all` and `release history` stay meaningful and a
-release can be reinstalled or rolled back. `--purge` removes the record; server-side
-GC compacts old tombstones so they don't grow unbounded.
+release can be reinstalled or rolled back. `--purge` removes the record entirely.
 
 ## See also
 

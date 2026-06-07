@@ -71,7 +71,7 @@ Once installed, manage it with [`rune release`](/cli/release):
 
 ```sh
 rune release list                       # all releases + revision + status
-rune release status my-app-prod         # owned resources, health, drift
+rune release status my-app-prod         # owned resources, references, revision
 rune release history my-app-prod        # revision log
 rune release diff my-app-prod           # what a re-cast would change
 rune release rollback my-app-prod --to 2
