@@ -1,56 +1,57 @@
 ---
 title: Installation
-lede: Install the rune CLI and the runed server. Pick between a one-liner, a server bundle, or building from source.
+lede: Install the rune CLI or the runed server with a one-liner. Both default to the latest release.
 ---
 
-Rune ships as two binaries: `rune` (CLI) and `runed` (server). Most installs use one of the official scripts.
+Rune ships as two binaries: `rune` (the CLI) and `runed` (the server). The fastest way to get either is a one-liner — both pull a prebuilt, checksum-verified binary for your OS/arch and default to the latest release.
 
-## CLI only — for developers
+## CLI — your machine
 
-If you just need to talk to a remote `runed`, install the CLI:
+Installs just the `rune` CLI. No root required:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/runestack/rune/master/scripts/install-cli.sh | bash
+curl -fsSL https://get.runestack.io | sh
 ```
 
-This drops `rune` in `/usr/local/bin` (or `~/.local/bin` if not root). Verify:
+It drops `rune` in `/usr/local/bin` (or `~/.local/bin` if you're not root — it prints a PATH hint if that dir isn't on your `PATH`). Verify:
 
 ```sh
 rune version
 ```
 
-## Full server bundle — recommended for hosts
+## Server — a host
 
-The server bundle installs both binaries plus a systemd unit and Docker (if missing):
+Installs both binaries plus Docker (if missing) and a systemd unit, then enables `runed`. Requires root, so pipe into `sudo sh`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/runestack/rune/master/scripts/install-server.sh \
-  | sudo bash -s -- --version v0.1.0
+curl -fsSL https://install.runestack.io | sudo sh
 ```
 
 What it does:
 
 1. Installs `rune` and `runed` to `/usr/local/bin`.
-2. Installs Docker if not already present (skip with `--skip-docker`).
-3. Creates `/etc/rune/runefile.yaml` with sane defaults.
-4. Creates `/var/lib/rune` for state (BadgerDB + KEK).
-5. Installs and enables `runed.service`.
+2. Installs Docker if not already present.
+3. Creates the `rune` system user and `/var/lib/rune` for state (BadgerDB + KEK).
+4. Installs and enables `runed.service`.
 
-For automated provisioning (cloud-init, CI/CD), drop `sudo`:
+After it finishes, [bootstrap your first user](/start/bootstrap).
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/runestack/rune/master/scripts/install-server.sh \
-  | bash -s -- --version v0.1.0
-```
+## Pinning a version & options
 
-## Binary-only — Docker already configured
-
-If Docker is set up and you only want the binaries:
+Both default to the **latest** release. To pin a version or pass options, append them after `-s --`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/runestack/rune/master/scripts/install.sh \
-  | sudo bash -s -- --version v0.1.0
+# Pin the CLI, or install it somewhere on your PATH
+curl -fsSL https://get.runestack.io | sh -s -- --version v0.0.1-dev.116
+curl -fsSL https://get.runestack.io | sh -s -- --install-dir ~/.local/bin
+
+# Pin the server version / set ports
+curl -fsSL https://install.runestack.io | sudo sh -s -- --version v0.0.1-dev.116 --http-port 7861
 ```
+
+:::note
+The one-liners are served from `get.runestack.io` / `install.runestack.io`, which front the `install-cli.sh` and `install.sh` scripts in the repo. You can always pipe those raw URLs directly if you prefer.
+:::
 
 ## From source
 
@@ -69,6 +70,8 @@ go install github.com/runestack/rune/cmd/runed@latest
 rune version
 ```
 
+The CLI installer can build from source too — `curl -fsSL https://get.runestack.io | sh -s -- --from-source`.
+
 The `Makefile` targets:
 
 | Target          | What it does                                   |
@@ -76,16 +79,15 @@ The `Makefile` targets:
 | `make setup`    | Installs lint and protobuf tooling.            |
 | `make build`    | Builds both binaries to `bin/`.                |
 | `make test`     | Runs unit tests.                               |
-| `make test-int` | Runs integration tests (requires Docker).      |
 | `make proto`    | Regenerates protobuf code.                     |
 | `make lint`     | Runs `golangci-lint`.                          |
 
 ## Manual binary install
 
-Grab a release tarball:
+Grab a release tarball directly (replace `VER` with a [release tag](https://github.com/runestack/rune/releases)):
 
 ```sh
-VER=v0.1.0
+VER=v0.0.1-dev.116
 ARCH=$(uname -m); case "$ARCH" in
   x86_64) ARCH=amd64 ;;
   aarch64|arm64) ARCH=arm64 ;;
@@ -99,14 +101,14 @@ sudo tar -C /usr/local/bin -xzf /tmp/rune.tgz rune runed
 
 ## Upgrading
 
-Stop the service, swap the binaries, restart:
+Re-run the installer — it overwrites in place with the latest release (or pin `--version`):
 
 ```sh
-sudo systemctl stop runed
-curl -fsSL https://raw.githubusercontent.com/runestack/rune/master/scripts/install-server.sh \
-  | sudo bash -s -- --version v0.1.1 --skip-docker
-sudo systemctl start runed
+# CLI
+curl -fsSL https://get.runestack.io | sh
 
+# Server (rolls the systemd unit)
+curl -fsSL https://install.runestack.io | sudo sh
 runed --version
 sudo systemctl status runed --no-pager | cat
 ```
