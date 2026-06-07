@@ -121,7 +121,33 @@ rune cast ./my-app \
   --values=production.values.yaml
 ```
 
-`--release` is the install identity. Re-running with the same release upgrades in place. Different release names give you parallel installs (e.g., `my-app-prod` and `my-app-staging`).
+`--release` is the install identity — the [release](/concepts/releases) name. Re-running with the same release upgrades in place; different release names give you parallel installs (e.g., `my-app-prod` and `my-app-staging`).
+
+A cast is **plan → confirm → apply**. Rune renders the runeset, computes a 3-way plan against what the release currently owns, and shows it before changing anything:
+
+```text
+Release "my-app-prod" → revision 2   (namespace: prod)
+  + create    1  (service/scheduler)
+  ~ update    2  (service/api, service/worker)
+  - prune     1  (configmap/old-flags)        ⚠ destructive
+```
+
+A plan that prunes or adopts prompts for confirmation; pass `--yes` (or run in CI) to skip it. Preview without applying using `--dry-run`.
+
+## Operate the release
+
+Installing a runeset produces a tracked release. Manage it with [`rune release`](/cli/release):
+
+```sh
+rune release list                       # all releases + revision + status
+rune release status my-app-prod         # owned resources, health, drift
+rune release history my-app-prod        # every revision
+rune release diff my-app-prod           # what a re-cast would change
+rune release rollback my-app-prod --to 2  # roll forward to a prior revision
+rune release delete my-app-prod --yes   # uninstall everything it owns
+```
+
+Uninstall removes only what the release owns, in dependency order, honoring volume reclaim policy — shared `StorageClass` and `Namespace` resources are referenced, not owned, so they survive. By default a soft `uninstalled` tombstone is kept so the release can be reinstalled or rolled back; `--purge` forgets it.
 
 ## Package and distribute
 

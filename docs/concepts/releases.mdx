@@ -1,0 +1,181 @@
+---
+title: Releases
+lede: Every cast is a tracked release — a first-class, persisted record of what was installed, so you can list, diff, upgrade-with-prune, roll back, and uninstall in one shot.
+---
+
+A **release** is the stateful record of a `rune cast`. Where a runeset is the
+*package* (templates + values), a release is the *installation* — the source of
+truth for what that cast actually put on the cluster, at which revision.
+
+:::note
+Releases are not opt-in. Every `rune cast` produces a tracked release — there is
+no fire-and-forget "unmanaged" path. A loose `service.yaml` is treated as an
+[inline runeset](#inline-releases) and gets a release too.
+:::
+
+## Why a release object
+
+Before releases, a cast applied resources and forgot them. There was no record of
+what was installed, so you could not list it, diff it, upgrade it without orphaning
+removed resources, roll it back, or cleanly uninstall it. Operating any
+multi-resource app meant tracking its pieces by hand.
+
+Rune does *not* copy Helm's model here. Helm stores a snapshot of the manifests it
+*rendered* and signals ownership through user-facing labels
+(`app.kubernetes.io/managed-by`). That has two failure modes Rune avoids:
+
+- **Ownership is advisory.** Edit a label, or create a resource out of band, and
+  garbage collection breaks and orphans things.
+- **The snapshot drifts from reality.** Helm's record is what it rendered, not
+  what actually exists.
+
+Instead, a persisted **`Release`** object is the source of truth, and every owned
+resource carries a **system owner reference** in its metadata (not a user label)
+as a verifiable back-pointer. GC and drift detection become deterministic.
+
+## The Release object
+
+A release is a namespaced, persisted resource:
+
+| Field            | Meaning                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| `Name`           | Unique within its namespace. Defaults to the runeset manifest name; set with `--release`. |
+| `Namespace`      | The release's **home** namespace (its owned resources may live elsewhere — see [cross-namespace](#cross-namespace)). |
+| `Status`         | `pending` → `deployed`; prior revisions become `superseded`; a bad cast is left `failed`; uninstall yields `uninstalled`. |
+| `Revision`       | Increments on every cast of the release.                            |
+| `Source`         | Where the runeset came from (`dir` \| `tgz` \| `github` \| `url`) plus ref/digest. |
+| `Values`         | The fully-merged values used for *this* revision — for diff and rollback. |
+| `Owns`           | The authoritative set of resources this revision owns.              |
+| `References`     | Shared resources the release depends on but does **not** own (see [D2](#shared-resources)). |
+
+Revision history rides the store's existing versioning, so every cast writes a new
+revision and rollback comes for free.
+
+## Ownership
+
+Each ownable resource gets a system-managed owner stamp in its metadata —
+separate from user `Labels`:
+
+```text
+OwnedBy{ release: "my-app-prod", revision: 4, manager: "runeset" }
+```
+
+- **Bidirectional integrity.** `Release.Owns` lists the resources; each resource's
+  owner stamp points back. Either side alone is enough to GC; together they detect
+  tampering (a resource claiming a release the release doesn't list, or vice versa).
+- **Adoption safety.** A cast that would overwrite a resource **not** owned by this
+  release fails unless you pass `--adopt`. This guardrail is intrinsic, not bolted
+  on after the fact.
+
+## Lifecycle
+
+### Install & upgrade
+
+`rune cast <runeset> --release X` is both install and upgrade — the same
+**plan → confirm → apply → verify → prune** pipeline either way:
+
+1. **Render** the castfile set → the desired resource set.
+2. **Plan** a 3-way reconcile between the *previously owned* set, the *new desired*
+   set, and *live state*:
+   - **create** — in desired, not in previous.
+   - **update** — in both.
+   - **prune** — in previous, not in desired. *(This is what Helm orphans.)*
+3. **Record** the release `pending` with the new owned set first (an intent log, so
+   a crash is recoverable), then apply in strict order:
+   **create → update → verify healthy → prune**. Prune is always last.
+4. On success the release becomes `deployed` and the prior revision `superseded`.
+
+See [the cast pipeline](/cli/cast#the-cast-pipeline) for the command-side view.
+
+### Prune
+
+Pruning runs **only after** creates and updates apply cleanly — never on a failed
+upgrade. Pruned resources go through Rune's normal deletion + finalizer path in
+dependency order (services → configmaps/secrets → volumes), and **volume reclaim
+policy is honored**: a `retain` volume is released, not destroyed.
+
+### Failure
+
+By default a failed cast leaves the release `failed` with the **last `deployed`
+revision live and untouched** — nothing is pruned, so the previous revision stays
+the live truth and the failure is debuggable. Ordering is the safety mechanism:
+because prune is last, a failed apply prunes nothing.
+
+### Rollback
+
+`rune release rollback X` re-applies a prior revision's rendered set as a *new*
+revision — forward-rolling, never mutating history. It re-renders that revision's
+stored source + values and casts it forward through the same pipeline, so it works
+for reproducible sources (`tgz`, `github`, `url`). A revision whose source was a
+local directory is no longer reproducible and fails with a clear error — re-cast
+from the runeset source instead.
+
+### Uninstall
+
+`rune release delete X` (alias `uninstall`) reads `Release.Owns` and deletes every
+owned resource in reverse dependency order — one tracked operation, not N manual
+deletes. By default it keeps a soft `uninstalled` **tombstone** so the release stays
+visible in `release list --all` and can be reinstalled or rolled back; `--purge`
+forgets it entirely. `--keep-volumes` retains volume data instead of reclaiming it.
+
+### Drift detection
+
+Because `Owns` is authoritative, `rune release status X` compares the recorded
+desired state against live state and reports resources deleted out of band,
+modified, or unhealthy — impossible without a persisted release.
+
+## Inline releases
+
+A loose castfile is treated as an **inline runeset**: a runeset with no
+`runeset.yaml` and no templating. It still produces a release.
+
+- A single file or directory derives its release name from the **basename** and
+  prints a warning that the name was derived (so you know a permanent, GC-bearing
+  key was auto-chosen). Pin it with `--release`.
+- **Multiple sources** require an explicit `--release`, since no single basename
+  identifies the release.
+
+```sh
+rune cast service.yaml                 # release "service" (derived; warns)
+rune cast service.yaml --release api   # release "api"
+rune cast svc.yaml db.yaml --release stack   # --release required
+```
+
+## Decisions
+
+These design choices shape how releases behave at the edges:
+
+### Cross-namespace
+
+A release lives in **one home namespace**, but its owner references may point into
+other namespaces. This matches Helm's mental model and Rune's namespace-scoped
+RBAC. Managing the release needs write in the home namespace; creating into a target
+namespace needs write there too. **Guard:** you can't delete a namespace that still
+has live releases.
+
+### Shared resources
+
+A release **owns only what it created**. Inherently shared, cluster-scoped kinds —
+**`StorageClass`** and **`Namespace`** — are recorded as *referenced dependencies*
+and **never deleted on uninstall**, even when `--create-namespace` created them.
+There is no refcounting (a deliberate choice — it's a bug farm). Orphaned shared
+resources can be reclaimed later with an explicit prune, never via runtime counters.
+
+### Partial failure
+
+The default leaves a failed cast `failed` with the prior `deployed` revision live.
+Auto-rollback can compound failure, and a `failed` record is debuggable.
+
+### Uninstall is soft
+
+Uninstall keeps an `uninstalled` tombstone by default — tracking is the whole point
+of releases, so `release list --all` and `release history` stay meaningful and a
+release can be reinstalled or rolled back. `--purge` removes the record; server-side
+GC compacts old tombstones so they don't grow unbounded.
+
+## See also
+
+- [`rune cast`](/cli/cast) — install/upgrade a release.
+- [`rune release`](/cli/release) — list, status, history, diff, rollback, uninstall.
+- [Runesets](/concepts/runesets) — the package a release installs.
+- [Package a runeset](/guides/runesets) — author, install, and operate a runeset.

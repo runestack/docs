@@ -75,6 +75,7 @@
               { "href": "/concepts/instances", "label": "Instances" },
               { "href": "/concepts/namespaces", "label": "Namespaces" },
               { "href": "/concepts/runesets", "label": "Runesets" },
+              { "href": "/concepts/releases", "label": "Releases" },
               { "href": "/concepts/secrets-configmaps", "label": "Secrets & ConfigMaps" },
               { "href": "/concepts/networking", "label": "Networking" },
               { "href": "/concepts/storage", "label": "Storage" },
@@ -150,6 +151,7 @@
             "group": "Commands",
             "pages": [
               { "href": "/cli/cast", "label": "rune cast" },
+              { "href": "/cli/release", "label": "rune release" },
               { "href": "/cli/get", "label": "rune get" },
               { "href": "/cli/scale", "label": "rune scale" },
               { "href": "/cli/logs", "label": "rune logs" },

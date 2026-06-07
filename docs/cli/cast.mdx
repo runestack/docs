@@ -1,6 +1,6 @@
 ---
 title: rune cast
-lede: Apply Rune resources from YAML files, directories, runeset bundles, or remote URLs.
+lede: Install or upgrade a release from YAML files, directories, runeset bundles, or remote URLs — plan, confirm, apply.
 ---
 
 Aliases: `apply`.
@@ -19,7 +19,6 @@ rune cast my-service.yaml --namespace=production
 rune cast my-service.yaml --tag=stable
 rune cast my-directory/ --recursive
 rune cast services/*.yaml
-rune cast my-service.yaml --force
 rune cast github.com/org/repo/path@ref --create-namespace
 rune cast https://example.com/runeset.tgz --release=my-release
 rune cast ./runeset.tgz --release=my-release
@@ -27,34 +26,109 @@ rune cast ./runeset --render --set=key=value
 rune cast ./runeset --render --values=values.yaml
 ```
 
+:::note
+**Every cast is a tracked [release](/concepts/releases).** There is no
+fire-and-forget path. A loose `service.yaml` is treated as an *inline runeset* and
+gets a release named after the file (with a warning); pin it with `--release`.
+Operate releases afterward with [`rune release`](/cli/release).
+:::
+
+## The cast pipeline
+
+A cast is declarative — closer to `terraform apply` than `kubectl apply`. It runs:
+
+```text
+render ─► lint ─► PLAN (3-way diff) ─► [confirm] ─► APPLY (create → update → verify) ─► PRUNE
+```
+
+The CLI renders and lints locally, then the server computes the plan, applies it in
+order, and prunes last. You see a plan block before anything changes:
+
+```text
+Release "runesight" → revision 3   (namespace: observability)
+  + create    2  (service/query-api, volume/ch-data)
+  ~ update    1  (service/ingester)
+  - prune     1  (configmap/old-settings)        ⚠ destructive
+  ↪ adopt     0
+  = reference 0
+```
+
+A plan that prunes or adopts asks for confirmation before applying — type `yes`,
+or pass `--yes` (CI and `--detach` skip the prompt). Pure create/update proceeds
+automatically.
+
 ## Flags
 
-| Flag                  | Default     | Notes                                                    |
-| --------------------- | ----------- | -------------------------------------------------------- |
-| `-n, --namespace`     | from context | Target namespace.                                        |
-| `--create-namespace`  | false       | Create the namespace if it doesn't exist.                |
-| `--detach`            | false       | Return immediately; don't wait for rollout.              |
-| `--dry-run`           | false       | Validate without applying.                               |
-| `--force`             | false       | Force generation increment even with no diff.            |
-| `-r, --recursive`     | false       | Recurse into directories.                                |
-| `--tag <name>`        | —           | Tag this deployment for later reference (rollback aid).  |
-| `--render`            | false       | Runesets only — print rendered YAML and exit.            |
-| `--set k=v`           | —           | Runesets only — override a value (repeatable).           |
-| `--values <file>`     | —           | Runesets only — extra values file (repeatable).          |
-| `--release <name>`    | —           | Runesets only — install identity.                        |
-| `--timeout <dur>`     | `5m`        | Rollout wait timeout.                                    |
+| Flag                  | Default      | Notes                                                          |
+| --------------------- | ------------ | -------------------------------------------------------------- |
+| `-n, --namespace`     | from context | Target / home namespace for the release.                      |
+| `--create-namespace`  | false        | Create the namespace if it doesn't exist (referenced, never owned). |
+| `--release <name>`    | derived      | Release identity. Defaults to the runeset/file basename.       |
+| `--dry-run`           | false        | Compute and print the plan; apply nothing. See [below](#plan-and-dry-run). |
+| `--detach`            | false        | Return once accepted; don't wait for rollout. Create/update-only. |
+| `--yes`               | false        | Skip the confirm prompt for plans that prune or adopt.        |
+| `--adopt`             | false        | Take over resources that are unmanaged or owned by another release. |
+| `--timeout <dur>`     | `5m`         | Rollout wait timeout for the **whole release**.               |
+| `-r, --recursive`     | false        | Recurse into directories.                                     |
+| `--force`             | false        | Force generation increment even with no diff.                |
+| `--tag <name>`        | —            | Tag this deployment for later reference.                      |
+| `--render`            | false        | Print rendered YAML and exit (works for inline casts too).    |
+| `--set k=v`           | —            | Override a value (repeatable).                                |
+| `-f, --values <file>` | —            | Extra values file (repeatable; last wins).                   |
+| `-o, --output`        | —            | `json` — emit the structured plan + result.                  |
+
+:::note
+`--release`, `--render`, `--set`, and `--values` are **universal** — they apply to
+loose castfiles (inline runesets), not just packaged runesets.
+:::
+
+## Plan and dry-run
+
+`--dry-run` renders, lints, and prints the **3-way plan** — but applies nothing.
+It now contacts the server to compare against the release's current state, so the
+plan includes prunes and adoption conflicts:
+
+```sh
+rune cast ./my-app --release=my-app-prod --values=prod.yaml --dry-run
+```
+
+This is the same plan [`rune release diff`](/cli/release#release-diff) shows for an
+already-installed release; use `--dry-run` when you're casting from changed source
+or values. For purely static, offline validation (schema, templates, cycles) use
+[`rune lint`](/cli/lint).
+
+## Adoption
+
+A cast that would overwrite a resource **not** owned by this release fails with an
+ownership conflict — the guardrail that keeps two releases from fighting over the
+same resource. Pass `--adopt` to take ownership (e.g. pulling pre-existing,
+pre-release resources under management on first cast):
+
+```sh
+rune cast ./my-app --release=my-app-prod --adopt
+```
+
+## Detach
+
+`--detach` returns as soon as the cast is accepted instead of waiting for rollout.
+It is **create/update-only**: a plan that prunes refuses `--detach` so the
+destructive half is never orphaned. Drop `--detach` to apply a destructive plan,
+or inspect it first with `rune release diff`.
 
 ## Behavior
 
-- **Idempotent.** Re-applying the same spec is a no-op (unless `--force`).
-- **Generation bumps** on every accepted change. The reconciler keys off generation.
+- **Idempotent.** Re-casting the same spec into the same release is a no-op plan
+  (unless `--force`).
+- **Aggregate timeout.** `--timeout` bounds the whole release rollout, not each
+  service.
+- **Deterministic apply.** Resources apply in a stable order, then prune runs last.
 - **Multi-document YAML** is supported — separate documents with `---`.
 - **Mixed resource files** (services + secrets + configmaps in one file) are fine.
-- **Failures surface inline.** Without `--detach`, `cast` waits for each
-  service to become ready. If the reconciler reports `Failed` it stops
-  waiting immediately, prints a short reason + the one-sentence cause
-  + a `rune get service <name>` hint, and exits non-zero. No second
-  command needed to find out *why* a deploy didn't take.
+- **Failures surface inline.** Without `--detach`, `cast` waits for the release to
+  become ready. If the reconciler reports `Failed` it stops waiting immediately,
+  prints a short reason + the one-sentence cause + a `rune get service <name>` hint,
+  and exits non-zero. The release is left `failed` with the prior revision live and
+  nothing pruned.
 
 ```text
     ✗ ImageUnreachable
@@ -70,21 +144,26 @@ rune cast ./runeset --render --values=values.yaml
 ## Common patterns
 
 ```sh
-# Validate first
+# Validate first (offline, static)
 rune lint manifests/ --recursive
 
-# Apply everything
-rune cast manifests/ --recursive
+# Preview the full plan against live state
+rune cast manifests/ --release=app --dry-run
 
-# Diff a runeset before installing
+# Install / upgrade a release
+rune cast ./my-app --release=my-app-prod --values=prod.yaml
+
+# Non-interactive deploy in CI (structured output, skip the prompt)
+rune cast ./my-app --release=my-app-prod -f prod.yaml --yes --output=json
+
+# Diff a runeset's rendered YAML before installing
 rune cast ./my-app --render --values=prod.yaml | diff - last-rendered.yaml
-
-# Dry-run a deploy in CI
-rune cast service.yaml --dry-run
 ```
 
 ## See also
 
+- [Releases](/concepts/releases) — the stateful model behind every cast.
+- [`rune release`](/cli/release) — list, status, history, diff, rollback, uninstall.
 - [Service spec](/reference/service-spec)
 - [Runesets](/concepts/runesets)
 - [`rune lint`](/cli/lint)
