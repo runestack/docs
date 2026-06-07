@@ -12,7 +12,7 @@ token cap so the endpoint can't be turned into an open relay to our paid LLM.
 
 The Worker source (`src/worker.ts`) is Markline's reference implementation,
 vendored unchanged so we control deploys; only `wrangler.toml` is customized for
-Rune.
+Rune. See [Credits & license](#credits--license).
 
 ## Activate (about 2 minutes)
 
@@ -64,3 +64,11 @@ A public AI endpoint is a relay to our paid LLM. This Worker ships with an
 (`MARKLINE_RATE_PER_MIN`), and a **token cap** (`MARKLINE_AI_MAX_TOKENS`). The
 rate limit is per-isolate in-memory; for strict global limits, back it with
 Workers KV or a Durable Object.
+
+## Credits & license
+
+`src/worker.ts` and `tsconfig.json` are vendored verbatim from
+[Markline](https://github.com/markline-dev/markline) (`templates/ai-worker/`),
+which is **MIT-licensed** — Copyright (c) 2026 Markline. `wrangler.toml`,
+`package.json`, and this README are adapted for the Rune docs. The full upstream
+license and copyright notice are preserved in [`NOTICE`](./NOTICE).

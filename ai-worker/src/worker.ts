@@ -1,6 +1,10 @@
 /**
  * Markline Ask AI — reference Cloudflare Worker (operator-key proxy).
  *
+ * Vendored verbatim from Markline (templates/ai-worker/src/worker.ts).
+ * Copyright (c) 2026 Markline — MIT. See ../NOTICE for the full license.
+ * https://github.com/markline-dev/markline
+ *
  * Deploy this to add the Ask AI assistant to a PURE-STATIC Markline site
  * (GitHub Pages, S3, any CDN) without exposing your provider key. The key lives
  * as a Worker secret on Cloudflare's edge; the browser only ever talks to this
