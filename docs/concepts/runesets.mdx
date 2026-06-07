@@ -5,6 +5,8 @@ lede: Runesets package multi-service applications with templating and values, li
 
 A **runeset** is a directory (or `.runeset.tgz` archive) that bundles several Rune resources behind a single template + values surface. Use them when one application is actually 3–10 services, secrets, and configmaps that ship together.
 
+A runeset is the *package*; installing it produces a [**release**](/concepts/releases) — the stateful record of what was deployed. Every `rune cast` is tracked as a release, so you can list, diff, upgrade-with-prune, roll back, and uninstall it in one shot.
+
 ## Anatomy
 
 ```
@@ -61,7 +63,20 @@ rune cast ./my-app --render --values=production.values.yaml
 rune cast ./my-app --release=my-app-prod --values=production.values.yaml
 ```
 
-`--release` becomes the runeset's identity in the cluster. Re-running `cast` with the same release upgrades in place.
+`--release` becomes the runeset's identity in the cluster — the [release](/concepts/releases) name. Re-running `cast` with the same release upgrades in place: Rune computes a 3-way plan (create / update / **prune** / adopt), shows it, and applies it after confirmation. Resources removed from the runeset are pruned; nothing is orphaned.
+
+## Operate the release
+
+Once installed, manage it with [`rune release`](/cli/release):
+
+```sh
+rune release list                       # all releases + revision + status
+rune release status my-app-prod         # owned resources, health, drift
+rune release history my-app-prod        # revision log
+rune release diff my-app-prod           # what a re-cast would change
+rune release rollback my-app-prod --to 2
+rune release delete my-app-prod --yes   # uninstall everything it owns
+```
 
 ## Package and distribute
 

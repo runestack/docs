@@ -1,0 +1,152 @@
+---
+title: rune release
+lede: Operate stateful runeset releases — list, status, history, diff, rollback, and uninstall.
+---
+
+Aliases: `releases`.
+
+Every `rune cast` produces a tracked [release](/concepts/releases). The `release`
+command group is the operator surface for everything you do to an *existing* one.
+Install and upgrade live on [`rune cast`](/cli/cast) — there is no `release
+install`.
+
+```sh
+rune release list
+rune release status my-app-prod
+rune release history my-app-prod
+rune release diff my-app-prod
+rune release rollback my-app-prod --to 3
+rune release delete my-app-prod --yes
+```
+
+All subcommands take `-n, --namespace` (default `default`) and `-o, --output`
+(`table` \| `json` \| `yaml`).
+
+## `release list`
+
+Alias: `ls`. Lists releases with revision, status, and resource counts.
+
+```sh
+rune release list
+rune release list -A              # across all namespaces
+rune release list --all           # include uninstalled (tombstone) records
+```
+
+| Flag                 | Default   | Notes                                            |
+| -------------------- | --------- | ------------------------------------------------ |
+| `-n, --namespace`    | `default` | Namespace to list.                               |
+| `-A, --all-namespaces` | false   | List releases across all namespaces.             |
+| `--all`              | false     | Include `uninstalled` tombstone records.         |
+| `-o, --output`       | `table`   | `table` \| `json` \| `yaml`.                      |
+
+```text
+NAMESPACE      NAME          REVISION  STATUS    RESOURCES  UPDATED
+observability  runesight     3         deployed  5          2m ago
+prod           my-app-prod   4         deployed  7          1h ago
+```
+
+## `release status`
+
+Alias of `release get`. Shows a release's owned resources, references, revision,
+and status.
+
+```sh
+rune release status my-app-prod
+rune release get my-app-prod -o yaml
+```
+
+Because a release's owned set is authoritative, status is also where **drift**
+surfaces — resources deleted out of band, modified, or unhealthy.
+
+## `release history`
+
+The revision log of a release — every cast, its status, and resource count.
+
+```sh
+rune release history my-app-prod
+```
+
+```text
+REVISION  STATUS      RESOURCES  UPDATED
+1         superseded  5          3d ago
+2         superseded  6          1d ago
+3         deployed    7          1h ago
+```
+
+## `release diff`
+
+A dry-run reconcile: what a re-cast would **create / update / prune / adopt /
+reference**, without applying anything. It compares the release's currently-owned
+set against live state.
+
+```sh
+rune release diff my-app-prod
+```
+
+```text
+ACTION   RESOURCE                              CONFLICT
+update   service/prod/api
+prune    configmap/prod/old-settings
+```
+
+:::note
+`diff` plans against the release's *recorded* owned set against live state. To
+preview a re-render from changed source or values, use
+[`rune cast --dry-run`](/cli/cast#plan-dry-run), which renders the source first
+and shows the full 3-way plan.
+:::
+
+## `release rollback`
+
+Roll a release **forward** to a prior revision. Rollback never mutates history —
+it re-renders the target revision's stored source + values and casts it forward as
+a new revision, through the same plan → apply → verify → prune pipeline as a normal
+cast.
+
+```sh
+rune release rollback my-app-prod            # to the immediately-preceding revision
+rune release rollback my-app-prod --to 3     # to a specific revision
+```
+
+| Flag              | Default   | Notes                                                   |
+| ----------------- | --------- | ------------------------------------------------------- |
+| `--to <rev>`      | `0`       | Target revision (`0` = the previous revision).          |
+| `--yes`           | false     | Skip the confirm prompt for plans that prune or adopt.  |
+| `-n, --namespace` | `default` | Namespace.                                              |
+
+:::caution
+Rollback only works for **reproducible** sources (`tgz`, `github`, `url`). A
+revision whose source was a local directory can't be re-rendered and fails with a
+clear error — re-cast from the runeset source instead.
+:::
+
+## `release delete`
+
+Alias: `uninstall`. Removes every resource the release owns, in reverse dependency
+order, then keeps a soft `uninstalled` tombstone by default so the release stays in
+`release list --all` and can be reinstalled or rolled back.
+
+```sh
+rune release delete my-app-prod --yes
+rune release delete my-app-prod --keep-volumes --yes
+rune release uninstall my-app-prod --purge --yes
+```
+
+| Flag              | Default   | Notes                                                       |
+| ----------------- | --------- | ---------------------------------------------------------- |
+| `--yes`           | false     | **Required** — confirms the destructive operation.         |
+| `--keep-volumes`  | false     | Retain volume data instead of reclaiming it.               |
+| `--purge`         | false     | Remove the release record entirely (forget the tombstone). |
+| `-n, --namespace` | `default` | Namespace.                                                 |
+
+:::caution
+Delete is destructive and refuses to run without `--yes`. Referenced shared kinds
+(`StorageClass`, `Namespace`) are **never** deleted, even when `--create-namespace`
+created them — see [shared resources](/concepts/releases#shared-resources).
+:::
+
+## See also
+
+- [Releases](/concepts/releases) — the model behind these commands.
+- [`rune cast`](/cli/cast) — install and upgrade a release.
+- [Package a runeset](/guides/runesets) — author and ship the package a release installs.
