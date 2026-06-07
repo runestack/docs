@@ -1,0 +1,29 @@
+# Rune docs — "Ask AI" Cloudflare Worker config.
+# Deploy:  npm install && npx wrangler secret put MARKLINE_AI_KEY && npm run deploy
+name = "rune-docs-ai"
+main = "src/worker.ts"
+compatibility_date = "2024-11-01"
+
+# Serve the Worker on a custom domain so markline.json's `endpoint` is stable.
+# Requires the runestack.io zone on this Cloudflare account. If you'd rather use
+# the default *.workers.dev URL, delete this block and point `endpoint` in
+# markline.json at the printed https://rune-docs-ai.<account>.workers.dev URL.
+routes = [
+  { pattern = "ask.runestack.io", custom_domain = true }
+]
+
+# Non-secret knobs. The provider key is a SECRET — never put it here:
+#   npx wrangler secret put MARKLINE_AI_KEY
+[vars]
+MARKLINE_AI_PROVIDER = "openrouter"
+# Cheap + fast default. Swap for any OpenRouter model id, e.g.
+# "google/gemini-2.0-flash-001" or "deepseek/deepseek-chat".
+MARKLINE_AI_MODEL = "openai/gpt-4o-mini"
+MARKLINE_AI_MAX_TOKENS = "1024"
+# Comma-separated docs origin(s) allowed to call this Worker (CORS + abuse
+# allow-list). Pin to the docs domain; "*" allows any origin (not recommended).
+MARKLINE_ALLOWED_ORIGIN = "https://docs.runestack.io"
+MARKLINE_RATE_PER_MIN = "10"
+MARKLINE_SITE_NAME = "Rune"
+# For "openai-compatible" providers, also set:
+# MARKLINE_AI_BASE_URL = "https://your-endpoint/v1"

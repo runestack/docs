@@ -15,6 +15,9 @@ public/llms-full.txt
 .env
 .env.*
 
+# cloudflare worker (ai-worker/) local state
+.wrangler/
+
 # misc
 .DS_Store
 *.log

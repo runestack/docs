@@ -197,6 +197,16 @@
     ]
   },
   "editUrl": "https://github.com/runestack/rune/edit/master/docs",
+  "ai": {
+    "enabled": true,
+    "mode": "proxy",
+    "provider": "openrouter",
+    "model": "openai/gpt-4o-mini",
+    "endpoint": "https://ask.runestack.io",
+    "label": "Ask AI",
+    "maxTokens": 1024,
+    "rateLimit": { "perMinute": 10 }
+  },
   "seo": {
     "title": "Rune — single-binary orchestration",
     "description": "Rune is a lightweight, single-binary orchestration platform. Kubernetes-grade workflow, none of the weight — driven entirely from the command line."
