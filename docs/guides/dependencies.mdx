@@ -1,11 +1,13 @@
 ---
 title: Service dependencies
-lede: Declare that one service needs another. The reconciler waits for dependencies to be ready before rolling out.
+lede: Declare that one service needs another. The reconciler waits for dependencies to be ready before creating instances.
 ---
 
 Services rarely run alone. An API needs a database. A worker needs a queue. Rune lets you express that as data, not bash.
 
 ## Declare a dependency
+
+A dependency is a reference to a service, secret, or configmap — written either as a structured entry or as a string shorthand:
 
 ```yaml
 service:
@@ -14,33 +16,60 @@ service:
   scale: 2
 
   dependencies:
+    # Structured form
     - service: postgres
-      readyWhen: healthy
-    - service: redis
-      readyWhen: running
     - service: auth
       namespace: shared
-      readyWhen: healthy
-      timeoutSeconds: 60
+    - secret: db-credentials
+    - configmap: app-settings
+
+    # String shorthand — equivalent to the structured form
+    - service:redis
+    - secret:api-keys
+    - configmap:feature-flags
 ```
 
-| Field             | Notes                                                                   |
-| ----------------- | ----------------------------------------------------------------------- |
-| `service`         | The name of the dependency.                                             |
-| `namespace`       | Optional. Defaults to the dependent's namespace.                        |
-| `readyWhen`       | `running`, `healthy` (probes pass), or `started` (process up).          |
-| `timeoutSeconds`  | How long to wait before declaring the dependency unsatisfied.           |
-| `optional`        | If true, the dependent rolls out even if the dependency isn't ready.    |
+| Field       | Notes                                                            |
+| ----------- | ---------------------------------------------------------------- |
+| `service`   | Name of a service this one depends on.                           |
+| `secret`    | Name of a secret that must exist before rollout.                 |
+| `configmap` | Name of a configmap that must exist before rollout.              |
+| `namespace` | Optional. Defaults to the dependent's namespace.                 |
+
+Each entry must specify exactly one of `service`, `secret`, or `configmap` — `rune cast` rejects entries that specify none.
+
+### String shorthand
+
+The shorthand forms are:
+
+- `service:<name>`, `secret:<name>`, `configmap:<name>` — a typed reference in the dependent's namespace.
+- `service:<name>.<namespace>.rune` (and likewise for `secret:`/`configmap:`) — a typed reference in another namespace.
+- A bare name like `postgres` — treated as a service dependency in the dependent's namespace.
+- A dotted name like `postgres.prod` — a service dependency in the `prod` namespace.
+
+## When is a dependency ready?
+
+The readiness condition is fixed — it is not configurable per dependency:
+
+- **Service without a readiness probe**: ready when at least one instance is `Running`.
+- **Service with a readiness probe** (`health.readiness` in the dependency's own spec): ready when at least one instance is `Running` *and* its readiness probe is passing.
+- **Secret or configmap**: ready when the resource exists. Individual keys are not checked.
+
+In other words: to wait for a dependency to be *healthy* rather than merely running, give that dependency a readiness probe. See [Health checks](/guides/health).
 
 ## What it does
 
-On rollout (cast or scale), the reconciler:
+On rollout (cast or scale up), the reconciler:
 
-1. Resolves the dependency graph.
-2. Waits for each dependency to reach `readyWhen` (with the configured timeout).
-3. Starts the dependent service only after all required dependencies are satisfied.
+1. Resolves each dependency reference (applying namespace defaults).
+2. Checks readiness of every dependency, using the conditions above.
+3. Creates the dependent's instances only after **all** dependencies are ready.
+
+While any dependency is unready or missing, the dependent stays pending and no instances are created. There is no timeout: the reconciler re-checks on every reconcile cycle (roughly every 30 seconds) indefinitely, and logs that instance creation is being delayed. A missing dependency never fails the rollout — it just keeps it waiting.
 
 If a dependency cycle exists, `rune cast` rejects the spec.
+
+Dependencies gate **instance creation only**. Once the dependent's instances are running, the dependency is not re-checked — if it later becomes unhealthy or is deleted, the dependent keeps running (see [Updates](#updates)).
 
 ## Inspecting
 
@@ -75,19 +104,8 @@ When a dependency restarts, dependents are not automatically restarted. Most ser
 1. **Fix the service** to reconnect (preferred).
 2. **Cascade restart manually**: `rune restart api` after a `rune restart postgres`.
 
-## Optional dependencies
-
-```yaml
-dependencies:
-  - service: optional-cache
-    readyWhen: running
-    optional: true
-```
-
-The dependent rolls out even if `optional-cache` is missing or failing. Useful for graceful degradation.
-
 ## Anti-patterns
 
 - **Deep dependency chains.** A → B → C → D → E means a single slow service stalls the whole stack. Try to keep depth ≤ 2.
 - **Circular dependencies.** Rejected by the linter. If you think you need one, you don't — invert the dependency or split a service.
-- **Using deps for ordering only.** If service B doesn't actually need A to be healthy, leave the dependency off. Rune will start them in parallel — usually faster.
+- **Using deps for ordering only.** If service B doesn't actually need A to be running, leave the dependency off. Rune will start them in parallel — usually faster.
