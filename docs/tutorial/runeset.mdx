@@ -25,10 +25,10 @@ For the deep-dive on runesets see [Concepts → Runesets](/concepts/runesets) an
 name: myapp
 version: "0.1.0"
 description: "Myapp — public web + API"
-namespace: "{{ values:namespace:myapp }}"
+namespace: myapp
 ```
 
-`namespace` is templated so dev/prod can land in different namespaces from the same files.
+`namespace` is only the default — `runeset.yaml` itself is not templated. Pass `-n dev` / `-n prod` at cast time so each environment lands in its own namespace from the same files.
 
 ## 2. A reusable service cast — `casts/web.yaml`
 
@@ -122,8 +122,8 @@ web:
     tls: { mode: auto }
     env: { NODE_ENV: production }
     envFrom:
-      - secretRef:    web-env
-      - configRef:    web-config
+      - secret:    web-env
+      - configmap: web-config
     dependencies: []
     cpuRequest: "100m"
     cpuLimit:   "1000m"
@@ -176,7 +176,7 @@ rune create secret web-env \
   --from-literal=SENTRY_DSN="https://..."
 ```
 
-Once created, secrets are encrypted at rest in `runed`'s BadgerDB. There is no read-API — the only way to consume them is via `envFrom: [{ secretRef: web-env }]` in your cast. Updating a secret requires a service restart:
+Once created, secrets are encrypted at rest in `runed`'s BadgerDB. There is no read-API — the only way to consume them is via `envFrom: [{ secret: web-env }]` in your cast. Updating a secret requires a service restart:
 
 ```sh
 rune create secret web-env --from-literal=DATABASE_URL='...' --replace

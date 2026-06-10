@@ -38,8 +38,8 @@ service:
     NODE_ENV: production
 
   envFrom:
-    - secretRef: db-credentials
-    - configRef: app-settings
+    - secret: db-credentials
+    - configmap: app-settings
 
   resources:
     cpu:
@@ -209,8 +209,8 @@ Each key in the secret/config becomes a file at `<mountPath>/<key>`.
 
 ```yaml
 envFrom:
-  - secretRef: db-credentials
-  - configRef: app-settings
+  - secret: db-credentials
+  - configmap: app-settings
 ```
 
 Each key becomes an env var. Keys conflicting with explicit `env:` lose.
