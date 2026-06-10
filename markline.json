@@ -103,6 +103,14 @@
             ]
           },
           {
+            "group": "Recipes",
+            "pages": [
+              { "href": "/guides/go-http", "label": "Deploy a Go service" },
+              { "href": "/guides/node-express", "label": "Deploy a Node.js service" },
+              { "href": "/guides/spring-react", "label": "Deploy Spring Boot + React" }
+            ]
+          },
+          {
             "group": "Deploy",
             "pages": [
               { "href": "/guides/digital-ocean-deploy", "label": "DigitalOcean droplet" },

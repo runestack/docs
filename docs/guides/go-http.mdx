@@ -1,0 +1,103 @@
+---
+title: Deploy a Go service
+lede: A stateless Go HTTP service in a 5 MB scratch image — the smallest possible Rune spec.
+---
+
+This recipe deploys a plain Go `net/http` service: no framework, no dependencies, a static binary in a `scratch` image. It's the minimal case — if you're deploying any stateless HTTP service on Rune, this is the spec shape you start from.
+
+Full source: [`runestack/rune-examples/go-http`](https://github.com/runestack/rune-examples/tree/main/go-http).
+
+## The app
+
+One JSON endpoint plus a health endpoint. The response includes the instance hostname — that's how you'll see load-balancing work in a minute:
+
+```go
+mux.HandleFunc("GET /api/hello", func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(helloResponse{
+        Message:  "hello from go on rune",
+        Instance: hostname,
+    })
+})
+
+mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("ok"))
+})
+```
+
+The Dockerfile compiles a static binary and ships it in `scratch` — the final image is about 5 MB:
+
+```dockerfile
+FROM golang:1.23-alpine AS build
+WORKDIR /build
+COPY go.mod main.go ./
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o hello .
+
+FROM scratch
+COPY --from=build /build/hello /hello
+USER 1000
+EXPOSE 8080
+ENTRYPOINT ["/hello"]
+```
+
+## The spec
+
+This is the whole deployment — a service with a port, a probe, and an `expose` block:
+
+```yaml
+---
+service:
+  name: go-hello
+  namespace: demo
+  image: go-hello:dev
+  scale: 2
+  ports:
+    - name: http
+      port: 8080
+  health:
+    liveness:
+      type: http
+      path: /healthz
+      port: 8080
+      initialDelaySeconds: 2
+      intervalSeconds: 10
+  expose:
+    port: http
+    host: go-hello.local
+```
+
+## Cast it
+
+```sh
+git clone https://github.com/runestack/rune-examples
+cd rune-examples/go-http
+
+docker build -t go-hello:dev ./app
+rune lint deploy/app.yaml
+rune cast deploy/app.yaml
+```
+
+## Watch the VIP balance traffic
+
+`scale: 2` gives the service two instances behind one VIP. The instance hostname in the response shows which one answered:
+
+```sh
+echo "127.0.0.1 go-hello.local" | sudo tee -a /etc/hosts
+
+curl -s http://go-hello.local/api/hello
+# {"message":"hello from go on rune","instance":"1a16044cc04d"}
+curl -s http://go-hello.local/api/hello
+# {"message":"hello from go on rune","instance":"9f2b77c01e88"}
+```
+
+In dev mode the ingress binds `:8080`, so use `http://go-hello.local:8080`.
+
+```sh
+rune scale go-hello 4 -n demo     # more replicas, same VIP
+rune delete -f deploy/app.yaml    # tear down
+```
+
+## Adapting
+
+Change the image, the port, and the probe path — that's it. The same spec deploys Rust, Zig, or anything else that compiles to a binary and listens on a port. For a service with runtime configuration, see [Deploy a Node.js service](/guides/node-express); for a multi-service stack with a database, see [Deploy Spring Boot + React](/guides/spring-react).
