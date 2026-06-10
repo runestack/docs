@@ -61,9 +61,7 @@ service:
 
   dependencies:
     - service: postgres
-      readyWhen: healthy
-    - service: redis
-      readyWhen: running
+    - secret: db-credentials
 
   secretMounts:
     - name: db-secret
@@ -177,14 +175,19 @@ See [Health checks](/guides/health).
 
 ### `dependencies[]`
 
+Each entry references exactly one service, secret, or configmap — structured or as a string shorthand:
+
 ```yaml
 dependencies:
-  - service: postgres
-    namespace: default
-    readyWhen: healthy        # running | healthy | started
-    timeoutSeconds: 60
-    optional: false
+  - service: postgres        # service in this service's namespace
+  - service: auth
+    namespace: shared        # cross-namespace reference
+  - secret: db-credentials   # secret must exist
+  - configmap: app-settings  # configmap must exist
+  - service:redis            # string shorthand, same as `service: redis`
 ```
+
+A service dependency is ready when at least one instance is running (and its readiness probe passes, if the dependency defines one). See [Service dependencies](/guides/dependencies).
 
 ### `secretMounts[]` / `configmapMounts[]`
 
