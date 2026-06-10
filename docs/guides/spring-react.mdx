@@ -1,0 +1,198 @@
+---
+title: Deploy Spring Boot + React
+lede: Run a three-tier application — React SPA, Spring Boot API, Postgres — on Rune with one cast.
+---
+
+This recipe deploys a complete full-stack application: a React SPA served by nginx, a Spring Boot API behind it, and Postgres with a persistent volume. One castfile, one `rune cast`.
+
+The full working source (Spring Boot app, React app, Dockerfiles) lives in [`runestack/rune-examples/fullstack-spring-react`](https://github.com/runestack/rune-examples/tree/main/fullstack-spring-react). This page walks through the Rune side — which is deliberately the small part.
+
+```
+                ┌────────────────── Rune (namespace: demo) ──────────────────┐
+                │                                                            │
+browser ──────▶ │  web (nginx + React)  ──/api/*──▶  api (Spring) ─▶ postgres│
+    notes.local │  expose: notes.local               ×2 replicas    + volume │
+                │                                                            │
+                └────────────────────────────────────────────────────────────┘
+```
+
+## What you need
+
+- A running `runed` and configured CLI ([quick start](/start/quick-start)) — `--dev-mode` on a laptop is fine.
+- Docker, to build the two images locally:
+
+```sh
+git clone https://github.com/runestack/rune-examples
+cd rune-examples/fullstack-spring-react
+docker build -t notes-api:dev ./api
+docker build -t notes-web:dev ./web
+```
+
+## 1. The database, with state that survives
+
+Postgres gets a per-replica volume via `claimTemplate`, and its credentials come from a Rune secret rather than spec literals:
+
+```yaml
+---
+secret:
+  name: db-credentials
+  namespace: demo
+  type: static
+  data:
+    username: notes
+    password: change-me-please
+---
+service:
+  name: postgres
+  namespace: demo
+  image: postgres:16-alpine
+  scale: 1
+  ports:
+    - name: pg
+      port: 5432
+  dependencies:
+    - secret:db-credentials
+  env:
+    POSTGRES_DB: notes
+    POSTGRES_USER: "{{ secret: db-credentials/username }}"
+    POSTGRES_PASSWORD: "{{ secret: db-credentials/password }}"
+    PGDATA: /var/lib/postgresql/data/pgdata
+  volumes:
+    - name: pgdata
+      mountPath: /var/lib/postgresql/data
+      claimTemplate:
+        size: 5Gi
+        accessMode: ReadWriteOnce
+  health:
+    liveness:
+      type: tcp
+      port: 5432
+      initialDelaySeconds: 5
+      intervalSeconds: 10
+```
+
+Two details worth stealing for any database on Rune:
+
+- **`PGDATA` points at a subdirectory.** A fresh volume mount contains `lost+found`, and `initdb` refuses a non-empty directory.
+- **The TCP probe** keeps the reconciler honest — `api` won't roll out until Postgres actually accepts connections.
+
+## 2. The Spring Boot API
+
+Spring binds `SPRING_DATASOURCE_*` environment variables natively, so wiring it to Postgres is three `env` lines — and the hostname is Rune's embedded DNS (`<service>.<namespace>.rune`):
+
+```yaml
+---
+service:
+  name: api
+  namespace: demo
+  image: notes-api:dev
+  scale: 2
+  ports:
+    - name: http
+      port: 8080
+  dependencies:
+    - service: postgres
+    - secret:db-credentials
+  env:
+    SPRING_DATASOURCE_URL: jdbc:postgresql://postgres.demo.rune:5432/notes
+    SPRING_DATASOURCE_USERNAME: "{{ secret: db-credentials/username }}"
+    SPRING_DATASOURCE_PASSWORD: "{{ secret: db-credentials/password }}"
+  health:
+    liveness:
+      type: http
+      path: /actuator/health/liveness
+      port: 8080
+      initialDelaySeconds: 20
+      intervalSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      type: http
+      path: /actuator/health/readiness
+      port: 8080
+      initialDelaySeconds: 10
+      intervalSeconds: 5
+```
+
+The probes hit Spring Actuator's built-in liveness/readiness groups (`management.endpoint.health.probes.enabled: true` in `application.yaml`). Give the JVM a generous `initialDelaySeconds` — 20 seconds here — so Rune doesn't kill instances that are merely booting.
+
+## 3. The React frontend
+
+The SPA is static files behind nginx; the only interesting line is in `nginx.conf`, where nginx proxies API calls across the cluster:
+
+```nginx
+location /api/ {
+    proxy_pass http://api.demo.rune:8080;
+}
+```
+
+The browser only ever talks to `web` — no CORS, no API hostname baked into the JS bundle. The service itself is plain, plus an `expose` block to reach it from outside:
+
+```yaml
+---
+service:
+  name: web
+  namespace: demo
+  image: notes-web:dev
+  scale: 1
+  ports:
+    - name: http
+      port: 80
+  dependencies:
+    - service: api
+  health:
+    liveness:
+      type: http
+      path: /healthz
+      port: 80
+      initialDelaySeconds: 3
+      intervalSeconds: 10
+  expose:
+    port: http
+    host: notes.local
+```
+
+On an edge node with a real domain, add `tls: { auto: true }` under `expose` and Rune provisions a certificate — see [Expose a service](/guides/expose-service).
+
+## 4. Cast it
+
+All four resources live in one file, so:
+
+```sh
+rune lint deploy/app.yaml
+rune cast deploy/app.yaml
+rune get services -n demo
+```
+
+```
+NAME      TYPE       STATUS   INSTANCES  EXTERNAL     GENERATION  AGE
+postgres  container  Running  1/1        -            1           1m
+api       container  Running  2/2        -            1           1m
+web       container  Running  1/1        notes.local  1           1m
+```
+
+Dependencies order the rollout: postgres → api → web. Then:
+
+```sh
+echo "127.0.0.1 notes.local" | sudo tee -a /etc/hosts
+curl -X POST http://notes.local/api/notes \
+  -H 'Content-Type: application/json' -d '{"text": "deployed on rune"}'
+open http://notes.local
+```
+
+In dev mode the ingress binds `:8080`, so use `http://notes.local:8080`.
+
+## 5. Day two
+
+```sh
+rune logs api -n demo -f
+rune exec postgres -n demo -- psql -U notes -c 'select * from note;'
+rune scale api 4 -n demo
+rune restart postgres -n demo     # data survives — the volume rebinds
+```
+
+When the stack outgrows one file, the same example ships a [runeset](/concepts/runesets) variant with templated image tags, replica counts, and per-environment values — install it as a release with `rune cast ./runeset --release notes`.
+
+## Adapting this to your stack
+
+The shape transfers directly: any HTTP framework slots into the `api` spec (change the image, port, and probe path), and any SPA or static site slots into `web`. Rails + Hotwire, Django + Vue, Axum + Svelte — the Rune side barely changes. More stacks: [runestack/rune-examples](https://github.com/runestack/rune-examples).

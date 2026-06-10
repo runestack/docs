@@ -1,0 +1,111 @@
+---
+title: Deploy a Node.js service
+lede: An Express service with configuration injected from a configmap — change config without rebuilding the image.
+---
+
+This recipe deploys a minimal Express service whose configuration comes from a Rune configmap via `envFrom`. The image stays generic; the environment owns the config.
+
+Full source: [`runestack/rune-examples/node-express`](https://github.com/runestack/rune-examples/tree/main/node-express).
+
+## The app
+
+One endpoint that reads its greeting from the environment, plus a health endpoint:
+
+```js
+import express from 'express'
+import os from 'node:os'
+
+const app = express()
+
+// GREETING comes from a Rune configmap via envFrom (see deploy/app.yaml).
+const greeting = process.env.GREETING ?? 'hello from node on rune'
+
+app.get('/api/hello', (req, res) => {
+  res.json({ message: greeting, instance: os.hostname() })
+})
+
+app.get('/healthz', (req, res) => {
+  res.send('ok')
+})
+
+app.listen(process.env.PORT ?? 3000)
+```
+
+## The spec
+
+Two resources in one castfile: the configmap and the service that consumes it. `envFrom` turns every key in the configmap into an environment variable, and the dependency makes the rollout wait until the configmap exists:
+
+```yaml
+---
+configmap:
+  name: node-hello-settings
+  namespace: demo
+  data:
+    GREETING: hello from node on rune
+---
+service:
+  name: node-hello
+  namespace: demo
+  image: node-hello:dev
+  scale: 2
+  ports:
+    - name: http
+      port: 3000
+  dependencies:
+    - configmap:node-hello-settings
+  envFrom:
+    - configmap: node-hello-settings
+  health:
+    liveness:
+      type: http
+      path: /healthz
+      port: 3000
+      initialDelaySeconds: 2
+      intervalSeconds: 10
+  expose:
+    port: http
+    host: node-hello.local
+```
+
+## Cast it
+
+```sh
+git clone https://github.com/runestack/rune-examples
+cd rune-examples/node-express
+
+docker build -t node-hello:dev ./app
+rune lint deploy/app.yaml
+rune cast deploy/app.yaml
+```
+
+```sh
+echo "127.0.0.1 node-hello.local" | sudo tee -a /etc/hosts
+
+curl http://node-hello.local/api/hello
+# {"message":"hello from node on rune","instance":"87f68dc74039"}
+```
+
+In dev mode the ingress binds `:8080`, so use `http://node-hello.local:8080`.
+
+## Change config without rebuilding
+
+Update the configmap and roll the service — the new value arrives as an env var on the next instance start. No image rebuild, no spec change:
+
+```sh
+rune create config node-hello-settings -n demo \
+  --from-literal=GREETING="howdy from a configmap"
+rune restart node-hello -n demo
+
+curl http://node-hello.local/api/hello
+# {"message":"howdy from a configmap","instance":"3c9d01ab54e2"}
+```
+
+Rune does not hot-reload env vars or mounted files — the restart is what picks up the new version. See [Secrets & ConfigMaps](/concepts/secrets-configmaps).
+
+```sh
+rune delete -f deploy/app.yaml    # tear down
+```
+
+## Adapting
+
+Anything that reads config from the environment — which is to say, any twelve-factor app — works the same way: FastAPI, Rails, Spring. For sensitive values, use a secret instead of a configmap; the service side is the same shape (`envFrom: - secret: name`). For a full stack with a database and secrets, see [Deploy Spring Boot + React](/guides/spring-react).
