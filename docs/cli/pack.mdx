@@ -34,12 +34,13 @@ Outputs:
 
 ## What goes in
 
-- `runeset.yaml` (required).
-- `values.yaml` (optional).
-- Everything under `templates/`.
-- `README.md` and other docs at the runeset root.
+`pack` validates that the directory has a `runeset.yaml` and a `casts/` directory, then archives **everything** in it:
 
-What's excluded: dotfiles, `node_modules`, `.git`, your local `secrets.local.yaml`, etc. (See the `.runesetignore` pattern matching.)
+- `runeset.yaml` (required).
+- `casts/` (required).
+- `values/`, `templates/`, `README.md` and anything else present.
+
+There is no ignore mechanism — local files you don't want shipped (a `secrets.local.yaml`, `.git`, `node_modules`) must live outside the runeset directory.
 
 ## Distributing
 

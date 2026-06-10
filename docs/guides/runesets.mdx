@@ -19,15 +19,19 @@ A runeset is to Rune what a chart is to Helm — but smaller, opinionated, and b
 
 ```
 my-app/
-├── runeset.yaml
-├── values.yaml
-├── templates/
-│   ├── api.yaml.tmpl
-│   ├── worker.yaml.tmpl
-│   ├── secrets.yaml.tmpl
-│   └── configs.yaml.tmpl
+├── runeset.yaml          # metadata + default values
+├── values/
+│   └── values.yaml       # values (every *.yaml here is merged)
+├── casts/                # the templated resource files (required)
+│   ├── api.yaml
+│   ├── worker.yaml
+│   └── secrets.yaml
+├── templates/            # optional partials and embedded files
+│   └── common-labels.yaml.tmpl
 └── README.md
 ```
+
+Two directories matter: `casts/` holds the resource YAML that gets rendered and applied (it is required), and `values/` holds the default values. `templates/` is just a convention for files you pull in with `{{ template: ... }}` or `{{ file: ... }}`.
 
 ### `runeset.yaml`
 
@@ -35,50 +39,44 @@ my-app/
 name: my-app
 version: 1.2.0
 description: API + worker + redis
-maintainers:
-  - alice@example.com
-values:
-  - name: image.tag
-    type: string
-    default: "1.2.0"
-  - name: api.replicas
-    type: int
-    default: 2
-  - name: worker.replicas
-    type: int
-    default: 4
-  - name: redis.password
-    type: string
-    sensitive: true
+namespace: default
+defaults:
+  image:
+    tag: "1.2.0"
 ```
 
-### `values.yaml`
+`name` is the default release name and `namespace` the default target namespace — both overridable at install time (`--release`, `-n`). `defaults` is an optional values block at the lowest precedence; most runesets keep their values in `values/values.yaml` instead.
+
+### `values/values.yaml`
 
 ```yaml
 image:
   tag: "1.2.0"
 api:
   replicas: 2
+  env:
+    LOG_LEVEL: info
+    FEATURE_FLAGS: beta-search
 worker:
   replicas: 4
-redis:
-  password: ""    # required at install time
 ```
 
-### A template
+Every `*.yaml` file in `values/` is merged in filename order, so don't put per-environment files here — keep those outside the runeset and pass them with `--values` (see [below](#per-environment-values-files)).
 
-`templates/api.yaml.tmpl`:
+### A cast
+
+`casts/api.yaml`:
 
 ```yaml
 service:
   name: api
-  namespace: {{ .Release.Namespace }}
-  image: ghcr.io/example/api:{{ .Values.image.tag }}
-  scale: {{ .Values.api.replicas }}
+  image: "ghcr.io/example/api:{{ values:image.tag }}"
+  scale: {{ values:api.replicas | default: 2 }}
   ports:
-    - { name: http, port: 8080 }
+    - name: http
+      port: 8080
   envFrom:
-    - secretRef: {{ .Release.Name }}-secrets
+    - configmap: {{ context:releaseName }}-config
   health:
     liveness:
       type: http
@@ -86,15 +84,47 @@ service:
       port: 8080
 ```
 
-Available template values:
+## Placeholders
 
-| Name                  | What it is                                  |
-| --------------------- | ------------------------------------------- |
-| `.Values.*`           | Merged values (defaults + files + `--set`). |
-| `.Release.Name`       | Set via `--release` at install time.        |
-| `.Release.Namespace`  | Target namespace (default: `default`).      |
-| `.Runeset.Name`       | The runeset's name from `runeset.yaml`.     |
-| `.Runeset.Version`    | The runeset's version.                      |
+| Placeholder                          | What it resolves to                                          |
+| ------------------------------------ | ------------------------------------------------------------ |
+| `{{ values:path.to.key }}`           | Merged values (defaults + `values/` + files + `--set`).      |
+| `{{ values:key \| default: x }}`     | `x` when the value is missing. The only built-in filter.     |
+| `{{ context:releaseName }}`          | Set via `--release` (defaults to the runeset name).          |
+| `{{ context:namespace }}`            | Target namespace (`-n`, else `namespace:` in the manifest).  |
+| `{{ context:mode }}`                 | `apply`, `render`, or `dry-run`.                             |
+| `{{ context:runeset.name }}`         | The runeset's name from `runeset.yaml`.                      |
+| `{{ context:runeset.version }}`      | The runeset's version.                                       |
+| `{{ secret:name/key }}`              | A secret value — resolved server-side at apply time.         |
+| `{{ configmap:name/key }}`           | A configmap value — resolved server-side at apply time.      |
+| `{{ file:path }}`                    | Embeds a file (relative to the runeset root) as a block scalar. |
+| `{{ template:path }}`                | Includes and renders another file at the current indentation. |
+
+Three behaviors worth knowing:
+
+- **Missing values fail the render.** A `{{ values:... }}` with no match and no `| default:` aborts with an error — typos surface before anything reaches the cluster.
+- **Whole-node insertion.** When a placeholder is the entire value (`env: {{ values:api.env }}`), maps and lists expand into proper YAML, not a stringified blob.
+- **Secret refs don't render.** `{{ secret:... }}` and `{{ configmap:... }}` pass through `--render` untouched and resolve on the server at apply time, so secret material never lands in rendered output.
+
+A partial via `{{ template: ... }}` — the include renders with the same values and lands at the placeholder's indentation:
+
+```yaml
+# casts/worker.yaml
+service:
+  name: worker
+  image: "ghcr.io/example/worker:{{ values:image.tag }}"
+  scale: {{ values:worker.replicas | default: 1 }}
+  dependencies:
+    - service: api
+  {{ template: templates/common-labels.yaml.tmpl }}
+```
+
+```yaml
+# templates/common-labels.yaml.tmpl
+labels:
+  app: "{{ context:runeset.name }}"
+  version: "{{ context:runeset.version }}"
+```
 
 ## Render — see what you'll deploy
 
@@ -109,7 +139,7 @@ rune cast ./my-app --render \
   --values=production.values.yaml
 ```
 
-`--render` prints the final YAML and exits without applying — your "diff before deploy" loop.
+`--render` prints the final YAML and exits without applying — your "diff before deploy" loop. (`rune lint` works on plain cast files, not runeset directories; for a runeset, `--render` and `--dry-run` are the validation path.)
 
 ## Install
 
@@ -180,19 +210,21 @@ Highest wins:
 
 1. `--set key=value` — CLI flags.
 2. `--values file.yaml` — extra files (later files override earlier).
-3. `values.yaml` — bundled defaults.
+3. `RUNE_VALUES_*` — environment variables (`RUNE_VALUES_api__replicas=5` sets `api.replicas`; `__` nests).
+4. `values/*.yaml` — bundled defaults, merged in filename order.
+5. `defaults:` — in `runeset.yaml`.
 
 ## Patterns
 
-### Secrets in templates
+### Secrets in casts
 
 ```yaml
-# templates/secrets.yaml.tmpl
-secrets:
-  - name: {{ .Release.Name }}-secrets
-    namespace: {{ .Release.Namespace }}
-    data:
-      - { key: redis_password, value: {{ .Values.redis.password | quote }} }
+# casts/secrets.yaml
+secret:
+  name: redis-credentials
+  type: static
+  data:
+    password: {{ values:redis.password | default: change-me }}
 ```
 
 Pass the password at install time:
@@ -209,13 +241,24 @@ Or keep a separate untracked file:
 rune cast ./my-app --values=secrets.local.yaml --release=my-app-prod
 ```
 
+Other casts consume it without ever seeing the plaintext — `{{ secret:... }}` refs resolve server-side at apply time:
+
+```yaml
+# casts/worker.yaml (excerpt)
+  env:
+    REDIS_PASSWORD: {{ secret: redis-credentials/password }}
+```
+
 ### Per-environment values files
 
 ```
 my-app/
 ├── runeset.yaml
-├── values.yaml             # defaults
-└── envs/
+├── values/
+│   └── values.yaml         # defaults
+├── casts/
+│   └── ...
+└── envs/                   # NOT values/ — these are opt-in per env
     ├── dev.yaml
     ├── staging.yaml
     └── prod.yaml
@@ -224,6 +267,8 @@ my-app/
 ```sh
 rune cast ./my-app --values=envs/prod.yaml --release=my-app-prod
 ```
+
+The env files live outside `values/` on purpose: everything inside `values/` is merged automatically on every cast.
 
 ## Anti-patterns
 

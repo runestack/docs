@@ -11,12 +11,15 @@ A runeset is the *package*; installing it produces a [**release**](/concepts/rel
 
 ```
 my-app/
-├── runeset.yaml          # metadata + value schema
-├── values.yaml           # default values
-├── templates/
-│   ├── api.yaml.tmpl
-│   ├── worker.yaml.tmpl
-│   └── secrets.yaml.tmpl
+├── runeset.yaml          # metadata + default values
+├── values/
+│   └── values.yaml       # values (every *.yaml here is merged)
+├── casts/                # the templated resource files (required)
+│   ├── api.yaml
+│   ├── worker.yaml
+│   └── secrets.yaml
+├── templates/            # optional partials, included via {{ template: ... }}
+│   └── common-labels.yaml.tmpl
 └── README.md
 ```
 
@@ -26,26 +29,27 @@ my-app/
 name: my-app
 version: 1.2.0
 description: API + worker + redis
-maintainers:
-  - alice@example.com
-values:
-  - name: image.tag
-    type: string
-    default: "1.2.0"
-  - name: api.replicas
-    type: int
-    default: 2
+namespace: default
+defaults:
+  image:
+    tag: "1.2.0"
 ```
 
-A template (`templates/api.yaml.tmpl`):
+`name` doubles as the default release name, `namespace` as the default target namespace (`-n` overrides it), and `defaults` seeds the values map at the lowest precedence.
+
+A cast (`casts/api.yaml`):
 
 ```yaml
 service:
   name: api
-  namespace: {{ .Release.Namespace }}
-  image: ghcr.io/example/api:{{ .Values.image.tag }}
-  scale: {{ .Values.api.replicas }}
+  image: "ghcr.io/example/api:{{ values:image.tag }}"
+  scale: {{ values:api.replicas | default: 2 }}
+  ports:
+    - name: http
+      port: 8080
 ```
+
+Placeholders use `{{ values:path.to.key }}` for values, `{{ context:releaseName }}` / `{{ context:namespace }}` for install-time context, and `| default: x` for fallbacks. A referenced value that is missing (and has no `default:`) fails the render — typos surface before anything reaches the cluster. The full syntax is covered in [Package a runeset](/guides/runesets#placeholders).
 
 ## Render before applying
 
@@ -63,7 +67,7 @@ rune cast ./my-app --render --values=production.values.yaml
 rune cast ./my-app --release=my-app-prod --values=production.values.yaml
 ```
 
-`--release` becomes the runeset's identity in the cluster — the [release](/concepts/releases) name. Re-running `cast` with the same release upgrades in place: Rune computes a 3-way plan (create / update / **prune** / adopt), shows it, and applies it after confirmation. Resources removed from the runeset are pruned; nothing is orphaned.
+`--release` becomes the runeset's identity in the cluster — the [release](/concepts/releases) name (it defaults to the `name` in `runeset.yaml`). Re-running `cast` with the same release upgrades in place: Rune computes a 3-way plan (create / update / **prune** / adopt), shows it, and applies it after confirmation. Resources removed from the runeset are pruned; nothing is orphaned.
 
 ## Operate the release
 
@@ -108,7 +112,9 @@ Highest wins:
 
 1. `--set key=value` (CLI flags)
 2. `--values file.yaml` (extra files, last one wins)
-3. `values.yaml` inside the runeset (defaults)
+3. `RUNE_VALUES_*` environment variables
+4. `values/*.yaml` inside the runeset (merged in filename order)
+5. `defaults:` in `runeset.yaml`
 
 ## Worked example
 
