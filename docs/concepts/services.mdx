@@ -102,19 +102,18 @@ Supported types: `http`, `tcp`. Read [Health checks](/guides/health) for example
 
 ## Dependencies
 
-A service can declare other services it depends on. The reconciler waits until each dependency is ready before rolling out:
+A service can declare services, secrets, and configmaps it depends on. The reconciler waits until each dependency is ready before creating instances:
 
 ```yaml
 service:
   name: api
   dependencies:
-    - name: postgres
-      readyWhen: healthy
-    - name: redis
-      readyWhen: running
+    - service: postgres
+    - service: redis
+    - secret: db-credentials
 ```
 
-Inspect with [`rune deps`](/cli/deps).
+A service dependency is ready when at least one of its instances is running — and, if it declares a readiness probe, that probe is passing. Secrets and configmaps just need to exist. See [Service dependencies](/guides/dependencies) for the full semantics, and inspect with [`rune deps`](/cli/deps).
 
 ## External exposure (`expose`)
 
