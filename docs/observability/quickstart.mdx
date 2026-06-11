@@ -1,0 +1,65 @@
+---
+title: Observability quickstart
+lede: One runefile key, a restart, and every log line on the cluster is persisted and queryable.
+---
+
+## Turn it on
+
+Add to your runefile (YAML or TOML — both work) and restart `runed`:
+
+```yaml
+observability:
+  enabled: true
+```
+
+That's a complete production configuration. It uses the **embedded** backend: no extra services, no agents to deploy, nothing else to configure.
+
+```toml
+# runefile.toml equivalent
+[observability]
+enabled = true
+```
+
+## See logs
+
+Open the dashboard (`rune ui`) → **RuneSight** → **Log Explorer**. Every running service's logs are streaming in, enriched with `namespace`, `service`, `instance`, `node`, and `level` labels. Try:
+
+```logql
+{namespace="default"}                          # everything in a namespace
+{service="api"} |= "timeout"                   # one service, lines containing "timeout"
+{level="error"}                                # error-classified lines, cluster-wide
+{stream="event"}                               # Rune's own system events (deploys, restarts, health)
+sum by (service) (count_over_time({namespace="default"}[5m]))   # volume per service
+```
+
+System events share the pipeline: deploys, scaling, restarts, and health transitions arrive as `{stream="event"}` records, so "what happened around the time errors spiked" is one query surface, not two tools.
+
+## Retention
+
+```yaml
+observability:
+  enabled: true
+  retention_days: 7        # default: 7 for the embedded backend
+```
+
+The embedded store also bounds itself by **count** (500k records) and **disk** (256 MiB) — whichever limit hits first wins, dropping oldest. See [the embedded backend](/observability/embedded) for exactly how the bounds interact.
+
+## Where the data lives, and what survives
+
+The embedded store keeps its working set in memory and persists a write-ahead log under the server's data directory:
+
+```
+{data-dir}/observe/seg-<timestamp>.jsonl
+```
+
+On restart, `runed` replays the newest segments back into memory — **logs survive restarts**, including each instance's final lines before a crash. The WAL is crash-tolerant (a truncated trailing line from a hard kill is skipped, not fatal).
+
+## Verify the pipeline
+
+**RuneSight** → **Sources** shows the pipeline's live health: which backend is active, records held, disk used against the cap, retention, and the oldest record in the store — plus per-service and per-node ingestion over the last 24 h.
+
+## Next
+
+- Outgrowing the defaults? [Choose a backend](/observability/overview#choosing-a-backend).
+- The query language: [LogQL reference](/observability/logql).
+- Get paged about it: [Alerts](/observability/alerts).

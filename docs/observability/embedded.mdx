@@ -1,0 +1,45 @@
+---
+title: Embedded backend
+lede: The zero-dependency default — an in-process store with a disk-persistent WAL, bounded by count, age, and disk.
+---
+
+The embedded backend is what `observability.enabled: true` gives you with no further configuration. It is **the production default, not a demo store**: persistent across restarts, crash-tolerant, and self-bounding so it can never eat the node. External backends are scale upgrades, not corrections.
+
+```yaml
+observability:
+  enabled: true
+  backend: embedded        # implicit — this line is optional
+  retention_days: 7        # default 7
+```
+
+## How it works
+
+Records live in an in-memory ring with a write-ahead log on disk:
+
+- **Ring**: up to **500,000 records** in memory; oldest dropped beyond that.
+- **WAL**: newline-delimited JSON segments under `{data-dir}/observe/`, rotated at 16 MiB per segment.
+- **Disk cap**: **256 MiB** total on disk — a hard bound; oldest segments are pruned first.
+- **Retention sweep**: records older than `retention_days` (default 7) are swept regardless of the other bounds.
+
+Whichever bound hits first wins. On startup the store replays the newest WAL segments back into the ring, so restarts lose nothing that was within bounds; a truncated final line from a hard crash is skipped, not fatal.
+
+## Query support
+
+Core tier — the full day-to-day [LogQL subset](/observability/logql): selectors, line filters, `| logfmt` / `| json` parsers with label filters, `count_over_time` / `rate` / `bytes_over_time`, and `sum by`. Queries execute in-process against the ring; default result limit is 1,000 rows when unspecified.
+
+What it deliberately lacks is the Advanced tier: no raw SQL, no percentiles, no cheap high-cardinality filtering — those are [ClickHouse's](/observability/clickhouse) reasons to exist.
+
+## When to move on
+
+Watch **RuneSight → Sources**, which reports this store's live stats (records held, disk used vs. the 256 MiB cap, oldest record). Move to an external backend when:
+
+- **The oldest record is younger than the retention you actually need.** The bounds are dropping data you still want — that's the unambiguous signal.
+- **You need weeks of retention cheaply** → [Loki](/observability/loki), which is S3-native.
+- **You need analytical queries over logs** (percentiles, SQL, arbitrary-field filters at volume) → [ClickHouse](/observability/clickhouse).
+
+Switching is a runefile edit and a restart — the LogQL you've been using carries over unchanged (both external backends are at least Core tier).
+
+## See also
+
+- [Choosing a backend](/observability/overview#choosing-a-backend)
+- [LogQL reference](/observability/logql)

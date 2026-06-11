@@ -1,0 +1,99 @@
+---
+title: LogQL reference
+lede: The LogQL subset Rune supports — parsed once into a query AST, executed natively by whichever backend you run.
+---
+
+Rune speaks a deliberate **subset** of [LogQL](https://grafana.com/docs/loki/latest/query/). The ObserveService parses a query once into an AST; each backend then executes that AST natively — an in-process scan (embedded), re-rendered LogQL (Loki), or SQL (ClickHouse). Constructs outside the subset fail at parse time; constructs a specific backend can't honor fail with a clear "unsupported" error — never silently-wrong results.
+
+## Stream selectors
+
+Every query starts with a selector over the enriched labels (`namespace`, `service`, `instance`, `node`, `level`, `stream`, plus your service labels):
+
+```logql
+{service="api"}                          # exact match
+{service!="api"}                         # negated exact
+{service=~"api|worker"}                  # regex
+{namespace=~".+", level!~"debug|trace"}  # combined; regex-negated
+```
+
+All four matchers: `=`, `!=`, `=~`, `!~`.
+
+## Line filters
+
+Chained after the selector, applied in order:
+
+```logql
+{service="api"} |= "timeout"             # keep lines containing
+{service="api"} != "healthz"             # drop lines containing
+{service="api"} |~ "5\\d\\d"             # keep lines matching regex
+{service="api"} !~ "(?i)debug"           # drop lines matching regex
+```
+
+## Parser stages & label filters
+
+Extract structured fields from log lines, then filter on them:
+
+```logql
+{service="api"} | logfmt | status="500"
+{service="api"} | json | dur > 250
+{service="api"} | logfmt | region=~"eu-.*" | dur >= 100
+```
+
+- `| logfmt` — extracts `key=value` pairs.
+- `| json` — extracts **top-level scalar** fields; nested objects and arrays are skipped.
+- Label filters after a parser: string ops `=`, `!=`, `=~`, `!~`; numeric ops `>`, `>=`, `<`, `<=`, `==`.
+
+:::note
+Parser stages run on **embedded and Loki** (Core tier). The ClickHouse backend does not lower them to SQL — use its raw SQL mode (`JSONExtractString` & friends) instead.
+:::
+
+## Range aggregations
+
+```logql
+count_over_time({service="api"}[5m])             # line count per bucket
+rate({service="api"} |= "error" [1m])            # per-second rate
+bytes_over_time({namespace="default"}[1h])       # log volume in bytes
+```
+
+## Vector aggregation
+
+`sum by (...)` is the supported grouping:
+
+```logql
+sum by (service) (count_over_time({namespace="default"}[5m]))
+sum by (node) (bytes_over_time({namespace=~".+"}[1h]))
+```
+
+## Advanced tier (ClickHouse only)
+
+```logql
+quantile_over_time(dur, 0.95) ({service="api"})  # p95 of a parsed numeric field
+```
+
+— plus **raw SQL mode** in the dashboard, the escape hatch for everything below.
+
+## Deliberately not supported
+
+| Construct | Status |
+| --- | --- |
+| `unwrap` expressions | not supported — `quantile_over_time(field, q)` covers the main use, on ClickHouse |
+| `label_format` / relabeling | not supported |
+| Cross-stream joins / binary ops between queries | not supported — SQL mode on ClickHouse |
+| `avg` / `min` / `max` / `topk` vector aggregations | not supported — `sum by` only; SQL mode for the rest |
+| Nested JSON extraction (`| json a.b.c`) | not supported — top-level scalars only |
+
+The subset is a floor, not a ceiling — it's chosen so every query behaves identically on every backend that accepts it, and so the alerting evaluator (which wraps your selector in `count_over_time`) can run anywhere.
+
+## Where queries run
+
+| Surface | Notes |
+| --- | --- |
+| **Log Explorer** | Full subset, histogram + facets. |
+| **Saved views** | Any Core-tier query; validated at save time. |
+| **Alert rules** | You write the *selector* (with line/label filters); the alerter wraps it in `count_over_time({...}[window])` itself. |
+| **Sources** | Built on Core-tier queries, so it works on every backend. |
+
+## See also
+
+- [Alerts, saved views & sources](/observability/alerts)
+- [Capability tiers](/observability/overview#capability-tiers)

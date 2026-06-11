@@ -103,6 +103,18 @@
             ]
           },
           {
+            "group": "Observability",
+            "pages": [
+              { "href": "/observability/overview", "label": "Overview (RuneSight)" },
+              { "href": "/observability/quickstart", "label": "Quickstart" },
+              { "href": "/observability/embedded", "label": "Embedded backend" },
+              { "href": "/observability/loki", "label": "Loki backend" },
+              { "href": "/observability/clickhouse", "label": "ClickHouse backend" },
+              { "href": "/observability/logql", "label": "LogQL reference" },
+              { "href": "/observability/alerts", "label": "Alerts & saved views" }
+            ]
+          },
+          {
             "group": "Recipes",
             "pages": [
               { "href": "/guides/go-http", "label": "Deploy a Go service" },
