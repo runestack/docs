@@ -223,6 +223,7 @@
     "provider": "openrouter",
     "model": "deepseek/deepseek-v4-flash",
     "endpoint": "https://ask.runestack.io",
+    "suggestions": true,
     "label": "Ask AI",
     "maxTokens": 1024,
     "rateLimit": { "perMinute": 10 }

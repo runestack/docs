@@ -25,7 +25,11 @@ jobs:
       - run: npm install
       # Served from the custom domain docs.runestack.io (see public/CNAME),
       # so the site builds at the root path — no MARKLINE_BASE_PATH.
+      # MARKLINE_AI_KEY (an OpenRouter key, same as the Ask AI Worker) lets the
+      # build pre-generate Ask AI suggestions; it's skipped gracefully if unset.
       - run: npx markline export
+        env:
+          MARKLINE_AI_KEY: ${{ secrets.MARKLINE_AI_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

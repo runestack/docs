@@ -2,7 +2,7 @@
   "name": "rune-docs-ai-worker",
   "private": true,
   "version": "0.1.0",
-  "description": "Cloudflare Worker that proxies the Rune docs 'Ask AI' assistant on an OpenRouter key — for the static (Netlify) docs deploy.",
+  "description": "Cloudflare Worker that proxies the Rune docs 'Ask AI' assistant on an OpenRouter key — for the static (GitHub Pages) docs deploy.",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
