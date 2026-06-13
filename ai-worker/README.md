@@ -1,9 +1,9 @@
 # Rune docs — "Ask AI" Worker
 
 The Rune docs site ([docs.runestack.io](https://docs.runestack.io)) ships as a
-**static export** to Netlify (`npm install && npx markline export`). Markline's
-built-in `/api/ai` route only runs on a Node/Vercel server, so on a static host
-the **Ask AI** assistant needs an external proxy.
+**static export** to GitHub Pages (`npx markline export`). Markline's built-in
+`/api/ai` route only runs on a Node/Vercel server, so on a static host the
+**Ask AI** assistant needs an external proxy.
 
 This Worker is that proxy. It holds the OpenRouter key as a Cloudflare **secret**
 on the edge — the browser only ever talks to the Worker, never to OpenRouter, and

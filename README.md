@@ -25,8 +25,8 @@ npm run export     # static HTML  ->  out/   (markline export)
 ```
 
 In the **static export** (`out/`), the landing is the site root — `out/index.html`
-is the full Rune Landing — and every doc page is a static `.html`. Deploy `out/`
-to any CDN / Netlify / GitHub Pages.
+is the full Rune Landing — and every doc page is a static `.html`. We deploy `out/`
+to GitHub Pages (see `.github/workflows/deploy.yml`); it serves from any static host / CDN.
 
 ## Layout
 
