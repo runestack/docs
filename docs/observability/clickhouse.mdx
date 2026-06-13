@@ -1,0 +1,136 @@
+---
+title: ClickHouse backend
+lede: Bring your own ClickHouse and unlock the Advanced tier — raw SQL over logs, percentiles, cheap high-cardinality filters, and S3 tiering via storage policies.
+---
+
+The ClickHouse backend writes Rune's log pipeline into a [ClickHouse](https://clickhouse.com/) table and lowers Log Explorer queries to SQL. It's the **Advanced-tier** backend: pick it when you want analytical power over logs, not just retention.
+
+```yaml
+observability:
+  enabled: true
+  backend: clickhouse
+  retention_days: 30                  # DELETE TTL — parts older than this are dropped
+  clickhouse:
+    dsn: clickhouse://runesight:pass@clickhouse.observability.rune:9000/runesight
+    database: runesight               # default
+    table: logs                       # default
+    auto_migrate: true                # default
+    storage_policy: ""                # set to enable S3 tiering (below)
+    s3_volume: s3                     # default
+    hot_days: 7                       # used with storage_policy
+```
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `clickhouse.dsn` | — | **Required.** `clickhouse://user:pass@host:9000/db`. |
+| `clickhouse.database` | `runesight` | Created by `auto_migrate` if missing. |
+| `clickhouse.table` | `logs` | Likewise. |
+| `clickhouse.auto_migrate` | `true` | Rune creates the schema on first connect. |
+| `clickhouse.storage_policy` | `""` | Name of a **server-side** storage policy; setting it enables S3 tiering. |
+| `clickhouse.s3_volume` | `s3` | The policy's volume name parts move to. |
+| `clickhouse.hot_days` | `0` | Parts older than this move to `s3_volume`. `0` = stay hot forever. |
+
+Like Loki, this is **bring-your-own**: ClickHouse Cloud, existing infrastructure, or — since it's an ordinary workload — [run it ON Rune](https://github.com/runestack/rune-examples/tree/main/clickhouse) with one cast:
+
+```sh
+git clone https://github.com/runestack/rune-examples
+rune cast rune-examples/clickhouse/runeset --release clickhouse \
+  --create-namespace --set clickhouse.password=$PASSWORD
+```
+
+Then the DSN host is the in-cluster DNS name: `clickhouse.observability.rune:9000`.
+
+## The schema: auto_migrate vs. operator-managed
+
+With `auto_migrate: true` (the default), Rune connects lazily on first use and creates the database and table itself — zero-config. The table it creates:
+
+```sql
+CREATE TABLE IF NOT EXISTS runesight.logs (
+  timestamp DateTime64(9) CODEC(Delta(8), ZSTD(1)),
+  namespace LowCardinality(String),
+  service   LowCardinality(String),
+  instance  String,
+  node      LowCardinality(String),
+  level     LowCardinality(String),
+  stream    LowCardinality(String),
+  line      String CODEC(ZSTD(1)),
+  labels    Map(LowCardinality(String), String),
+  INDEX idx_line line TYPE tokenbf_v1(32768, 3, 0) GRANULARITY 4
+)
+ENGINE = MergeTree
+PARTITION BY toDate(timestamp)
+ORDER BY (namespace, service, timestamp)
+```
+
+— day partitions, `(namespace, service, timestamp)` ordering, and a token bloom-filter index on `line` so `|= "needle"` filters don't full-scan.
+
+Set `auto_migrate: false` when a DBA owns the schema: the table must then exist (matching columns) before `runed` starts ingesting, and Rune will never issue DDL.
+
+## Retention and S3 tiering
+
+Both are expressed as **table TTLs**, applied by `auto_migrate`:
+
+- `retention_days: 90` → `TTL timestamp + INTERVAL 90 DAY DELETE` — parts are dropped wherever they live.
+- `storage_policy` + `hot_days: 7` → `TTL timestamp + INTERVAL 7 DAY TO VOLUME 's3'` — parts older than 7 days move from local disk to the policy's S3 volume.
+
+Combined, that's: 7 hot days on NVMe, then S3 until day 90, then gone.
+
+The storage policy itself is **server-side ClickHouse configuration** — Rune has no S3 client; it only names the policy in the table DDL. The operator adds the policy to ClickHouse's `config.d`. A complete, copy-paste example:
+
+```xml
+<!-- /etc/clickhouse-server/config.d/storage.xml -->
+<clickhouse>
+  <storage_configuration>
+    <disks>
+      <s3_disk>
+        <type>s3</type>
+        <endpoint>https://BUCKET.s3.REGION.amazonaws.com/runesight/</endpoint>
+        <access_key_id>KEY</access_key_id>
+        <secret_access_key>SECRET</secret_access_key>
+        <metadata_path>/var/lib/clickhouse/disks/s3_disk/</metadata_path>
+      </s3_disk>
+    </disks>
+    <policies>
+      <runesight_tiered>
+        <volumes>
+          <hot>
+            <disk>default</disk>
+          </hot>
+          <s3>
+            <disk>s3_disk</disk>
+          </s3>
+        </volumes>
+        <move_factor>0.1</move_factor>
+      </runesight_tiered>
+    </policies>
+  </storage_configuration>
+</clickhouse>
+```
+
+Then in the runefile: `storage_policy: runesight_tiered`, `s3_volume: s3` (the volume name), `hot_days: 7`. Volume order matters — `hot` first. Any S3-compatible endpoint works (MinIO, R2, Spaces, GCS interop). The [reference runeset](https://github.com/runestack/rune-examples/tree/main/clickhouse) wires this XML in via a single value, so tiering works out of the box when you provide bucket + credentials.
+
+:::caution
+Changing `storage_policy` on an **existing** table is an `ALTER` the operator performs; `auto_migrate` applies the policy at table creation. Plan tiering before first ingest, or be ready to `ALTER TABLE ... MODIFY TTL` yourself.
+:::
+
+## What Advanced tier unlocks
+
+The dashboard detects ClickHouse's capabilities and turns on:
+
+- **SQL mode** — a raw SQL editor against the logs table. The escape hatch for anything LogQL can't say: joins against `labels`, multi-level aggregations, `GROUP BY` anything.
+- **Percentiles** — `quantile_over_time(field, 0.95)` over parsed numeric fields; powered by ClickHouse's native quantile functions.
+- **High-cardinality filters** — filtering on arbitrary `labels` keys stays cheap at volume (it's a `Map` column scan with bloom-filter help, not a label-index explosion).
+
+One honest asymmetry: the `| logfmt` / `| json` **parser stages are not lowered to SQL** — Core-tier pipelines that use them run on embedded/Loki but error on ClickHouse. SQL mode is the (more powerful) replacement: `JSONExtractString(line, 'field')` and friends.
+
+## Operational notes
+
+- **Lazy connection** — `runed` starts even if ClickHouse is down; the forwarder spools and retries until it's reachable.
+- **Sources page** — ingestion metrics work as on every backend; store-level disk stats show "managed by the backend" (ClickHouse's `system.parts` is the authoritative view).
+- The adapter is integration-tested against a real ClickHouse (testcontainers) in the main repo.
+
+## See also
+
+- [Reference runeset](https://github.com/runestack/rune-examples/tree/main/clickhouse) — run ClickHouse on Rune in one cast
+- [Choosing a backend](/observability/overview#choosing-a-backend)
+- [LogQL reference](/observability/logql)

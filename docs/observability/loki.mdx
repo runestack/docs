@@ -1,0 +1,63 @@
+---
+title: Loki backend
+lede: Bring your own Grafana Loki — managed, existing, or run on Rune itself — and get cheap, S3-native long retention at Core tier.
+---
+
+The Loki backend points Rune's log pipeline at a [Grafana Loki](https://grafana.com/oss/loki/) you provide. Rune pushes enriched log batches to Loki's HTTP API and translates Log Explorer queries back into LogQL for Loki to execute. Storage, retention, and durability become Loki's job — which is exactly why you'd pick it: Loki stores chunks in object storage natively, making weeks or months of retention cheap.
+
+```yaml
+observability:
+  enabled: true
+  backend: loki
+  loki:
+    url: http://loki.observability.rune:3100
+    tenant_id: ""            # optional — see multi-tenancy below
+```
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `loki.url` | — | **Required.** Loki's HTTP endpoint. |
+| `loki.tenant_id` | `""` | Sent as `X-Scope-OrgID` on every request when set. |
+
+:::note
+`retention_days` does not apply to this backend — retention is configured in Loki itself (compactor `retention_period`), not in Rune.
+:::
+
+## Three ways to bring a Loki
+
+1. **Managed** — Grafana Cloud Logs or any hosted Loki: set `url` (and usually `tenant_id`) and you're done.
+2. **Existing infrastructure** — a Loki your platform team already runs: same two keys.
+3. **On Rune itself** — Loki is an ordinary workload, so run it on the cluster it observes with one cast. The reference runeset ships a single-binary Loki with a persistent volume, compactor-enforced retention, and an optional straight-to-S3 mode:
+
+```sh
+git clone https://github.com/runestack/rune-examples
+rune cast rune-examples/loki/runeset --release loki --create-namespace
+```
+
+Then the `url` is the in-cluster DNS name: `http://loki.observability.rune:3100`. The [runeset's README](https://github.com/runestack/rune-examples/tree/main/loki) covers values (retention, volume size, S3 storage).
+
+## Object storage is Loki's concern
+
+Rune has **no S3 client** in the observability path. When you want chunks in object storage, you configure it in *Loki's* deployment config (`common.storage.s3` / `storage_config`), not in the runefile — Rune's side never changes. Anything S3-compatible works: S3, MinIO, R2, Spaces, GCS interop. The reference runeset exposes this as a single values override.
+
+## What you get (and don't)
+
+Core tier — identical query language to the embedded backend, so switching is invisible to your saved queries: selectors, line filters, `| logfmt` / `| json` parsers with label filters, `count_over_time` / `rate` / `bytes_over_time`, `sum by`. Rune renders its query AST back into LogQL and lets Loki execute it; constructs Loki can't honor surface as clear "unsupported" errors rather than silently-wrong results.
+
+No Advanced tier: percentiles, raw SQL, and high-cardinality filtering remain [ClickHouse](/observability/clickhouse) territory.
+
+## Multi-tenancy
+
+Single-cluster Loki on a private network typically runs with `auth_enabled: false` and no tenant — leave `tenant_id` empty. If you point at a multi-tenant Loki (Grafana Cloud, shared infra), set `tenant_id` to your tenant; Rune sends it as `X-Scope-OrgID` on both push and query.
+
+## Operational notes
+
+- **Push shape**: Rune groups records into streams keyed by `namespace`, `service`, `instance`, `node` + custom labels, sorted by timestamp within each stream (older Loki versions reject out-of-order writes).
+- **Loki down?** The forwarder spools and retries — batches are requeued, not dropped, up to the spool cap (100k records, oldest dropped first).
+- **Pipeline health**: RuneSight → Sources still works — ingestion metrics come from Core-tier queries; store-level stats (disk, caps) show "managed by the backend," which is accurate.
+
+## See also
+
+- [Reference runeset](https://github.com/runestack/rune-examples/tree/main/loki) — run Loki on Rune in one cast
+- [Choosing a backend](/observability/overview#choosing-a-backend)
+- [LogQL reference](/observability/logql)

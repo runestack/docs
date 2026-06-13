@@ -1,0 +1,93 @@
+---
+title: Alerts, saved views & sources
+lede: Threshold alerts on log queries with webhook/Slack delivery, cluster-shared saved queries, and a live view of the pipeline itself.
+---
+
+Three RuneSight surfaces build on the log store. All are server-backed and cluster-scoped; all are managed from the dashboard (`rune ui` → RuneSight).
+
+## Alerts
+
+An alert rule watches a log query and notifies when the match count crosses a threshold. You write the *selector*; Rune wraps it in `count_over_time({...}[window])` and evaluates it on a loop.
+
+A rule is:
+
+| Field | Meaning |
+| --- | --- |
+| `name` | DNS-1123, unique in the cluster. |
+| `logql` | A Core-tier **selector** (line/label filters welcome; no aggregation — the alerter adds it). |
+| `window` | The range the count covers, e.g. `5m`. |
+| `op` + `threshold` | `>`, `>=`, `<`, `<=`, `==` against the count. |
+| `for` | Hysteresis: the condition must hold this long before firing (`0` fires immediately). |
+| `interval` | Evaluation cadence (default `60s`). |
+| `channels` | Notification channels to deliver on. |
+| `disabled` | Pause without deleting. |
+
+Example: *"more than 50 timeout errors in 5 minutes, sustained for 2 minutes"* —
+
+```
+logql:      {service="api", level="error"} |= "timeout"
+window:     5m      op: >      threshold: 50      for: 2m
+```
+
+### State machine
+
+```
+ok ──(condition true)──► pending ──(held for `for`)──► firing ──(condition false)──► ok
+```
+
+Rules evaluate on their `interval` (the alerter sweeps every 15 s for due rules). Transitions to `firing` and back to `ok` emit a Rune **event** (visible as `{stream="event"}` in the Explorer — your alerts are themselves queryable) and notify the rule's channels on the firing and resolved edges only — no repeat spam while a rule stays firing.
+
+Because rules are Core-tier queries, **alerting works identically on every backend** — embedded included.
+
+### Channels
+
+| Field | Meaning |
+| --- | --- |
+| `type` | `webhook` (generic HTTP POST) or `slack` (incoming-webhook preset). |
+| `url` | The endpoint. May reference secrets: `${secret:namespace/name/key}`. |
+| `headers` | Extra request headers; values may also reference secrets. |
+| `body` | Optional Go `text/template`; sensible defaults per type. |
+
+Template variables available in `body`: `{{.Rule}}`, `{{.State}}`, `{{.PrevState}}`, `{{.Value}}`, `{{.Threshold}}`, `{{.Op}}`, `{{.Window}}`, `{{.LogQL}}`, `{{.Since}}`, `{{.Description}}`.
+
+A custom webhook body:
+
+```json
+{
+  "alert": "{{.Rule}}",
+  "state": "{{.State}}",
+  "count": {{.Value}},
+  "threshold": "{{.Op}} {{.Threshold}} over {{.Window}}",
+  "query": "{{.LogQL}}",
+  "since": "{{.Since}}"
+}
+```
+
+Delivery is at-least-once on state edges; a failed send is recorded on the rule's status and retried on the next transition, not silently lost. Keep tokens out of channel definitions — `${secret:...}` resolution exists precisely so the URL/headers can stay clean.
+
+## Saved views
+
+A saved view is a named, cluster-shared Log Explorer query:
+
+| Field | Meaning |
+| --- | --- |
+| `name` | DNS-1123, unique in the cluster. |
+| `logql` | Any Core-tier query (validated at save — an unparseable view can't exist). |
+| `range` | A relative token the dashboard resolves: `15m`, `1h`, `24h`, … |
+| `pinned` | Pinned views sort first and surface on the RuneSight home card. |
+
+Save from the Explorer ("Save view"), load with one click. Views are shared cluster-wide — the on-call rotation sees the same library. Saving an existing name updates it in place.
+
+## Sources
+
+**RuneSight → Sources** is the pipeline watching itself:
+
+- **Store stats** — active backend, records held, disk used vs. cap, retention, oldest record. The embedded store reports real numbers; Loki/ClickHouse report "managed by the backend" (their own tooling is authoritative).
+- **Ingestion** — log volume by service, per-node ingestion rate, and bytes by service over the last 24 h. These are ordinary Core-tier queries, so they work on every backend.
+
+Sources answers the two operational questions that matter: *is anything not reporting?* and *is the store dropping data I still want?* (oldest record younger than the retention you need → [time to move backends](/observability/overview#choosing-a-backend)).
+
+## See also
+
+- [LogQL reference](/observability/logql) — what alert selectors and views can say
+- [Quickstart](/observability/quickstart)

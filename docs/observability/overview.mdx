@@ -1,0 +1,73 @@
+---
+title: Observability (RuneSight)
+lede: Log persistence, query, and a dashboard — built into the same binary that runs your workloads. Zero extra components by default, pluggable backends when you outgrow them.
+---
+
+RuneSight is Rune's native observability subsystem. When you enable it, every container and process log line — plus Rune's own system events — is captured, persisted, and queryable with LogQL from the dashboard's Log Explorer. There is nothing to install: the collector, the store, the query engine, and the UI are all part of `runed`.
+
+## Why "native" matters
+
+Kubernetes ships **no log persistence**. `kubectl logs` reads the kubelet's container log files — when the container goes away, so do its logs. Persistent, queryable logging means assembling a third-party pipeline yourself: a log agent on every node (promtail, fluent-bit), a store (Loki, Elasticsearch), and a UI (Grafana, Kibana) — each a separate deployment, config surface, and upgrade.
+
+In Rune that pipeline is one binary:
+
+- **No logging stack to assemble.** Enabling observability is one runefile key, not three deployments.
+- **Logs survive their containers.** A crashed instance's last lines are exactly the ones you need; they're in the store, not gone with the container.
+- **System events in the same stream.** Deploys, restarts, scaling, health transitions — queryable alongside workload logs (`{stream="event"}`).
+
+Observability is **off by default** — it costs memory and disk, so you opt in.
+
+## Architecture
+
+```
+runner logs ─┐
+             ├─► forwarder (agent) ─► LogStore ─► ObserveService (LogQL → Query AST) ─► dashboard
+system events┘        (spool,            │
+  (Outbox)          batch, retry)        ├─ embedded   (default: in-process, WAL on disk)
+                                         ├─ loki       (HTTP, BYO Loki)
+                                         └─ clickhouse (SQL, BYO ClickHouse)
+```
+
+- **The forwarder** runs in each node's agent. It tails every running instance's logs and drains Rune's system-event outbox, enriches each record (namespace, service, instance, node, level, labels), and ships batches every 2 seconds. An in-memory spool buffers when the store is unreachable — batches are requeued, not dropped, until the spool cap (100k records, drop-oldest).
+- **The LogStore** is a pluggable interface. The embedded store is the production default; Loki and ClickHouse are scale upgrades you bring yourself.
+- **The ObserveService** parses LogQL once into a query AST and hands it to the backend — each backend executes it natively (in-process scan, Loki HTTP API, or SQL).
+- **The dashboard** (Log Explorer, RuneSight home card, Sources, Alerts) is the query surface. There is deliberately no separate log CLI — `rune logs` streams live from the runner; the *store* is the dashboard's job.
+
+## Capability tiers
+
+Backends differ in power, so the dashboard feature-flags itself per backend via a capability handshake:
+
+| Capability | embedded | loki | clickhouse |
+| --- | --- | --- | --- |
+| Tier | Core | Core | **Advanced** |
+| Selectors, line filters, `count_over_time` / `rate` / `bytes_over_time`, `sum by` | ✓ | ✓ | ✓ |
+| `\| logfmt` / `\| json` parsers + label filters | ✓ | ✓ | — (use SQL) |
+| Percentiles (`quantile_over_time`) | — | — | ✓ |
+| Raw SQL mode | — | — | ✓ |
+| Cheap high-cardinality field filters | — | — | ✓ |
+
+**Core** is the full day-to-day query language — everything in the [LogQL reference](/observability/logql) except the Advanced rows. **Advanced** (ClickHouse) unlocks the SQL editor, percentile aggregations, and arbitrary-field filtering in the UI. One honest asymmetry: ClickHouse does not execute the `| logfmt` / `| json` parser stages — raw SQL is its (more powerful) escape hatch.
+
+## Choosing a backend
+
+The embedded store is **not a demo store** — it's the production default, and the right choice until a specific limit bites:
+
+| | **embedded** (default) | **loki** | **clickhouse** |
+| --- | --- | --- | --- |
+| Extra components | none | a Loki you run/buy | a ClickHouse you run/buy |
+| Holds | 500k records, 256 MiB disk | whatever Loki's storage holds | whatever your disk/S3 holds |
+| Retention | days (default 7) | weeks–months (S3-native) | months+ (S3 tiering) |
+| Query power | Core | Core | Advanced (SQL, percentiles) |
+| Memory cost to Rune | in-process ring | HTTP client only | SQL client only |
+| Pick it when | single node / modest volume — the default | you want cheap long retention in object storage | you want analytical query power over logs |
+
+Move on from embedded when you see it dropping data you still want: the [Sources](/observability/alerts#sources) page shows records held, disk used vs. cap, and the oldest record — if "oldest" is younger than the retention you need, it's time.
+
+Both external backends are **bring-your-own**: a managed service, infrastructure you already run, or — since they're ordinary workloads — [run them ON Rune itself](https://github.com/runestack/rune-examples) with one cast. Rune has **no S3 client** in the observability path; object storage is always the backend's own concern, and anything S3-compatible works (S3, MinIO, R2, Spaces, GCS interop).
+
+## See also
+
+- [Quickstart](/observability/quickstart) — turn it on, see logs in two minutes
+- [Embedded backend](/observability/embedded) · [Loki backend](/observability/loki) · [ClickHouse backend](/observability/clickhouse)
+- [LogQL reference](/observability/logql)
+- [Alerts, saved views & sources](/observability/alerts)
