@@ -109,6 +109,10 @@ service:
 | `affinity`     | object  | no       | Placement hints (multi-node, roadmap).     |
 | `autoscale`    | object  | no       | Autoscaling (roadmap).                     |
 | `networkPolicy`| object  | no       | Ingress/egress rules.                      |
+| `imagePull`    | string  | no       | When to pull. `always` (default), `missing`, `never`. |
+| `imagePullAnonymous` | bool | no     | Send **no** registry credential for this image. See [`imagePullAnonymous`](#imagepullanonymous). |
+| `imageRegistry`| string  | no       | Named registry selector. Schema accepted; not honoured by the runner yet. See [`registry` / `imageRegistry`](#registry-imageregistry). |
+| `registry`     | object  | no       | Per-service registry override. Schema accepted; not honoured by the runner yet. See [`registry` / `imageRegistry`](#registry-imageregistry). |
 | `securityContext` | object | no     | Container security (seccomp, capabilities, privileged). See [`securityContext`](#securitycontext). |
 | `initSteps`    | []object | no      | One-shot setup containers run before the main container. See [`initSteps[]`](#initsteps). |
 | `skip`         | bool    | no       | Skip applying this doc (useful in batch).  |
@@ -286,6 +290,56 @@ Schema accepted; runtime enforcement is roadmap (RUNE-080).
 ### `affinity` / `autoscale`
 
 Schemas exist; runtime support is roadmap. Don't rely on them in single-node deployments today.
+
+### `imagePullAnonymous`
+
+```yaml
+service:
+  name: web
+  image: ghcr.io/myorg/web:1.0.0     # a PUBLIC repo on a registry you also
+  imagePullAnonymous: true           # hold private credentials for
+```
+
+Forces a credential-free pull. No registry credential is sent for this
+image even when a configured `docker.registries[]` entry matches its
+host — so an expired or wrong credential can't break a pull that would
+have succeeded anonymously.
+
+Reach for it when a **public** image lives on a registry where you also
+have private repositories: a host-wide credential (e.g. `registry: ghcr.io`)
+otherwise attaches to every pull from that host, public repos included.
+The alternative — narrowing the credential's pattern, or carving the
+public repository out with `type: none` — is configured on the server
+side; `imagePullAnonymous` lets the service author opt out without
+touching the runefile. See [Registry credential scoping](/guides/ghcr-auth#scope-a-credential-to-a-repository-path).
+
+[Init steps](#initsteps) and the `--debug` sidecar inherit the flag —
+they run the same image.
+
+Available since v0.0.1-dev.139. `cast` rejected the field in dev.139
+itself; upgrade to v0.0.1-dev.140 or later to use it.
+
+### `registry` / `imageRegistry`
+
+```yaml
+registry:
+  name: ghcr-private     # names a configured docker.registries[] entry
+  auth:
+    type: basic          # basic | token | ecr
+    username: ${USER}
+    password: ${PAT}
+
+imageRegistry: ghcr-private
+```
+
+Both fields parse and validate (`basic` requires `username` + `password`,
+`token` requires `token`), but **the Docker runner does not read them
+yet** — credential selection is entirely server-side, from
+`docker.registries[]`. Configure registry credentials in the
+[runefile](/reference/runefile#dockerregistries) or with
+[`rune admin registry`](/cli/admin), and use
+[`imagePullAnonymous`](#imagepullanonymous) for the per-service opt-out
+that *is* wired up.
 
 ### `securityContext`
 

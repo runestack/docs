@@ -366,6 +366,30 @@ delete the DO Volume manually (`doctl compute volume delete <id>`)
 until the cleanup ordering is hardened.
 :::
 
+### Surviving a droplet restart
+
+A plain stop/start (as opposed to a destroy/recreate) is the cheaper
+case: DO reattaches the block devices on boot and the kernel exposes
+them again at `/dev/disk/by-id/scsi-0DO_Volume_<name>`.
+
+Since v0.0.1-dev.138 the driver probes for that device link **before**
+calling the DO API. The link only exists for volumes attached to *this*
+droplet, so its presence proves attachment — and the volume name is
+derived locally. The common restart makes **zero** provider API calls,
+so a node restart no longer depends on live provider credentials.
+
+Anything that can't be confirmed locally still falls through to the
+authoritative API path, so a genuinely unreachable provider still
+errors rather than being masked.
+
+:::note[Why this mattered]
+Before dev.138 an expired `apiToken` on a restarted droplet left
+workloads sitting on `volume …/… not yet mounted on node … (will
+retry)` indefinitely — while the disks were attached, mounted and
+readable the whole time. A 30s ticker re-issued the same doomed `401`
+forever.
+:::
+
 ### Surviving a droplet rebuild
 
 DO Volumes outlive the droplet they're attached to — the durability
@@ -898,6 +922,42 @@ If an instance died but the volume is still flagged `Bound`, break the bind:
 ```sh
 rune volume detach pgdata-postgres-1 -n prod
 ```
+
+## When an instance is blocked on storage
+
+An instance waiting on a volume that hasn't been mounted on its node
+reports:
+
+```text
+volume prod/pgdata-postgres-0 not yet mounted on node node-abc (will retry)
+```
+
+Since v0.0.1-dev.138 that message carries the driver's actual failure
+when there is one, so you don't have to go log-diving:
+
+```text
+volume prod/pgdata-postgres-0 not yet mounted on node node-abc:
+attach prod/pgdata-postgres-0: storage driver: provider rejected
+credentials: GET /v2/volumes/... -> HTTP 401 (check the storage class's
+apiToken)
+```
+
+Read it with:
+
+```sh
+rune describe instance pgdata-postgres-0 -n prod
+```
+
+Credential rejections (HTTP 401/403) are **terminal** — retrying can't
+fix them, so the message drops the "will retry" wording. Renew the token
+in the Secret the StorageClass's `apiToken` points at — the ref is
+re-resolved on every call, so rotation takes effect on the next
+reconcile. The bare `(will retry)` form still means what it says: a
+genuinely transient wait.
+
+An instance that already exhausted its create attempts while blocked
+here sits in `Stalled` and will not retry on its own. Fix the credential,
+then re-arm it with [`rune restart <service>`](/cli/restart-stop#recovering-instances-stuck-in-create).
 
 ## See also
 

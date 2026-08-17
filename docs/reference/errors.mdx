@@ -90,6 +90,41 @@ The Docker runner couldn't pull. Either:
 - Registry is private — add credentials with `rune admin registry add`.
 - Network can't reach the registry from the host.
 
+Since v0.0.1-dev.139 an authentication failure is annotated with which
+registry pattern was involved — see the two entries below.
+
+### `no [[docker.registries]] entry matches <image>`
+
+The registry demanded credentials and no configured entry claimed the
+image, so the pull went out anonymously. Usually a `registry` pattern
+scoped past the repository. Widen it, or add an entry. See
+[`docker.registries[]`](/reference/runefile#dockerregistries).
+
+### `the credential configured for registry pattern "X" was rejected`
+
+An entry matched and the registry refused its credential. Either renew
+it, or — if the image is **public** and only inherited the credential
+from a broader pattern — scope the pattern to your private repositories,
+add a `type: none` entry for the public path, or set
+[`imagePullAnonymous: true`](/reference/service-spec#imagepullanonymous)
+on the service.
+
+### `volume <ns>/<name> not yet mounted on node <node>`
+
+The instance is waiting for the agent to attach and mount its volume.
+The bare form (with `(will retry)`) is transient. When the driver has a
+concrete failure, it is appended — e.g. `storage driver: provider
+rejected credentials: … -> HTTP 401 (check the storage class's
+apiToken)`, which is terminal and needs the token renewed. See
+[Persistent storage](/guides/persistent-storage#when-an-instance-is-blocked-on-storage).
+
+### `restart cannot proceed: <instance> (Stalled) never got a container`
+
+The instance holding the slot exhausted its create attempts and the
+replacement can't be created. Read the reason from `rune describe
+service <name>`, fix it, and run `rune restart` again. See
+[Recovering instances stuck in create](/cli/restart-stop#recovering-instances-stuck-in-create).
+
 ### `failed to start process: exec: "...": file does not exist`
 
 Process runner can't find the binary. The path in `process.command` must exist on the host.

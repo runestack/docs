@@ -49,6 +49,7 @@ rune get instances -o json | jq '.[] | select(.status=="Running") | .id'
 | `-o, --output`      | `table` | `table`, `json`, `yaml`.                       |
 | `--watch`           | false   | Stream updates as state changes.               |
 | `-l, --selector`    | —       | Label selector (e.g. `app=api,tier=frontend`). |
+| `--no-headers`      | false   | Omit the header row in table output. Handy for piping into `awk`/`xargs`. |
 
 ## Service detail view
 

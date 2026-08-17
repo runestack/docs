@@ -153,6 +153,18 @@ the volume metadata, so `regions:read`, `sizes:read`, and
 `block_storage:update` are not needed despite what the DO console's
 default scope hints sometimes suggest.
 
+:::note[Token failures are no longer silent (v0.0.1-dev.138)]
+A `401`/`403` from DO is now mapped to a terminal auth error and
+surfaces on the blocked instance, with a hint naming the credential:
+`storage driver: provider rejected credentials: GET /v2/volumes/… ->
+HTTP 401 (check the storage class's apiToken)`. Read it with
+`rune describe instance <name> -n <ns>` instead of digging through
+`journalctl`. The same release lets the driver adopt volumes DO already
+reattached after a node **restart** without calling the API at all, so
+a restarted node no longer needs a live token to bring its mounts back
+— see [Surviving a droplet restart](/guides/persistent-storage#surviving-a-droplet-restart).
+:::
+
 ##### Region pinning
 
 DO block-storage volumes belong to a single region. The driver

@@ -5,7 +5,7 @@ lede: Bounce a service or stop it without deleting the spec.
 
 ## `rune restart`
 
-Scales the service to 0, waits for the drain to complete, then scales back to its previous scale. By default, prints a TTY-aware progress view with two phases (Draining → Starting) and a final cumulative duration. In non-TTY contexts (CI, redirected output), one line is printed per state transition with no duplicates.
+Replaces every instance with a fresh one at the current spec. One atomic server-side operation: the server stamps a new template generation and the reconciler swaps the instances, so the desired scale **never dips through zero**. Restarting a stopped service starts it at its last non-zero scale.
 
 ```sh
 rune restart api
@@ -17,9 +17,56 @@ rune restart api --timeout=15m
 | ----------------- | ------------ | ----------------------------------------------------------- |
 | `-n, --namespace` | from context | Service namespace.                                          |
 | `-d, --detach`    | `false`      | Don't wait for the restart to complete (fire-and-forget).   |
-| `--timeout`       | `10m`        | Wait timeout per phase (ignored with `-d`).                 |
+| `--timeout`       | `10m`        | How long to wait for every instance to be replaced and `Running` (ignored with `-d`). |
 
 Use after rotating a secret, updating a configmap, or anything else that requires a fresh process. Mounted secrets/configs do not hot-reload.
+
+### Progress output
+
+Since v0.0.1-dev.142 `restart`, `scale` and `stop` share one progress renderer, so all three read identically. On a TTY you get a single animated line that updates in place and is replaced by a permanent `✓`/`✗` entry with the elapsed time:
+
+```text
+  ⠹ Restarting   0/1 ready · 1 pending   (12.3s)
+  ✓ Restarting   42.9s
+```
+
+In non-TTY contexts (CI, redirected output) one `[rune]`-tagged line is printed per state change, with no duplicates:
+
+```text
+[rune] restarting: 0/1 ready, 1 pending
+[rune] restarting: 1/1 ready
+[rune] restarting: complete in 42.9s
+```
+
+:::note[Output change in v0.0.1-dev.142]
+`restart` used to print its own `✓ <service> restarted (42.9s)` summary. That line is gone — the shared renderer's `✓ Restarting  …` entry replaces it. Scripts that grepped for `restarted` need updating; prefer the exit code.
+:::
+
+### Recovering instances stuck in create
+
+An instance that never got a container — an unpullable image or a rejected registry credential exhausting every create attempt — ends up frozen in `Stalled`. The reconciler deliberately stops retrying it automatically.
+
+Since v0.0.1-dev.141 `rune restart` re-arms those instances: it clears the create-attempt counter and the retry backoff so the reconciler tries again on its next tick. Fix the underlying cause first (renew the credential, push the missing tag), then:
+
+```sh
+rune restart api
+```
+
+Before dev.141 this was a silent no-op — restart reported `0/1 replaced and ready` for its full 10-minute timeout. The CLI now fails fast instead:
+
+```text
+restart cannot proceed: api-7c2e (Stalled) never got a container and remain
+stalled, so the replacement cannot be created. Either the instance exhausted
+its create attempts again (check `rune describe service api -n default` for
+the reason — an unpullable image or rejected registry credential is the usual
+cause), or this server predates the restart re-arm fix, in which case
+`rune scale api 0 -n default && rune scale api 1 -n default` clears the slot
+```
+
+The CLI can't tell those two apart, so it names both. Work through them in order:
+
+1. `rune describe service api` — if the instance re-exhausted its attempts, the reason is there. Fix that, then `rune restart` again.
+2. If the server is older than dev.141, the `rune scale 0` / `rune scale N` pair is the only recovery.
 
 ## `rune stop`
 
@@ -35,6 +82,8 @@ rune stop api -d   # detach
 | `-n, --namespace` | from context | Service namespace.                                   |
 | `-d, --detach`    | `false`      | Don't wait for the service to fully stop.            |
 | `--timeout`       | `5m`         | Wait timeout (ignored with `-d`).                    |
+
+Progress renders exactly as [`restart`](#progress-output) does, under a `Stopping` label.
 
 To remove the spec entirely, use [`rune delete`](/cli/delete).
 
