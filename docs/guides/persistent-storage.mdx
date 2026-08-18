@@ -258,6 +258,17 @@ rune create secret do-api-token \
   -n shared
 ```
 
+:::caution
+Rotation reaches **every** driver operation only from `v0.0.1-dev.143`.
+Earlier servers resolved the token once, when the volume was mounted,
+and replayed that value at detach — so the first shutdown after a
+rotation still presented the *old* token and failed with `HTTP 401`.
+
+The symptom is misleading: it looks exactly like a bad new token, and
+rotating again cannot fix it. On dev.142 or earlier, restart `runed`
+after rotating so the volumes remount with the new value.
+:::
+
 ### Step 3 — Create the StorageClass
 
 Reference the secret on `apiToken` using the FQDN secret-reference

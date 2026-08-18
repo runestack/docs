@@ -165,6 +165,27 @@ a restarted node no longer needs a live token to bring its mounts back
 — see [Surviving a droplet restart](/guides/persistent-storage#surviving-a-droplet-restart).
 :::
 
+:::note[Detach uses the current credential (v0.0.1-dev.143)]
+Detach used to reuse the token resolved when the volume was *mounted*,
+which for a long-lived volume could be months old. Because detach runs
+mainly during shutdown, the first `runed` stop after rotating a token
+still presented the pre-rotation value and failed with `HTTP 401` —
+indistinguishable from a genuinely bad token. Detach now re-resolves
+the `secret:` reference at teardown, so a rotation takes effect without
+waiting for a remount. If the lookup itself fails (the store may be
+going away during shutdown) the driver falls back to the value from
+mount time rather than sending none.
+
+The same release drains volumes concurrently instead of one at a time.
+Previously the volumes on a node shared a single shutdown budget and
+the first detach could spend all of it, leaving the rest attached; a
+node with three volumes typically released one. Shutdown now ends with
+a summary line — `All volumes torn down  detached=3  total=3`, or
+`Volume teardown incomplete` naming how many were released — so a
+partial drain is visible rather than something you infer by counting
+warnings.
+:::
+
 ##### Region pinning
 
 DO block-storage volumes belong to a single region. The driver
