@@ -209,23 +209,22 @@ credential — pulls for that pattern go out anonymously.
 
 #### Scoping a `registry` pattern
 
-Since v0.0.1-dev.139 the `registry` field is matched against the
-image's **repository path**, not just its host:
+The `registry` field is matched against the image's **repository
+path**, not just its host:
 
 | `registry` pattern              | Matches                                                            |
 | ------------------------------- | ------------------------------------------------------------------ |
-| `ghcr.io`                       | Every image on the host — the historical behaviour.                 |
+| `ghcr.io`                       | Every image on the host.                                            |
 | `ghcr.io/myorg`                 | Only `ghcr.io/myorg` and repositories beneath it.                   |
-| `*.dkr.ecr.us-east-1.amazonaws.com` | Host wildcard, as before.                                      |
+| `*.dkr.ecr.us-east-1.amazonaws.com` | Host wildcard.                                                 |
 
 Path comparison is segment-aware: `ghcr.io/myorg` matches
 `ghcr.io/myorg/app` but **not** `ghcr.io/myorg-evil/app`.
 
 When more than one entry matches an image, the **most specific one
 wins** — deeper path first, then an exact host over a wildcard host,
-then the longer pattern. Precedence no longer depends on declaration
-order. An image no entry claims gets no configured credential and pulls
-anonymously.
+then the longer pattern — not declaration order. An image no entry
+claims gets no configured credential and pulls anonymously.
 
 ```yaml
 docker:

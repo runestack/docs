@@ -258,15 +258,10 @@ rune create secret do-api-token \
   -n shared
 ```
 
-:::caution
-Rotation reaches **every** driver operation only from `v0.0.1-dev.143`.
-Earlier servers resolved the token once, when the volume was mounted,
-and replayed that value at detach — so the first shutdown after a
-rotation still presented the *old* token and failed with `HTTP 401`.
-
-The symptom is misleading: it looks exactly like a bad new token, and
-rotating again cannot fix it. On dev.142 or earlier, restart `runed`
-after rotating so the volumes remount with the new value.
+:::note
+The reference is re-resolved on every driver operation, detach
+included, so a rotation takes effect without remounting the volume or
+restarting `runed`.
 :::
 
 ### Step 3 — Create the StorageClass
@@ -383,23 +378,15 @@ A plain stop/start (as opposed to a destroy/recreate) is the cheaper
 case: DO reattaches the block devices on boot and the kernel exposes
 them again at `/dev/disk/by-id/scsi-0DO_Volume_<name>`.
 
-Since v0.0.1-dev.138 the driver probes for that device link **before**
-calling the DO API. The link only exists for volumes attached to *this*
-droplet, so its presence proves attachment — and the volume name is
-derived locally. The common restart makes **zero** provider API calls,
-so a node restart no longer depends on live provider credentials.
+The driver probes for that device link **before** calling the DO API.
+The link only exists for volumes attached to *this* droplet, so its
+presence proves attachment — and the volume name is derived locally.
+The common restart therefore makes **zero** provider API calls, and
+does not depend on the `apiToken` still being valid.
 
 Anything that can't be confirmed locally still falls through to the
 authoritative API path, so a genuinely unreachable provider still
 errors rather than being masked.
-
-:::note[Why this mattered]
-Before dev.138 an expired `apiToken` on a restarted droplet left
-workloads sitting on `volume …/… not yet mounted on node … (will
-retry)` indefinitely — while the disks were attached, mounted and
-readable the whole time. A 30s ticker re-issued the same doomed `401`
-forever.
-:::
 
 ### Surviving a droplet rebuild
 
@@ -943,8 +930,8 @@ reports:
 volume prod/pgdata-postgres-0 not yet mounted on node node-abc (will retry)
 ```
 
-Since v0.0.1-dev.138 that message carries the driver's actual failure
-when there is one, so you don't have to go log-diving:
+When the driver has a concrete failure, the message carries it, so you
+don't have to go log-diving:
 
 ```text
 volume prod/pgdata-postgres-0 not yet mounted on node node-abc:

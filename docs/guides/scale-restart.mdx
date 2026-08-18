@@ -50,7 +50,7 @@ For zero-downtime rolling restarts, use a runeset upgrade with rolling update se
 
 ### Restarting instances stuck in create
 
-An instance that never got a container — an unpullable image, a rejected registry credential — exhausts its create attempts and freezes in `Stalled`; the reconciler stops retrying it on purpose. Since v0.0.1-dev.141 `restart` re-arms those instances by clearing the attempt counter and the retry backoff. Fix the cause first, then `rune restart api`.
+An instance that never got a container — an unpullable image, a rejected registry credential — exhausts its create attempts and freezes in `Stalled`; the reconciler stops retrying it on purpose. `restart` re-arms those instances by clearing the attempt counter and the retry backoff. Fix the cause first, then `rune restart api`.
 
 If the CLI reports that instances *"never got a container and remain stalled"*, work through [the two causes it names](/cli/restart-stop#recovering-instances-stuck-in-create) — the usual one is that the underlying problem is still there, so `rune describe service api` has the reason.
 
@@ -103,6 +103,6 @@ rune scale workers 50 --mode=gradual --step=5 --interval=1m
 
 ## Anti-patterns
 
-- **Scaling instead of restarting.** `rune scale api 0 && rune scale api 3` works but is awkward — use `rune restart api`. On servers before v0.0.1-dev.141 this pair was the only way to free a `Stalled` instance that never got a container; `restart` handles that itself now.
+- **Scaling instead of restarting.** `rune scale api 0 && rune scale api 3` works but is awkward — use `rune restart api`, which also re-arms a `Stalled` instance that never got a container.
 - **Forgetting `-d`/`--detach` in CI scripts** when you don't actually want to block.
 - **Setting `--rollback-on-fail=false` by default** to "make scaling faster." If health is flapping, you want the rollback. Fix the probes.

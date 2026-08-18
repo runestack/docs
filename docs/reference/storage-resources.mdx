@@ -153,37 +153,31 @@ the volume metadata, so `regions:read`, `sizes:read`, and
 `block_storage:update` are not needed despite what the DO console's
 default scope hints sometimes suggest.
 
-:::note[Token failures are no longer silent (v0.0.1-dev.138)]
-A `401`/`403` from DO is now mapped to a terminal auth error and
-surfaces on the blocked instance, with a hint naming the credential:
-`storage driver: provider rejected credentials: GET /v2/volumes/… ->
-HTTP 401 (check the storage class's apiToken)`. Read it with
-`rune describe instance <name> -n <ns>` instead of digging through
-`journalctl`. The same release lets the driver adopt volumes DO already
-reattached after a node **restart** without calling the API at all, so
-a restarted node no longer needs a live token to bring its mounts back
-— see [Surviving a droplet restart](/guides/persistent-storage#surviving-a-droplet-restart).
+:::note[Token failures surface on the instance]
+A `401`/`403` from DO is a terminal auth error and shows up on the
+blocked instance, with a hint naming the credential: `storage driver:
+provider rejected credentials: GET /v2/volumes/… -> HTTP 401 (check the
+storage class's apiToken)`. Read it with `rune describe instance <name>
+-n <ns>` rather than digging through `journalctl`.
+
+A node **restart** is the exception that needs no token at all: the
+driver adopts volumes DO already reattached without calling the API —
+see [Surviving a droplet restart](/guides/persistent-storage#surviving-a-droplet-restart).
 :::
 
-:::note[Detach uses the current credential (v0.0.1-dev.143)]
-Detach used to reuse the token resolved when the volume was *mounted*,
-which for a long-lived volume could be months old. Because detach runs
-mainly during shutdown, the first `runed` stop after rotating a token
-still presented the pre-rotation value and failed with `HTTP 401` —
-indistinguishable from a genuinely bad token. Detach now re-resolves
-the `secret:` reference at teardown, so a rotation takes effect without
-waiting for a remount. If the lookup itself fails (the store may be
-going away during shutdown) the driver falls back to the value from
-mount time rather than sending none.
+:::note[Detach uses the current credential]
+Detach re-resolves the `secret:` reference at teardown rather than
+replaying the value resolved when the volume was mounted, so a token
+rotation takes effect without waiting for a remount. If the lookup
+itself fails (the store may be going away during shutdown) the driver
+falls back to the mount-time value rather than sending none.
 
-The same release drains volumes concurrently instead of one at a time.
-Previously the volumes on a node shared a single shutdown budget and
-the first detach could spend all of it, leaving the rest attached; a
-node with three volumes typically released one. Shutdown now ends with
-a summary line — `All volumes torn down  detached=3  total=3`, or
-`Volume teardown incomplete` naming how many were released — so a
-partial drain is visible rather than something you infer by counting
-warnings.
+A node's volumes drain concurrently, each with its own share of the
+shutdown budget, so one slow detach can't starve the rest. Shutdown
+ends with a summary line — `All volumes torn down  detached=3
+total=3`, or `Volume teardown incomplete` naming how many were released
+— so a partial drain is visible rather than something you infer by
+counting warnings.
 :::
 
 ##### Region pinning

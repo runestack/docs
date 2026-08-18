@@ -145,10 +145,9 @@ block:
   rune logs api -n default --tail=50
 ```
 
-That error text is the registry's response, surfaced directly. Since
-v0.0.1-dev.139 a credential *rejection* also names the registry pattern
-that supplied the credential, so you can tell a wrong credential from a
-missing one:
+That error text is the registry's response, surfaced directly. A
+credential *rejection* also names the registry pattern that supplied the
+credential, so you can tell a wrong credential from a missing one:
 
 ```text
 the credential configured for registry pattern "ghcr.io" was rejected;
@@ -165,13 +164,8 @@ ghcr.io/myorg/api:1.4.0
 
 ## Scope a credential to a repository path
 
-A credential registered for a **host** used to be attached to every
-image pulled from that host — public repositories included. When a GHCR
-token expires, that turns into a hard `denied` on images that would have
-pulled fine anonymously.
-
-Since v0.0.1-dev.139 the `registry` pattern can carry a repository path,
-so a credential only claims the repositories it's for:
+A `registry` pattern can carry a repository path, so a credential only
+claims the repositories it's for:
 
 ```yaml
 docker:
@@ -214,9 +208,10 @@ docker:
 Rune does not silently retry a rejected pull without credentials. A
 public image at the same reference could stand in for the intended
 private one, so the downgrade has to be declared — either by scoping the
-pattern, by `type: none`, or by `imagePullAnonymous` on the service.
-Host-only patterns behave exactly as they did before, so existing
-configuration is unaffected.
+pattern, by `type: none`, or by `imagePullAnonymous` on the service. A
+host-only pattern claims every image on that host, public repositories
+included: if the credential expires, those pulls fail with a hard
+`denied` rather than falling back to anonymous.
 :::
 
 ### Per-service opt-out: `imagePullAnonymous`
@@ -234,9 +229,6 @@ service:
 No credential is ever sent for that image, so there is no failed attempt
 and no window in which an expired token can break it. Init steps and the
 `--debug` sidecar inherit the flag — they run the same image.
-
-Requires v0.0.1-dev.140 or later: the field shipped in dev.139 but
-`cast` validation rejected it until dev.140.
 
 ## 4. Rotate or revoke
 
