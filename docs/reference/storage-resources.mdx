@@ -116,10 +116,12 @@ driver's — it applies to every cloud driver (`do-volume`,
 `hcloud-volume`, `aws-ebs`, `gce-pd`) equally. `local` and `local-host`
 have no provider to authenticate against, so none of it applies to them.
 
-**Provider auth failures surface on the instance.** When a driver
-reports that the provider rejected its credentials, the reason is
-attached to the instance that is blocked waiting for the volume, rather
-than only appearing in the agent log. Read it with `rune describe
+**Driver failures surface on the instance.** Whatever a driver reports —
+a rejected credential, a missing device, a provider timeout — is attached
+to the instance blocked waiting for the volume, rather than only
+appearing in the agent log. (Only `do-volume` classifies a 401/403 into
+the "provider rejected credentials" wording; the other drivers pass the
+provider's own error through.) Read it with `rune describe
 instance <name> -n <ns>`. Retrying does not fix a rejected credential —
 the agent keeps retrying anyway, so an instance can sit in this state
 indefinitely until you renew the token.
@@ -137,7 +139,9 @@ than a slice of it: they are independent, so dividing the deadline would
 cap teardown for no benefit. Shutdown ends with a summary line — `All
 volumes torn down  detached=3  total=3`, or `Volume teardown incomplete`
 naming how many were released — so a partial drain is visible rather
-than something you infer by counting warnings.
+than something you infer by counting warnings. If the shutdown budget is
+already spent when teardown starts, the agent skips it with a single
+warning and emits no summary at all.
 
 A teardown failure is logged, never fatal. The volume stays attached to
 the node, and the agent re-adopts it on the next start — for most drivers

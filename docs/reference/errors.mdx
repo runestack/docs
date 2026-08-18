@@ -102,11 +102,13 @@ credential was sent, which has three causes:
 - No entry's `registry` pattern matched the image — usually a pattern
   scoped past the repository. Widen it, or add an entry.
 - An entry matched but declares `type: none`, so it deliberately sends
-  nothing. The image is not public after all; give it a real credential.
-- The service sets `imagePullAnonymous: true`.
+  nothing. The image is not public after all; give that entry a real
+  credential — do not just delete it, or the image falls through to a
+  broader pattern.
+- The service sets `imagePullAnonymous: true`, which skips pattern
+  matching entirely.
 
-Check the last two before widening a pattern — in both, no pattern was
-consulted, so editing one changes nothing. See
+Rule out the last two before widening a pattern. See
 [`docker.registries[]`](/reference/runefile#docker-registries).
 
 ### `the credential configured for registry pattern "X" was rejected`
@@ -122,15 +124,26 @@ If `rune admin registry list` shows no entry for `X`, the credential was
 **ambient** — the `runed` user's `~/.docker/config.json` or a cloud
 metadata service account. Those carry no pattern, so the message falls
 back to naming the image's host. Fix the ambient source, or set
-`disable_ambient_registry_auth` in the runefile.
+`docker.disable_ambient_registry_auth` in the runefile.
 
 ### `volume <ns>/<name> not yet mounted on node <node>`
 
 The instance is waiting for the agent to attach and mount its volume.
-The bare form (with `(will retry)`) is transient. When the driver has a
-concrete failure, it is appended — e.g. `storage driver: provider
-rejected credentials: … -> HTTP 401 (check the storage class's
-apiToken)`, which is terminal and needs the token renewed. See
+The two forms are alternatives, not a prefix and a suffix: when the agent
+has a cause to report it **replaces** `(will retry)` with that cause,
+wrappers and all —
+
+```text
+volume prod/pgdata not yet mounted on node node-abc: agent.volumes:
+attach prod/pgdata: dovolume: getVolume <handle>: storage driver:
+provider rejected credentials: GET /v2/volumes/<id> -> HTTP 401: … 
+(check the storage class's apiToken)
+```
+
+— and the bare `(will retry)` form just means no cause was available yet.
+Read the cause, not the absence of `(will retry)`: the wording is dropped
+for *any* cause, transient or not. The agent keeps retrying regardless, so
+a rejected credential leaves the instance blocked until you renew it. See
 [Persistent storage](/guides/persistent-storage#when-an-instance-is-blocked-on-storage).
 
 ### `restart cannot proceed: <instance> (Stalled) never got a container`

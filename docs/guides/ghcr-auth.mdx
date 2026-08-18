@@ -273,7 +273,7 @@ fine and pulls exactly as if they were absent.
 | --- | --- | --- |
 | `ImageUnreachable` with `pull access denied` | Token missing `read:packages` or package doesn't grant the user access. | Regenerate PAT with the right scope; check **Packages → Manage Actions access**. |
 | `unauthorized: authentication required` | No registry entry matches `ghcr.io`. | `rune admin registry list` — add one if missing. |
-| `no [[docker.registries]] entry matches <image>` | The image needs credentials and none was sent. Either no pattern claimed it (often one narrowed past the repository), or a `type: none` entry matched, or the service set `imagePullAnonymous: true`. | Rule out the last two first — neither consults a pattern. Otherwise widen the pattern or add an entry. |
+| `no [[docker.registries]] entry matches <image>` | The image needs credentials and none was sent. Either no pattern claimed it (often one narrowed past the repository), or a `type: none` entry matched, or the service set `imagePullAnonymous: true`. | Rule out the last two first. Otherwise widen the pattern or add an entry. |
 | `the credential configured for registry pattern "X" was rejected` | A credential was sent and refused. If `rune admin registry list` has no entry for `X`, it came from an ambient source and `X` is just the image host. | Renew it. If the image is **public**, scope `X` to your private repos or set `imagePullAnonymous: true`. |
 | A **public** image on GHCR fails with `denied` | A host-wide credential is being attached to it and has expired. | [Scope the pattern](#3b-scope-a-credential-to-a-repository-path) or mark the repository anonymous. |
 | `manifest unknown` | Image exists but tag doesn't, or org/name is wrong. | `docker pull` from the same host to confirm. |
