@@ -24,7 +24,7 @@ Name: alice
 Policies: [readwrite]
 ```
 
-If `Status: Not connected to server`, run `rune login` again or check that the server is reachable. The `Server Version` line is omitted on older servers that don't expose `HealthService.GetServerVersion` (added in v0.0.1-dev.38).
+If `Status: Not connected to server`, run `rune login` again or check that the server is reachable. The `Server Version` line is omitted if the server doesn't expose `HealthService.GetServerVersion`.
 
 ## `rune status`
 
@@ -213,7 +213,7 @@ Server:
 
 The build is tagged with the git commit and build timestamp. If you see `-dirty` in the version, the binary was built from uncommitted changes.
 
-The server probe uses the unauthenticated `HealthService.GetServerVersion` RPC (added in v0.0.1-dev.38) so it works before `rune login`. Against older servers, or without a configured context, you'll see a one-line note instead of the `Server:` block; use `--client` to skip the probe entirely.
+The server probe uses the unauthenticated `HealthService.GetServerVersion` RPC so it works before `rune login`. If the server doesn't expose it, or you have no configured context, you'll see a one-line note instead of the `Server:` block; use `--client` to skip the probe entirely.
 
 ## Combining
 
