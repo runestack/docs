@@ -46,7 +46,7 @@ This is what [`runestack/rune-cast-action`](https://github.com/runestack/rune-ca
 
 ### About the `rune_` token prefix
 
-All bearer tokens issued from v0.0.1-dev.25 onward look like `rune_<uuid>.<uuid>`. The prefix is mandatory — tokens without it are rejected by the server. It exists so secret scanners (Gitleaks, GitHub secret scanning, TruffleHog) can match Rune tokens by a stable distinctive marker, the same way `ghp_` or `glpat-` work.
+Bearer tokens look like `rune_<uuid>.<uuid>`. The prefix is mandatory — tokens without it are rejected by the server. It exists so secret scanners (Gitleaks, GitHub secret scanning, TruffleHog) can match Rune tokens by a stable distinctive marker, the same way `ghp_` or `glpat-` work.
 
 ## `rune context`
 

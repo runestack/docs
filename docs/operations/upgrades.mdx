@@ -21,7 +21,7 @@ Client and server share a generated proto package. Mismatched versions usually s
 - **CLI ahead of server**: missing fields in responses, possible `unknown field` warnings on requests. Mostly fine.
 - **CLI behind server**: missing client-side support for new flags. Update the CLI.
 
-`rune version` since v0.0.1-dev.38 prints both client and server build info — use it to spot skew at a glance.
+`rune version` prints both client and server build info — use it to spot skew at a glance.
 
 ```sh
 $ rune version
@@ -37,7 +37,7 @@ Pin to the same version on both sides for production.
 
 ## Upgrade `runed` — the script
 
-Since v0.0.1-dev.44, the recommended in-place upgrade path is `scripts/upgrade-server.sh`. Run it as root on the host:
+The recommended in-place upgrade path is `scripts/upgrade-server.sh`. Run it as root on the host:
 
 ```sh
 sudo bash <(curl -fsSL https://raw.githubusercontent.com/runestack/rune/main/scripts/upgrade-server.sh) \
@@ -58,13 +58,13 @@ Flags worth knowing:
 - `--skip-restart` — replace binaries without restarting (for scripted maintenance windows).
 - `--skip-caps` — don't re-apply `cap_net_bind_service`. Use if you've moved low-port binding entirely to systemd's `AmbientCapabilities`.
 - `--no-keep-backup` — remove the backup files after success. Default keeps them so you can roll back by hand.
-- `--refresh-unit` *(since v0.0.1-dev.45)* — replace the on-disk `runed.service` with a fresh one from `runed print-systemd`. See [Refreshing the systemd unit](#refreshing-the-systemd-unit) below.
+- `--refresh-unit` — replace the on-disk `runed.service` with a fresh one from `runed print-systemd`. See [Refreshing the systemd unit](#refreshing-the-systemd-unit) below.
 
 ### Refreshing the systemd unit
 
 The on-disk `/etc/systemd/system/runed.service` is written by `install-server.sh` at first boot and never updated again unless you do something about it. The Rune team adds directives to that template over time — `AmbientCapabilities=CAP_NET_BIND_SERVICE` (the back-stop for the [file-capability trap](#the-file-capability-trap)), resource limits, OOM tuning — and hosts that were provisioned from older installers don't pick those up automatically.
 
-Since v0.0.1-dev.45, the `runed` binary itself emits its canonical unit via `runed print-systemd`, and `upgrade-server.sh --refresh-unit` uses that to swap in a current unit during the upgrade.
+The `runed` binary itself emits its canonical unit via `runed print-systemd`, and `upgrade-server.sh --refresh-unit` uses that to swap in a current unit during the upgrade.
 
 ```sh
 sudo bash <(curl -fsSL https://raw.githubusercontent.com/runestack/rune/main/scripts/upgrade-server.sh) \
@@ -168,9 +168,9 @@ True zero-downtime upgrades (and a story for ingress that survives `runed` resta
 
 If you're using [`terraform-digitalocean-rune`](https://github.com/runestack/terraform-digitalocean-rune), [`terraform-hetzner-rune`](https://github.com/runestack/terraform-hetzner-rune), or a similar module, there's a sharp edge worth knowing about.
 
-The module renders `var.rune_version` into the droplet's `user_data` (cloud-init). Cloud-init runs **only on first boot** — bumping `rune_version` in code does not re-run the installer on an existing droplet. Until v0.0.5 of the module, the default Terraform behaviour on a `user_data` change was to **mark the droplet for replacement** (destroy + create), which would wipe `/var/lib/rune` (KEK, BadgerDB store, host-local volumes).
+The module renders `var.rune_version` into the droplet's `user_data` (cloud-init). Cloud-init runs **only on first boot** — bumping `rune_version` in code does not re-run the installer on an existing droplet.
 
-Since v0.0.6 the module sets `lifecycle { ignore_changes = [user_data] }` on the droplet so the variable can advance freely in code without triggering a destroy.
+Pin the module to **≥ 0.0.6**, which sets `lifecycle { ignore_changes = [user_data] }` on the droplet so the variable can advance freely in code. Without that, Terraform's default behaviour on a `user_data` change is to **mark the droplet for replacement** (destroy + create), wiping `/var/lib/rune` (KEK, BadgerDB store, host-local volumes).
 
 The correct flow with the TF module:
 

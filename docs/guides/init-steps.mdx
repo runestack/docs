@@ -175,10 +175,7 @@ shell form:
 This matters for images that wrap their real binary in something
 like `tini --` or a custom entrypoint script. The step's `command`
 is used verbatim — you do not need to re-state the entrypoint chain,
-and you must not. Pre-v0.0.1-dev.39 the runner appended `command`
-to the image's `ENTRYPOINT` and the binary saw its own path as its
-first argument (`unknown subcommand: '/foo'`); upgrade if you see
-that.
+and you must not.
 
 ```yaml
 # Image: ghcr.io/tigerbeetle/tigerbeetle (ENTRYPOINT: tini -- /tigerbeetle)
@@ -212,21 +209,15 @@ spec:
 :::caution[The field is `seccompProfile.type`, not `seccomp`]
 A common mistake is writing `securityContext: { seccomp: unconfined }`.
 There is no `seccomp` field — the schema is
-`securityContext.seccompProfile.type`. Since v0.0.1-dev.41 the
-validator rejects unknown fields here at `rune cast` time with a
-"did you mean" hint; on older clients/servers the wrong field is
-silently dropped and the container runs with the runtime default
-profile.
+`securityContext.seccompProfile.type`. The validator rejects unknown
+fields here at `rune cast` time with a "did you mean" hint.
 :::
 
-:::note[Case-insensitive since v0.0.1-dev.42]
-The `type` values are case-insensitive and accept the Kubernetes
-PascalCase aliases (`Unconfined`, `RuntimeDefault`, `Localhost`)
-alongside the lowercase forms (`unconfined`, `default`, `localhost`).
-Pre-v0.0.1-dev.42 the runner did exact-match on lowercase, so
-`type: Unconfined` was silently treated as "no preference" and the
-container ran with the runtime default profile. PascalCase is the
-recommended canonical form going forward (matches k8s docs).
+:::note[`type` values are case-insensitive]
+The `type` values accept the Kubernetes PascalCase aliases
+(`Unconfined`, `RuntimeDefault`, `Localhost`) alongside the lowercase
+forms (`unconfined`, `default`, `localhost`). PascalCase is the
+canonical form — it matches the Kubernetes docs.
 :::
 
 `securityContext` can sit on the service (applied to the main
@@ -297,9 +288,6 @@ Anything not listed here is copied from the parent verbatim.
   `securityContext.seccompProfile: { type: unconfined }` on the
   service (init steps inherit) or on the step itself. Requires the
   `services.privileged` policy verb — see [§7](#7-security-context-seccomp-capabilities-privileged).
-- **`unknown subcommand: '/your-binary'`** in an init step. You're on
-  a client/server pair older than v0.0.1-dev.39 against an image
-  with a baked-in `ENTRYPOINT`. Upgrade both ends.
 
 ## 10. Where to next
 
