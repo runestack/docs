@@ -45,10 +45,9 @@ rune status -o json                 # structured output for scripts/dashboards
 ```
 
 :::note
-The default scope changed: a bare `rune status` is now the **whole-cluster**
-view (it previously defaulted to the current namespace). `-A` /
-`--all-namespaces` is kept as a back-compat alias for that default; use
-`-n <ns>` to focus a single namespace.
+A bare `rune status` is the **whole-cluster** view. `-A` /
+`--all-namespaces` selects the same thing explicitly; use `-n <ns>` to
+focus a single namespace.
 :::
 
 ### Default output (global)
