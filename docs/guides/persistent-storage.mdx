@@ -378,11 +378,15 @@ A plain stop/start (as opposed to a destroy/recreate) is the cheaper
 case: DO reattaches the block devices on boot and the kernel exposes
 them again at `/dev/disk/by-id/scsi-0DO_Volume_<name>`.
 
-The driver probes for that device link **before** calling the DO API.
-The link only exists for volumes attached to *this* droplet, so its
-presence proves attachment — and the volume name is derived locally.
-The common restart therefore makes **zero** provider API calls, and
-does not depend on the `apiToken` still being valid.
+The `do-volume` driver probes for that device link **before** calling the
+DO API. The link only exists for volumes attached to *this* droplet, so
+its presence proves attachment — and the volume name is derived locally.
+The common restart therefore makes **zero** provider API calls, and does
+not depend on the `apiToken` still being valid.
+
+This shortcut is specific to `do-volume`. The other cloud drivers detect
+an existing attachment through the provider API, so a restart on those
+still needs a working credential.
 
 Anything that can't be confirmed locally still falls through to the
 authoritative API path, so a genuinely unreachable provider still
@@ -930,14 +934,16 @@ reports:
 volume prod/pgdata-postgres-0 not yet mounted on node node-abc (will retry)
 ```
 
-When the driver has a concrete failure, the message carries it, so you
-don't have to go log-diving:
+When the agent can report a concrete failure, the message carries it in
+place of `(will retry)`, so you don't have to go log-diving. The cause is
+the driver's own error, wrappers and all:
 
 ```text
 volume prod/pgdata-postgres-0 not yet mounted on node node-abc:
-attach prod/pgdata-postgres-0: storage driver: provider rejected
-credentials: GET /v2/volumes/... -> HTTP 401 (check the storage class's
-apiToken)
+agent.volumes: attach prod/pgdata-postgres-0: dovolume: getVolume
+<handle>: storage driver: provider rejected credentials: GET
+/v2/volumes/<id> -> HTTP 401: {"id":"unauthorized","message":"Unable to
+authenticate you"} (check the storage class's apiToken)
 ```
 
 Read it with:
@@ -946,12 +952,14 @@ Read it with:
 rune describe instance pgdata-postgres-0 -n prod
 ```
 
-Credential rejections (HTTP 401/403) are **terminal** — retrying can't
-fix them, so the message drops the "will retry" wording. Renew the token
-in the Secret the StorageClass's `apiToken` points at — the ref is
-re-resolved on every call, so rotation takes effect on the next
-reconcile. The bare `(will retry)` form still means what it says: a
-genuinely transient wait.
+Read the cause, not the absence of `(will retry)` — that wording is
+dropped whenever the agent has *any* cause to report, transient or not.
+
+A credential rejection (HTTP 401/403) is one no amount of waiting fixes,
+and the agent does keep retrying: an instance stays blocked until you
+renew the token in the Secret the StorageClass's `apiToken` points at.
+The ref is re-resolved on every call, so the rotation takes effect on the
+next reconcile without a restart.
 
 An instance that already exhausted its create attempts while blocked
 here sits in `Stalled` and will not retry on its own. Fix the credential,

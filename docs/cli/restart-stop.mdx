@@ -5,7 +5,7 @@ lede: Bounce a service or stop it without deleting the spec.
 
 ## `rune restart`
 
-Replaces every instance with a fresh one at the current spec. One atomic server-side operation: the server stamps a new template generation and the reconciler swaps the instances, so the desired scale **never dips through zero**. Restarting a stopped service starts it at its last non-zero scale.
+Replaces every instance with a fresh one at the current spec. The server stamps a new template generation in a single write and the reconciler swaps the instances, so the desired scale **never dips through zero**. Restarting a stopped service starts it at its last non-zero scale.
 
 ```sh
 rune restart api
@@ -15,23 +15,29 @@ rune restart api --timeout=15m
 
 | Flag              | Default      | Notes                                                       |
 | ----------------- | ------------ | ----------------------------------------------------------- |
-| `-n, --namespace` | from context | Service namespace.                                          |
+| `-n, --namespace` | `default`    | Service namespace. **Not** taken from your context — see below. |
 | `-d, --detach`    | `false`      | Don't wait for the restart to complete (fire-and-forget).   |
 | `--timeout`       | `10m`        | How long to wait for every instance to be replaced and `Running` (ignored with `-d`). |
 
 Use after rotating a secret, updating a configmap, or anything else that requires a fresh process. Mounted secrets/configs do not hot-reload.
 
+:::caution[`-n` does not follow your context here]
+`restart`, `stop` and `scale` default to the `default` namespace, not the
+one your context selects — unlike `cast`, `get`, `describe` and `delete`.
+Pass `-n <ns>` explicitly, or you will target `default/<service>`.
+:::
+
 ### Recovering instances stuck in create
 
 An instance that never got a container — an unpullable image or a rejected registry credential exhausting every create attempt — ends up frozen in `Stalled`. The reconciler deliberately stops retrying it automatically.
 
-`rune restart` re-arms those instances: it clears the create-attempt counter and the retry backoff so the reconciler tries again on its next tick. Fix the underlying cause first (renew the credential, push the missing tag), then:
+`rune restart` re-arms those instances: it clears the create-attempt counter and the retry backoff so the reconciler tries again on its next tick. The re-arm is best-effort and runs per instance after the generation restamp — if one fails it is logged, not reported, so a stuck instance can survive a restart. Fix the underlying cause first (renew the credential, push the missing tag), then:
 
 ```sh
 rune restart api
 ```
 
-If the instance is still stalled when the replacement is due, `restart` fails fast rather than waiting out its timeout:
+If a `Stalled` instance is still carrying the *old* template generation when the wait runs, `restart` gives up promptly rather than burning the full `--timeout` — that instance holds the slot and the reconciler will not retry it, so the replacement can never be created:
 
 ```text
 restart cannot proceed: api-7c2e (Stalled) never got a container and remain
@@ -44,6 +50,8 @@ cause), or this server predates the restart re-arm fix, in which case
 
 Almost always the underlying problem is still there: read the reason from `rune describe service api`, fix it, then `rune restart` again. The message also names an older-server case it can't rule out from the client side — on a server without the re-arm behaviour, `rune scale api 0 && rune scale api 1` is the only way to clear the slot.
 
+An instance that re-stalls on the *new* generation is a different case: it counts as a failed replacement, so the wait runs to its timeout instead of exiting early.
+
 ## `rune stop`
 
 Scales to 0 but keeps the spec. Restore later with `rune scale <name> N` or `rune cast`.
@@ -55,7 +63,7 @@ rune stop api -d   # detach
 
 | Flag              | Default      | Notes                                                |
 | ----------------- | ------------ | ---------------------------------------------------- |
-| `-n, --namespace` | from context | Service namespace.                                   |
+| `-n, --namespace` | `default`    | Service namespace. **Not** taken from your context.  |
 | `-d, --detach`    | `false`      | Don't wait for the service to fully stop.            |
 | `--timeout`       | `5m`         | Wait timeout (ignored with `-d`).                    |
 

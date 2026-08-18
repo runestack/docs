@@ -95,19 +95,34 @@ involved — see the two entries below.
 
 ### `no [[docker.registries]] entry matches <image>`
 
-The registry demanded credentials and no configured entry claimed the
-image, so the pull went out anonymously. Usually a `registry` pattern
-scoped past the repository. Widen it, or add an entry. See
-[`docker.registries[]`](/reference/runefile#dockerregistries).
+The registry demanded credentials and the pull went out **without one**.
+The message names the most common reason, but it fires whenever no
+credential was sent, which has three causes:
+
+- No entry's `registry` pattern matched the image — usually a pattern
+  scoped past the repository. Widen it, or add an entry.
+- An entry matched but declares `type: none`, so it deliberately sends
+  nothing. The image is not public after all; give it a real credential.
+- The service sets `imagePullAnonymous: true`.
+
+Check the last two before widening a pattern — in both, no pattern was
+consulted, so editing one changes nothing. See
+[`docker.registries[]`](/reference/runefile#docker-registries).
 
 ### `the credential configured for registry pattern "X" was rejected`
 
-An entry matched and the registry refused its credential. Either renew
-it, or — if the image is **public** and only inherited the credential
-from a broader pattern — scope the pattern to your private repositories,
-add a `type: none` entry for the public path, or set
+A credential was sent and the registry refused it. Either renew it, or —
+if the image is **public** and only inherited the credential from a
+broader pattern — scope the pattern to your private repositories, add a
+`type: none` entry for the public path, or set
 [`imagePullAnonymous: true`](/reference/service-spec#imagepullanonymous)
 on the service.
+
+If `rune admin registry list` shows no entry for `X`, the credential was
+**ambient** — the `runed` user's `~/.docker/config.json` or a cloud
+metadata service account. Those carry no pattern, so the message falls
+back to naming the image's host. Fix the ambient source, or set
+`disable_ambient_registry_auth` in the runefile.
 
 ### `volume <ns>/<name> not yet mounted on node <node>`
 

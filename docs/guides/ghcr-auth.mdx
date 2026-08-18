@@ -155,14 +155,15 @@ renew it, or if this image is public scope the pattern to your private
 repositories or mark it anonymous
 ```
 
-If no entry matched the image at all, the error says that instead:
+If no credential was sent at all — nothing matched, a `type: none` entry
+matched, or the service opted out — the error says that instead:
 
 ```text
 registry requires credentials; no [[docker.registries]] entry matches
 ghcr.io/myorg/api:1.4.0
 ```
 
-## Scope a credential to a repository path
+## 3b. Scope a credential to a repository path
 
 A `registry` pattern can carry a repository path, so a credential only
 claims the repositories it's for:
@@ -176,14 +177,14 @@ docker:
         fromSecret: ghcr-credentials
 ```
 
-`ghcr.io/someoneelse/app` then matches nothing and pulls anonymously —
-no extra entry needed. Path comparison is segment-aware, so
+`ghcr.io/someoneelse/app` then matches no configured entry — it pulls
+with no credential of yours, falling back to any ambient one (see below). Path comparison is segment-aware, so
 `ghcr.io/myorg` does **not** match `ghcr.io/myorg-evil/app`.
 
 (Unmatched images can still pick up an *ambient* credential — the `runed`
 user's `~/.docker/config.json`, or a GCE metadata service account. Those
 carry no pattern and are tried last; see
-[`docker.registries[]`](/reference/runefile#dockerregistries).)
+[`docker.registries[]`](/reference/runefile#docker-registries).)
 
 When several entries match one image, the **most specific wins** (deeper
 path first, then exact host over wildcard host, then longer pattern) —
@@ -255,13 +256,15 @@ rune admin registry remove ghcr
 
 ## Per-service registry selection
 
-:::caution[Not wired up yet]
-The service spec accepts `registry: {name, auth}` and
-`imageRegistry: <name>`, and both pass validation — but the Docker runner
-does not read them. Credential selection is entirely server-side today.
-Scope the `docker.registries[]` pattern instead, and use
-[`imagePullAnonymous`](/reference/service-spec#imagepullanonymous) for the
-per-service opt-out that *is* honoured.
+Credentials are selected server-side, from `docker.registries[]`. A
+service cannot supply its own — scope the pattern instead, and use
+[`imagePullAnonymous`](/reference/service-spec#imagepullanonymous) for
+the one per-service control there is.
+
+:::caution
+`rune cast` accepts `registry:` and `imageRegistry:` keys on a service
+spec. Nothing reads them. They validate, so a spec carrying them looks
+fine and pulls exactly as if they were absent.
 :::
 
 ## Troubleshooting
@@ -270,9 +273,9 @@ per-service opt-out that *is* honoured.
 | --- | --- | --- |
 | `ImageUnreachable` with `pull access denied` | Token missing `read:packages` or package doesn't grant the user access. | Regenerate PAT with the right scope; check **Packages → Manage Actions access**. |
 | `unauthorized: authentication required` | No registry entry matches `ghcr.io`. | `rune admin registry list` — add one if missing. |
-| `no [[docker.registries]] entry matches <image>` | The image needs credentials and no pattern claimed it — often a `registry` pattern narrowed past the repository. | Widen the pattern, or add an entry for it. |
-| `the credential configured for registry pattern "X" was rejected` | Pattern `X` matched and its credential is wrong or expired. | Renew it. If the image is **public**, scope `X` to your private repos or set `imagePullAnonymous: true`. |
-| A **public** image on GHCR fails with `denied` | A host-wide credential is being attached to it and has expired. | [Scope the pattern](#scope-a-credential-to-a-repository-path) or mark the repository anonymous. |
+| `no [[docker.registries]] entry matches <image>` | The image needs credentials and none was sent. Either no pattern claimed it (often one narrowed past the repository), or a `type: none` entry matched, or the service set `imagePullAnonymous: true`. | Rule out the last two first — neither consults a pattern. Otherwise widen the pattern or add an entry. |
+| `the credential configured for registry pattern "X" was rejected` | A credential was sent and refused. If `rune admin registry list` has no entry for `X`, it came from an ambient source and `X` is just the image host. | Renew it. If the image is **public**, scope `X` to your private repos or set `imagePullAnonymous: true`. |
+| A **public** image on GHCR fails with `denied` | A host-wide credential is being attached to it and has expired. | [Scope the pattern](#3b-scope-a-credential-to-a-repository-path) or mark the repository anonymous. |
 | `manifest unknown` | Image exists but tag doesn't, or org/name is wrong. | `docker pull` from the same host to confirm. |
 | Works locally, fails on the server | Runed wasn't restarted after a static config change, or the env var (`$GHCR_PAT`) isn't visible to runed. | Use `rune admin registry add` instead of editing the runefile, or restart runed with the env exported. |
 
@@ -281,7 +284,7 @@ per-service opt-out that *is* honoured.
 - [`rune admin registry`](/cli/admin) — full subcommand reference.
 - [Configuration reference](/operations/configuration) — full runefile
   schema, including the `docker.registries[]` section.
-- [`docker.registries[]`](/reference/runefile#dockerregistries) — pattern
+- [`docker.registries[]`](/reference/runefile#docker-registries) — pattern
   scoping, precedence, and every auth `type`.
 - [`imagePullAnonymous`](/reference/service-spec#imagepullanonymous) — the
   per-service opt-out.
