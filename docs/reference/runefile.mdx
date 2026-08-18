@@ -174,7 +174,7 @@ no runefile knobs (its API token is sourced from
 | `docker`     | `socket`   | Docker daemon socket. Default OS-specific.  |
 | `process`    | `enabled`  | Set `false` to disable process runner.      |
 
-### `docker.registries[]`
+### docker.registries[]
 
 ```yaml
 docker:
@@ -200,6 +200,62 @@ docker:
 | `token`            | `token`                                  | Bearer token in the `Authorization` header.        |
 | `ecr`              | `region`                                 | Pulls a fresh ECR token via the AWS SDK.           |
 | `dockerconfigjson` | `dockerconfigjson` (raw JSON)            | Reuse the contents of `~/.docker/config.json`.     |
+| `gcp`              | —                                        | Mints a token from the GCE metadata service account at pull time. For `*.pkg.dev` / `gcr.io`. |
+| `none`             | —                                        | Explicitly credential-free. Carves a public repository out of a broader credentialed pattern — see below. (`anonymous` is accepted as a synonym.) |
+
+An entry whose `auth` block is missing, has no `type`, or has an
+unrecognized `type` is **skipped with a warning** and contributes no
+credential — pulls for that pattern go out anonymously.
+
+#### Scoping a `registry` pattern
+
+The `registry` field is matched against the image's **repository
+path**, not just its host:
+
+| `registry` pattern              | Matches                                                            |
+| ------------------------------- | ------------------------------------------------------------------ |
+| `ghcr.io`                       | Every image on the host.                                            |
+| `ghcr.io/myorg`                 | Only `ghcr.io/myorg` and repositories beneath it.                   |
+| `*.dkr.ecr.us-east-1.amazonaws.com` | Host wildcard.                                                 |
+
+Path comparison is segment-aware: `ghcr.io/myorg` matches
+`ghcr.io/myorg/app` but **not** `ghcr.io/myorg-evil/app`.
+
+When more than one entry matches an image, the **most specific one
+wins** — deeper path first, then an exact host over a wildcard host,
+then the longer pattern — not declaration order. An image no entry
+claims gets no configured credential and pulls anonymously.
+
+```yaml
+docker:
+  registries:
+    - name: ghcr-private          # private repos across the whole host
+      registry: ghcr.io
+      auth:
+        fromSecret: ghcr-credentials
+
+    - name: ghcr-public           # ...but THIS path is public
+      registry: ghcr.io/myorg/oss
+      auth:
+        type: none
+```
+
+`type: none` is only load-bearing when a **broader** pattern would
+otherwise cover the repository. If you simply narrow `registry` to your
+private repositories, everything else on the host is already anonymous
+without a second entry.
+
+A service can also force a credential-free pull for its own image with
+[`imagePullAnonymous: true`](/reference/service-spec#imagepullanonymous),
+which needs no runefile change.
+
+:::note[Ambient credentials still apply to unmatched images]
+Beyond `docker.registries[]`, `runed` falls back to ambient credentials —
+the GCE metadata service account and the `runed` user's
+`~/.docker/config.json` — which carry no pattern and are tried last.
+They still apply to images no configured entry matched. Set
+`docker.disable_ambient_registry_auth: true` to turn that off.
+:::
 
 #### Credentials from a Rune Secret (`fromSecret`)
 

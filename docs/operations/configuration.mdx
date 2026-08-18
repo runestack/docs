@@ -121,8 +121,15 @@ rune admin registry add --name ghcr-private \
 ```
 
 Runtime registries don't require a `runed` restart. Static ones do.
-See [Pull from GHCR](/guides/ghcr-auth) for the end-to-end GitHub
-Container Registry walkthrough.
+
+`registry` can carry a repository path (`ghcr.io/myorg`), not only a
+host — the credential then claims only the repositories beneath it, and
+everything else on the host pulls anonymously. When several entries
+match one image the most specific one wins. See
+[`docker.registries[]`](/reference/runefile#docker-registries) for the
+precedence rules and the `type: none` public carve-out, and
+[Pull from GHCR](/guides/ghcr-auth) for the end-to-end GitHub Container
+Registry walkthrough.
 
 ## Logging
 

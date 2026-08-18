@@ -20,7 +20,7 @@ rune scale my-service 0 -d         # detach (fire-and-forget)
 
 | Flag                  | Default      | Notes                                                                |
 | --------------------- | ------------ | -------------------------------------------------------------------- |
-| `-n, --namespace`     | from context | Service namespace.                                                   |
+| `-n, --namespace`     | `default`    | Service namespace. **Not** taken from your context — pass it explicitly. |
 | `--mode`              | `immediate`  | `immediate` or `gradual`.                                            |
 | `--step`              | `1`          | Gradual mode — instances per step.                                   |
 | `--interval`          | `30s`        | Gradual mode — time between steps.                                   |

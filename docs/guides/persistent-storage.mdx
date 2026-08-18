@@ -258,6 +258,12 @@ rune create secret do-api-token \
   -n shared
 ```
 
+:::note
+The reference is re-resolved on every driver operation, detach
+included, so a rotation takes effect without remounting the volume or
+restarting `runed`.
+:::
+
 ### Step 3 — Create the StorageClass
 
 Reference the secret on `apiToken` using the FQDN secret-reference
@@ -365,6 +371,26 @@ response leaves the underlying DO Volume orphaned. Use `retain` and
 delete the DO Volume manually (`doctl compute volume delete <id>`)
 until the cleanup ordering is hardened.
 :::
+
+### Surviving a droplet restart
+
+A plain stop/start (as opposed to a destroy/recreate) is the cheaper
+case: DO reattaches the block devices on boot and the kernel exposes
+them again at `/dev/disk/by-id/scsi-0DO_Volume_<name>`.
+
+The `do-volume` driver probes for that device link **before** calling the
+DO API. The link only exists for volumes attached to *this* droplet, so
+its presence proves attachment — and the volume name is derived locally.
+The common restart therefore makes **zero** provider API calls, and does
+not depend on the `apiToken` still being valid.
+
+This shortcut is specific to `do-volume`. The other cloud drivers detect
+an existing attachment through the provider API, so a restart on those
+still needs a working credential.
+
+Anything that can't be confirmed locally still falls through to the
+authoritative API path, so a genuinely unreachable provider still
+errors rather than being masked.
 
 ### Surviving a droplet rebuild
 
@@ -898,6 +924,46 @@ If an instance died but the volume is still flagged `Bound`, break the bind:
 ```sh
 rune volume detach pgdata-postgres-1 -n prod
 ```
+
+## When an instance is blocked on storage
+
+An instance waiting on a volume that hasn't been mounted on its node
+reports:
+
+```text
+volume prod/pgdata-postgres-0 not yet mounted on node node-abc (will retry)
+```
+
+When the agent can report a concrete failure, the message carries it in
+place of `(will retry)`, so you don't have to go log-diving. The cause is
+the driver's own error, wrappers and all:
+
+```text
+volume prod/pgdata-postgres-0 not yet mounted on node node-abc:
+agent.volumes: attach prod/pgdata-postgres-0: dovolume: getVolume
+<handle>: storage driver: provider rejected credentials: GET
+/v2/volumes/<id> -> HTTP 401: {"id":"unauthorized","message":"Unable to
+authenticate you"} (check the storage class's apiToken)
+```
+
+Read it with:
+
+```sh
+rune describe instance pgdata-postgres-0 -n prod
+```
+
+Read the cause, not the absence of `(will retry)` — that wording is
+dropped whenever the agent has *any* cause to report, transient or not.
+
+A credential rejection (HTTP 401/403) is one no amount of waiting fixes,
+and the agent does keep retrying: an instance stays blocked until you
+renew the token in the Secret the StorageClass's `apiToken` points at.
+The ref is re-resolved on every call, so the rotation takes effect on the
+next reconcile without a restart.
+
+An instance that already exhausted its create attempts while blocked
+here sits in `Stalled` and will not retry on its own. Fix the credential,
+then re-arm it with [`rune restart <service>`](/cli/restart-stop#recovering-instances-stuck-in-create).
 
 ## See also
 

@@ -38,15 +38,21 @@ This adds 2 instances every 30 seconds until you hit 10. If any step fails healt
 
 ## Restart
 
-`restart` scales to 0 then back to the previous scale:
+`restart` replaces every instance in place — the server stamps a new template generation and the reconciler swaps the instances, so the desired scale never dips through zero:
 
 ```sh
 rune restart api
 ```
 
-Use it after editing a configmap or rotating a secret — mounted files don't hot-reload, but a restart picks them up.
+Use it after editing a configmap or rotating a secret — mounted files don't hot-reload, but a restart picks them up. Restarting a stopped service brings it back at its last non-zero scale.
 
-For zero-downtime rolling restarts, use a runeset upgrade with rolling update settings (Release 2 — not yet available; for now, restart is a stop-the-world operation per service).
+For zero-downtime rolling restarts, use a runeset upgrade with rolling update settings (Release 2 — not yet available; for now, restart replaces all of a service's instances at once).
+
+### Restarting instances stuck in create
+
+An instance that never got a container — an unpullable image, a rejected registry credential — exhausts its create attempts and freezes in `Stalled`; the reconciler stops retrying it on purpose. `restart` re-arms those instances by clearing the attempt counter and the retry backoff. Fix the cause first, then `rune restart api`.
+
+If the CLI reports that instances *"never got a container and remain stalled"*, work through [the two causes it names](/cli/restart-stop#recovering-instances-stuck-in-create) — the usual one is that the underlying problem is still there, so `rune describe service api` has the reason.
 
 ## Stop
 
@@ -97,6 +103,6 @@ rune scale workers 50 --mode=gradual --step=5 --interval=1m
 
 ## Anti-patterns
 
-- **Scaling instead of restarting.** `rune scale api 0 && rune scale api 3` works but is awkward — use `rune restart api`.
+- **Scaling instead of restarting.** `rune scale api 0 && rune scale api 3` works but is awkward — use `rune restart api`, which also re-arms a `Stalled` instance that never got a container.
 - **Forgetting `-d`/`--detach` in CI scripts** when you don't actually want to block.
 - **Setting `--rollback-on-fail=false` by default** to "make scaling faster." If health is flapping, you want the rollback. Fix the probes.

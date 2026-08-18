@@ -32,6 +32,24 @@ Pending → Starting → Running ──┬──▶ Unhealthy → Stopping → S
 
 The reconciler will replace failing instances automatically. Permanent failures (e.g., image pull errors that don't resolve) bubble up to the service status.
 
+### `Stalled` — stuck in create
+
+When create fails repeatedly after repeated create failures — an unpullable image, a rejected registry credential, a missing secret or storage class — the reconciler exhausts its retries and freezes the record in `Stalled`. It stops auto-retrying on purpose: a service that cannot pull its image would otherwise burn instance IDs forever. The slot stays held by that record, so no replacement appears either.
+
+A `Stalled` instance never reached a running container, so `rune logs` and `rune exec` have nothing to attach to. Read the cause off the service:
+
+```sh
+rune describe service api -n default
+```
+
+Fix the cause, then re-arm the slot:
+
+```sh
+rune restart api
+```
+
+`rune restart` clears the create-attempt counter and the retry backoff for these records, so the reconciler tries again immediately. See [Recovering instances stuck in create](/cli/restart-stop#recovering-instances-stuck-in-create).
+
 ## Operations on instances
 
 | Action  | Command                                       |

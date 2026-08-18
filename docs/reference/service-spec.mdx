@@ -109,6 +109,8 @@ service:
 | `affinity`     | object  | no       | Placement hints (multi-node, roadmap).     |
 | `autoscale`    | object  | no       | Autoscaling (roadmap).                     |
 | `networkPolicy`| object  | no       | Ingress/egress rules.                      |
+| `imagePull`    | string  | no       | When to pull. `always` (default), `missing`, `never`. |
+| `imagePullAnonymous` | bool | no     | Send **no** registry credential for this image. See [`imagePullAnonymous`](#imagepullanonymous). |
 | `securityContext` | object | no     | Container security (seccomp, capabilities, privileged). See [`securityContext`](#securitycontext). |
 | `initSteps`    | []object | no      | One-shot setup containers run before the main container. See [`initSteps[]`](#initsteps). |
 | `skip`         | bool    | no       | Skip applying this doc (useful in batch).  |
@@ -287,7 +289,32 @@ Schema accepted; runtime enforcement is roadmap (RUNE-080).
 
 Schemas exist; runtime support is roadmap. Don't rely on them in single-node deployments today.
 
-### `securityContext`
+### imagePullAnonymous
+
+```yaml
+service:
+  name: web
+  image: ghcr.io/myorg/web:1.0.0     # a PUBLIC repo on a registry you also
+  imagePullAnonymous: true           # hold private credentials for
+```
+
+Forces a credential-free pull. No registry credential is sent for this
+image even when a configured `docker.registries[]` entry matches its
+host — so an expired or wrong credential can't break a pull that would
+have succeeded anonymously.
+
+Reach for it when a **public** image lives on a registry where you also
+have private repositories: a host-wide credential (e.g. `registry: ghcr.io`)
+otherwise attaches to every pull from that host, public repos included.
+The alternative — narrowing the credential's pattern, or carving the
+public repository out with `type: none` — is configured on the server
+side; `imagePullAnonymous` lets the service author opt out without
+touching the runefile. See [Registry credential scoping](/guides/ghcr-auth#3b-scope-a-credential-to-a-repository-path).
+
+[Init steps](#initsteps) and the `--debug` sidecar inherit the flag —
+they run the same image.
+
+### securityContext
 
 Container-level security knobs. Applies to the main container when set
 at service level; init steps inherit the service-level block by default
@@ -320,7 +347,7 @@ For the process runtime, the `process.securityContext` block on the
 parent governs UID/GID/capabilities differently — see
 [Process runner](/guides/process-runner).
 
-### `initSteps[]`
+### initSteps[]
 
 One-shot containers (or process subprocesses) that run before the main
 container on each instance start. See [Init steps](/guides/init-steps)

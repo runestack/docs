@@ -90,6 +90,69 @@ The Docker runner couldn't pull. Either:
 - Registry is private — add credentials with `rune admin registry add`.
 - Network can't reach the registry from the host.
 
+An authentication failure is annotated with which registry pattern was
+involved — see the two entries below.
+
+### `no [[docker.registries]] entry matches <image>`
+
+The registry demanded credentials and the pull went out **without one**.
+The message names the most common reason, but it fires whenever no
+credential was sent, which has three causes:
+
+- No entry's `registry` pattern matched the image — usually a pattern
+  scoped past the repository. Widen it, or add an entry.
+- An entry matched but declares `type: none`, so it deliberately sends
+  nothing. The image is not public after all; give that entry a real
+  credential — do not just delete it, or the image falls through to a
+  broader pattern.
+- The service sets `imagePullAnonymous: true`, which skips pattern
+  matching entirely.
+
+Rule out the last two before widening a pattern. See
+[`docker.registries[]`](/reference/runefile#docker-registries).
+
+### `the credential configured for registry pattern "X" was rejected`
+
+A credential was sent and the registry refused it. Either renew it, or —
+if the image is **public** and only inherited the credential from a
+broader pattern — scope the pattern to your private repositories, add a
+`type: none` entry for the public path, or set
+[`imagePullAnonymous: true`](/reference/service-spec#imagepullanonymous)
+on the service.
+
+If `rune admin registry list` shows no entry for `X`, the credential was
+**ambient** — the `runed` user's `~/.docker/config.json` or a cloud
+metadata service account. Those carry no pattern, so the message falls
+back to naming the image's host. Fix the ambient source, or set
+`docker.disable_ambient_registry_auth` in the runefile.
+
+### `volume <ns>/<name> not yet mounted on node <node>`
+
+The instance is waiting for the agent to attach and mount its volume.
+The two forms are alternatives, not a prefix and a suffix: when the agent
+has a cause to report it **replaces** `(will retry)` with that cause,
+wrappers and all —
+
+```text
+volume prod/pgdata not yet mounted on node node-abc: agent.volumes:
+attach prod/pgdata: dovolume: getVolume <handle>: storage driver:
+provider rejected credentials: GET /v2/volumes/<id> -> HTTP 401: … 
+(check the storage class's apiToken)
+```
+
+— and the bare `(will retry)` form just means no cause was available yet.
+Read the cause, not the absence of `(will retry)`: the wording is dropped
+for *any* cause, transient or not. The agent keeps retrying regardless, so
+a rejected credential leaves the instance blocked until you renew it. See
+[Persistent storage](/guides/persistent-storage#when-an-instance-is-blocked-on-storage).
+
+### `restart cannot proceed: <instance> (Stalled) never got a container`
+
+The instance holding the slot exhausted its create attempts and the
+replacement can't be created. Read the reason from `rune describe
+service <name>`, fix it, and run `rune restart` again. See
+[Recovering instances stuck in create](/cli/restart-stop#recovering-instances-stuck-in-create).
+
 ### `failed to start process: exec: "...": file does not exist`
 
 Process runner can't find the binary. The path in `process.command` must exist on the host.

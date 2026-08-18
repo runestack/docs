@@ -109,6 +109,44 @@ volume:
 | `parameters`       | map[string]string | no  | Per-volume overrides merged on top of class parameters.                  |
 | `labels`           | map[string]string | no  | Free-form.                                                               |
 
+### Attach, detach, and credentials
+
+Everything in this section is the agent's behaviour, not any one
+driver's — it applies to every cloud driver (`do-volume`,
+`hcloud-volume`, `aws-ebs`, `gce-pd`) equally. `local` and `local-host`
+have no provider to authenticate against, so none of it applies to them.
+
+**Driver failures surface on the instance.** Whatever a driver reports —
+a rejected credential, a missing device, a provider timeout — is attached
+to the instance blocked waiting for the volume, rather than only
+appearing in the agent log. (Only `do-volume` classifies a 401/403 into
+the "provider rejected credentials" wording; the other drivers pass the
+provider's own error through.) Read it with `rune describe
+instance <name> -n <ns>`. Retrying does not fix a rejected credential —
+the agent keeps retrying anyway, so an instance can sit in this state
+indefinitely until you renew the token.
+
+**Detach re-resolves credentials.** A driver's `secret:` parameters are
+resolved again at teardown rather than replayed from when the volume was
+mounted, so a rotated credential is used without remounting the volume
+or restarting `runed`. If the lookup itself fails — the store may be
+going away during shutdown — the agent falls back to the mount-time
+value rather than sending none.
+
+**Volumes drain concurrently.** A node's volumes are torn down in
+parallel, and each gets the *whole* remaining shutdown budget rather
+than a slice of it: they are independent, so dividing the deadline would
+cap teardown for no benefit. Shutdown ends with a summary line — `All
+volumes torn down  detached=3  total=3`, or `Volume teardown incomplete`
+naming how many were released — so a partial drain is visible rather
+than something you infer by counting warnings. If the shutdown budget is
+already spent when teardown starts, the agent skips it with a single
+warning and emits no summary at all.
+
+A teardown failure is logged, never fatal. The volume stays attached to
+the node, and the agent re-adopts it on the next start — for most drivers
+that still costs a provider API call, so it needs a working credential.
+
 ### Driver-specific `parameters`
 
 #### `local`
@@ -133,12 +171,17 @@ volume:
 | `apiToken`           | DO API token. Accepts a literal value or a [secret reference](#secret-references-in-parameters) like `secret:do-api-token/token`. |
 | `apiTokenSecretRef`  | **Legacy.** `<namespace>/<secret-name>` form, kept for runefile back-compat. Prefer the generic `secret:` reference on `apiToken` above. |
 
+Unlike the other cloud drivers, `do-volume` can re-attach a volume the
+provider already reattached without calling the API at all, so a node
+restart does not need a valid token — see
+[Surviving a droplet restart](/guides/persistent-storage#surviving-a-droplet-restart).
+
 ##### Required DigitalOcean token scopes
 
 A **Full Access** token works, but the driver only needs the
-following custom scopes. These mirror exactly the eight HTTP endpoints
-the driver calls (`pkg/storage/driver/dovolume/client.go`); anything
-else is over-privileged.
+following custom scopes. These mirror exactly the endpoints the driver
+calls (`pkg/storage/driver/dovolume/client.go`); anything else is
+over-privileged.
 
 | Resource                 | Operations             | DO endpoint(s) the driver hits          | What fails without it                                                                 |
 | ------------------------ | ---------------------- | --------------------------------------- | ------------------------------------------------------------------------------------- |
