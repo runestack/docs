@@ -30,7 +30,7 @@ This page covers the design at a level that's useful for operators and curious d
 │   embedded DNS  ◀──── containers   ──── policy enforcer          │
 │       │                    │                  │                  │
 │       ▼                    ▼                  ▼                  │
-│   <svc>.<ns>.rune    container IP        nftables (Linux)        │
+│   <svc>.<ns>.rune    container IP        policy evaluator        │
 │       │                    │                  │                  │
 │       └────────►  data plane proxy  ◀─────────┘                  │
 │                                                                  │
@@ -43,7 +43,7 @@ Five subsystems, all driven by an append-only **OrderedLog** that the agent watc
 1. **VIP allocator** — bootstraps a `ClusterNetwork` from a CIDR, hands every service a stable `/32` from it. Allocations are persisted; a service keeps its VIP across cast cycles.
 2. **Endpoints** — the orchestrator publishes `<service, namespace> ⇒ {pod IP, port, node}` triples whenever an instance starts, stops, or fails health checks.
 3. **Embedded DNS** — every node runs a tiny authoritative resolver on `127.0.0.123:53`. Containers reach it via Docker's `--dns`/`--dns-search` injection. Anything ending in `.rune` resolves to a service VIP; everything else forwards to `/etc/resolv.conf` upstreams.
-4. **Network policy** — `ServiceNetworkPolicy` objects compile to per-VIP rule tables. The agent enforces them at the data plane proxy and (on Linux) installs matching `nftables` chains for kernel-level dropping.
+4. **Network policy** — `ServiceNetworkPolicy` objects compile to per-VIP rule sets that the agent evaluates **in the data plane proxy**, for both ingress and egress. There is no kernel-level dropping today: the `nftables` programmer is a no-op on every platform ([#194](https://github.com/runestack/rune/issues/194)), so a connection that never reaches the proxy — to the internet, or straight to a container IP — is never filtered.
 5. **Ingress + ACME** — on edge nodes, `runed` owns `:80`/`:443`, terminates TLS, and asks the ACME orchestrator (HTTP-01) to keep certificates fresh. Single-node = always leader; multi-node leader election lands with Phase 2.
 
 ## The OrderedLog seam
@@ -78,7 +78,7 @@ The DNS subsystem is gated on data-plane readiness — it won't start serving an
 - **Implies `--node-role=edge`** — the ingress controller and ACME orchestrator come up automatically. You don't need to pass both flags; a single `--dev-mode` is enough for the full laptop experience. Set `--node-role=""` if you explicitly want dev mode _without_ edge.
 - DNS resolves `*.rune` to `127.0.0.1` so you can hit services from your host with a port-forward.
 - The ingress controller binds `:8080`/`:8443` instead of `:80`/`:443` (no `sudo` needed).
-- nftables is skipped on Linux. Policy still evaluates in user space at the proxy.
+- No change to policy enforcement: it evaluates in the proxy in every mode, dev or production.
 
 Dev mode is a laptop convenience, not a production stance. Real clusters always run in production mode.
 
@@ -106,7 +106,8 @@ service:
 Two rules to keep in mind:
 
 - **Default deny activates per-service.** As soon as a service has a `networkPolicy` block for ingress or egress, that direction flips to default-deny. Services without policies remain default-allow. This is intentional — it lets you adopt policies one workload at a time.
-- **Service-name selectors are same-node only in v1.** Cross-node identity (so `from: { service: web }` matches web pods on *other* nodes) lands with Phase 2 alongside Raft. CIDR selectors work everywhere today.
+- **Service-name selectors are same-node only in v1.** Cross-node identity (so `from: { service: web }` matches web instances on *other* nodes) lands with Phase 2 alongside Raft. CIDR selectors work everywhere today.
+- **Egress is narrower than ingress.** Because enforcement lives in the proxy, egress rules only constrain connections addressed to another service's VIP, and only when the agent can identify the source — which excludes `runtime: process` services and cross-node sources, where the connection is allowed rather than denied. See the [guide's limitations](/guides/network-policy#v1-limitations-to-know-about) before treating it as a security boundary.
 
 Dropped packets increment `rune_policy_drops_total{service,namespace,policy,reason}` so you can alert on policy bites in production.
 
