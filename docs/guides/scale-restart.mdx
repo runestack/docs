@@ -46,7 +46,86 @@ rune restart api
 
 Use it after editing a configmap or rotating a secret — mounted files don't hot-reload, but a restart picks them up. Restarting a stopped service brings it back at its last non-zero scale.
 
-For zero-downtime rolling restarts, use a runeset upgrade with rolling update settings (Release 2 — not yet available; for now, restart replaces all of a service's instances at once).
+Restarts are rolling by default — see [Rolling updates](#rolling-updates) below.
+
+## Rolling updates
+
+Changing a service's spec — a new image, new env, a rotated secret — no longer takes the whole service down. Rune starts a replacement, waits until it's serving, then retires an old instance, and repeats. The same applies to `rune restart`.
+
+**The default behaviour, in one paragraph.** Rune starts one replacement, waits until it's serving, retires the oldest instance, and repeats until every replica runs the new spec. Old instances keep taking traffic the whole time. Each one gets `drainSeconds` (default 5) to finish in-flight requests after it stops receiving new connections. Services that can't run two copies of a replica update one at a time instead. Want the old stop-everything behaviour? `updateStrategy: recreate`.
+
+### The two knobs
+
+```yaml
+service:
+  name: api
+  image: ghcr.io/acme/api:v2
+  scale: 4
+  drainSeconds: 10          # shutdown grace, applies to EVERY teardown
+  updateStrategy: recreate  # optional; `rolling` is the default
+```
+
+`drainSeconds` is how long an instance keeps serving in-flight work after it leaves the load-balancer rotation, before it gets `SIGTERM`. It governs every teardown — scale-down, `stop`, deletion, a health-triggered restart — not just updates. Setting it to `0` still leaves a one-second floor, because withdrawal takes a moment to propagate.
+
+`updateStrategy: recreate` restores the pre-rolling behaviour: every instance goes down before any replacement starts. Use it when a service genuinely cannot run two copies — an exclusive external lock, a single-writer migration, a licence-seat limit.
+
+That's the whole configuration surface. Everything else — how many spare copies, how far below scale an update may dip, how long a replacement must hold before it counts, when a stuck update gives up — Rune derives per service.
+
+### Add a readiness probe
+
+Without one, Rune advances the update when the container *starts*, not when your app is *serving*, and falls back to a flat five-second wait per replacement. With one, updates are both safer and roughly three times faster:
+
+```yaml
+  health:
+    readiness:
+      type: http
+      path: /healthz
+      port: 8080
+```
+
+`rune lint` warns when an exposed service is missing one.
+
+### Services that can't run two copies
+
+Rune detects these — you don't declare it. A service updates one replica at a time if it has a per-replica `claimTemplate` volume, binds a `hostPort`, or runs on the process runtime. At `scale: 1` that means a brief gap on every update, which is unavoidable when only one copy can exist at a time.
+
+### Single-replica workers: read this before upgrading
+
+A `scale: 1` service with no volume and no `hostPort` **can** run two copies — so during an update, the old and new copy briefly overlap. Before rolling updates, that never happened.
+
+If your service must never overlap with itself — a queue consumer, a cron-style worker, a migration runner — set `updateStrategy: recreate` on it. `rune lint` flags exactly these services.
+
+### Watching an update
+
+`rune status` grows an `UPDATE` column while anything is updating. For detail:
+
+```sh
+rune describe service api
+```
+
+```
+Update    2/4 replaced · 4/4 serving, 38s elapsed — waiting for replacements to become ready
+```
+
+`rune get events -n prod` records the lifecycle after the fact: when the update started, which instances were retired and why, and whether it completed or stalled.
+
+### When an update stalls
+
+If an update makes no progress for ten minutes, Rune marks the service `Failed` with reason `UpdateStalled`. **Your old instances are usually still serving** — rolling updates retire an old instance only once a replacement is ready, so a bad image typically means the update never got anywhere, not that the service went down.
+
+To diagnose:
+
+```sh
+rune describe service api      # the Update line says what it was waiting for
+rune get events -n prod        # which instance failed, and why
+rune logs api --previous       # the failed replacement's own output
+```
+
+The usual cause is a replacement that starts and immediately exits. Fix the spec and `rune cast` again.
+
+### Deploys take longer now
+
+That's the trade: a scale-4 service that used to be replaced in one shot now converges over several reconcile passes. With a readiness probe, expect roughly a minute; without one, longer. If your CI wraps `rune cast`, make sure its timeout allows for it — `rune cast --timeout` defaults to 15 minutes.
 
 ### Restarting instances stuck in create
 

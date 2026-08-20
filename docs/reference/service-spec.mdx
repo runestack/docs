@@ -92,6 +92,8 @@ service:
 | `image`        | string  | conditional | Required for container services.        |
 | `process`      | object  | conditional | Required for process services. See below.|
 | `scale`        | int     | yes      | Desired replicas. `0` to stop.             |
+| `updateStrategy` | string \| object | no | How instances are replaced when the spec changes: `rolling` *(default)* or `recreate`. See [`updateStrategy`](#updatestrategy). |
+| `drainSeconds` | int     | no       | Seconds an instance keeps serving in-flight work after leaving the load-balancer rotation, before `SIGTERM`. Default `5`; `0` is floored at `1`. Applies to **every** teardown, not just updates. |
 | `labels`       | map     | no       | Free-form key/value labels.                |
 | `command`      | string  | no       | Override the image's `ENTRYPOINT` (Kubernetes semantics — `command` → Entrypoint). Omit to keep the image's baked-in `ENTRYPOINT`. |
 | `args`         | []string | no      | Override the image's `CMD` (`args` → Cmd). Args without `command` keeps the image's `ENTRYPOINT` and just supplies positional arguments. |
@@ -392,6 +394,36 @@ initSteps:
 | `type` | string | `freshVolume` *(default)*, `fileMissing`, or `always`. |
 | `path` | string | Absolute path inside a parent volume. Required iff `type: fileMissing`. |
 | `volume` | string | Optional parent volume name to restrict the `fileMissing` check to. |
+
+### `updateStrategy`
+
+Accepts a bare string or a map:
+
+```yaml
+updateStrategy: recreate
+```
+
+```yaml
+updateStrategy:
+  type: recreate
+```
+
+| Value | Behaviour |
+| --- | --- |
+| `rolling` *(default)* | Start a replacement, wait until it's serving, retire an old instance, repeat. Old instances keep taking traffic throughout. |
+| `recreate` | Take every instance down before starting any replacement — the pre-rolling behaviour. Use when a service genuinely cannot run two copies: an exclusive external lock, a single-writer migration, a licence-seat limit, or a `scale: 1` worker that must never overlap with itself. |
+
+There is nothing else to configure. How many spare copies an update may run, how far below `scale` it may dip, how long a replacement must hold before it counts as serving, and when a stuck update gives up are all **derived per service** rather than set by hand.
+
+Whether a service can run a spare copy at all is *detected*, not declared. A service updates one replica at a time — no spare, retire before create — if it has a per-replica `claimTemplate` volume, binds a `hostPort`, or runs on the process runtime, since in each case two copies of a replica would collide.
+
+:::warning Single-replica services now briefly run two copies
+A `scale: 1` service with no `claimTemplate` volume and no `hostPort` *can* run a spare, so during an update the old and new copy overlap for a few seconds. Before rolling updates that never happened.
+
+If your service must never overlap with itself — a queue consumer, a cron-style worker, a migration runner — set `updateStrategy: recreate`. `rune lint` flags exactly these services.
+:::
+
+See the [Scale & restart guide](/guides/scale-restart#rolling-updates) for how to watch an update and what to do when one stalls.
 
 ## Validation
 
