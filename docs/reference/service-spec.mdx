@@ -408,10 +408,26 @@ updateStrategy:
   type: recreate
 ```
 
-| Value | Behaviour |
+| Field | Type | Notes |
+| --- | --- | --- |
+| `type` | string | `rolling` *(default)* or `recreate`. |
+| `minServing` | int | Fewest replicas that must keep serving during an update. Omit for the default: the full `scale` when the service can run a spare copy, one less when it can't. |
+
+| `type` | Behaviour |
 | --- | --- |
 | `rolling` *(default)* | Start a replacement, wait until it's serving, retire an old instance, repeat. Old instances keep taking traffic throughout. |
 | `recreate` | Take every instance down before starting any replacement — the pre-rolling behaviour. Use when a service genuinely cannot run two copies: an exclusive external lock, a single-writer migration, a licence-seat limit, or a `scale: 1` worker that must never overlap with itself. |
+
+`minServing` trades availability for speed. The default never drops below `scale`, so replacements happen one at a time; a `scale: 7` service with `minServing: 3` may retire four at once, finishing in roughly two steps instead of seven.
+
+It is the one value here that isn't derived, because it isn't a fact about the service — whether 3 of 7 is acceptable depends on traffic and an SLO the spec says nothing about.
+
+Rejected at cast time:
+
+- `minServing` greater than `scale` — unsatisfiable.
+- `minServing` equal to `scale` on a service that can't run a spare copy — no room to create a replacement and no allowance to retire one, so an update could never start. The error names the responsible resource.
+
+There is no `maxSurge`: Rune runs at most one extra instance per service during an update, and that is not adjustable. On one to three boxes spare capacity is the scarce resource, so the knob that costs nothing — dipping, via `minServing` — is the one offered.
 
 There is nothing else to configure. The values below are **derived per service** rather than set by hand:
 

@@ -83,7 +83,34 @@ So a `scale: 3` service with a readiness probe goes 3 → 4 → 3 → 4 → 3, n
 
 A service that can't run a spare goes 3 → 2 → 3 instead, one replica at a time. It's slower and dips by one, which is unavoidable when only one copy of a replica can exist.
 
-None of these are settings. Two coupled knobs — "how many extra" and "how far below" — can be set to a combination where an update can never take a step, and every value above has one right answer given what Rune already knows about the service. If you need to opt out of rolling entirely, that's `updateStrategy: recreate`.
+Most of these aren't settings, because each has one right answer given what Rune already knows about the service. One is: how much availability you're willing to trade for a faster deploy.
+
+### Deploying a large service faster
+
+The default never dips below `scale`, which means one replica at a time. For a `scale: 7` service that's seven sequential steps. If you're willing to run at 3/7 while deploying, say so:
+
+```yaml
+updateStrategy:
+  type: rolling
+  minServing: 3
+```
+
+Now Rune may retire four at a time — roughly two steps instead of seven. Omit it and nothing changes.
+
+This is the one value Rune can't work out for you. Whether a service can run a spare copy is a fact about the service; whether 3 of 7 is enough depends on your traffic and your SLO, and nothing in the spec implies it.
+
+Two rules are checked when you cast:
+
+- `minServing` can't exceed `scale` — no update could satisfy it.
+- On a service that **can't run a spare copy**, `minServing` can't equal `scale`. That combination has no room to start a replacement and no allowance to retire one, so an update could never begin. Rune rejects it and tells you which resource is responsible.
+
+### What you can't set: how many extra copies
+
+There's no `maxSurge`. Rune runs at most one extra instance per service during an update, and that isn't adjustable.
+
+The reason is that on one to three boxes, spare capacity is the scarce thing — a host is usually sized for about the sum of your scales. Kubernetes exposes `maxSurge` because a cluster can normally find another node's worth of room; here, the knob that costs nothing is dipping, so that's the one you get. If you need a deploy to go faster, `minServing` is the lever.
+
+If you need to opt out of rolling entirely, that's `updateStrategy: recreate`.
 
 ### Add a readiness probe
 
