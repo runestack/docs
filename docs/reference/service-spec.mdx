@@ -418,7 +418,9 @@ updateStrategy:
 | `rolling` *(default)* | Start a replacement, wait until it's serving, retire an old instance, repeat. Old instances keep taking traffic throughout. |
 | `recreate` | Take every instance down before starting any replacement — the pre-rolling behaviour. Use when a service genuinely cannot run two copies: an exclusive external lock, a single-writer migration, a licence-seat limit, or a `scale: 1` worker that must never overlap with itself. |
 
-`minServing` trades availability for speed. The default never drops below `scale`, so replacements happen one at a time; a `scale: 7` service with `minServing: 3` may retire four at once, finishing in roughly two steps instead of seven.
+`minServing` trades availability for speed. The default never drops below `scale`, so replacements happen one at a time — three reconcile passes each (create, wait, retire), so a `scale: 7` service takes around twenty-one. With `minServing: 3` it retires up to four at once and converges in about five, with serving touching 3 and no lower. At `scale: 4`, `minServing: 2` converges in about four passes instead of twelve.
+
+Note the default direction of travel: a surge-capable service goes **up** before it comes down (4 → 5 → 4), because the spare is created before anything is retired. A service that cannot run a spare goes 4 → 3 → 4 instead.
 
 It is the one value here that isn't derived, because it isn't a fact about the service — whether 3 of 7 is acceptable depends on traffic and an SLO the spec says nothing about.
 

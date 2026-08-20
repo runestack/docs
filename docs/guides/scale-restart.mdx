@@ -79,15 +79,29 @@ That's the whole configuration surface. Everything else, Rune derives per servic
 | A replacement counts as serving when | its readiness probe passes — or, with no probe, 5s after the container starts | same |
 | An update gives up after | 10 minutes without progress | same |
 
-So a `scale: 3` service with a readiness probe goes 3 → 4 → 3 → 4 → 3, never dropping below 3 serving instances, and finishes in a handful of reconcile passes. **Seeing four instances of a three-replica service mid-deploy is normal** — that's the spare, and it goes away when the update converges.
+### What that looks like
 
-A service that can't run a spare goes 3 → 2 → 3 instead, one replica at a time. It's slower and dips by one, which is unavoidable when only one copy of a replica can exist.
+A `scale: 4` service updating, counting instances that exist and instances actually serving:
+
+| Pass | Instances | Serving | |
+| --- | --- | --- | --- |
+| 1 | 4 | 4 | start a replacement |
+| 2 | **5** | 4 | it's booting |
+| 3 | **5** | 5 | it's serving — retire an old one |
+| 4 | 4 | 4 | back to four; three still on the old spec |
+| … | | | repeat three more times |
+
+**Note the direction: it goes up to 5, not down to 3.** The spare is created *first*, and an old instance is retired only once the replacement is serving. Serving never drops below 4. **Seeing five instances of a four-replica service mid-deploy is normal** — that's the spare, and it disappears when the update converges.
+
+A service that *can't* run a spare goes 4 → 3 → 4 instead: it has to retire before it can create, so it dips by one. Unavoidable when only one copy of a replica can exist at a time.
+
+Each replica costs three passes — create, wait, retire — so a `scale: 4` service converges in about twelve, and a `scale: 7` in about twenty-one.
 
 Most of these aren't settings, because each has one right answer given what Rune already knows about the service. One is: how much availability you're willing to trade for a faster deploy.
 
 ### Deploying a large service faster
 
-The default never dips below `scale`, which means one replica at a time. For a `scale: 7` service that's seven sequential steps. If you're willing to run at 3/7 while deploying, say so:
+The default replaces one replica at a time, which gets slow as `scale` grows — a `scale: 7` service takes around twenty-one passes. If you're willing to run at 3/7 while deploying, say so:
 
 ```yaml
 updateStrategy:
@@ -95,7 +109,20 @@ updateStrategy:
   minServing: 3
 ```
 
-Now Rune may retire four at a time — roughly two steps instead of seven. Omit it and nothing changes.
+Now Rune retires up to four at once. Same service, same deploy:
+
+| Pass | Instances | Serving | |
+| --- | --- | --- | --- |
+| 1 | 7 | 7 | retire four, start a replacement |
+| 2 | 4 | **3** | at the floor you set |
+| 3 | 8 | 4 | replacements coming up |
+| 4 | 7 | 7 | old ones gone |
+| 5 | 6 | 5 | topping back up |
+| 6 | 7 | 7 | converged |
+
+**Five passes instead of twenty-one**, with serving touching exactly the 3 you asked for and no lower. Omit `minServing` and nothing changes.
+
+The same trade at `scale: 4` with `minServing: 2` converges in four passes instead of twelve.
 
 This is the one value Rune can't work out for you. Whether a service can run a spare copy is a fact about the service; whether 3 of 7 is enough depends on your traffic and your SLO, and nothing in the spec implies it.
 
