@@ -413,7 +413,16 @@ updateStrategy:
 | `rolling` *(default)* | Start a replacement, wait until it's serving, retire an old instance, repeat. Old instances keep taking traffic throughout. |
 | `recreate` | Take every instance down before starting any replacement — the pre-rolling behaviour. Use when a service genuinely cannot run two copies: an exclusive external lock, a single-writer migration, a licence-seat limit, or a `scale: 1` worker that must never overlap with itself. |
 
-There is nothing else to configure. How many spare copies an update may run, how far below `scale` it may dip, how long a replacement must hold before it counts as serving, and when a stuck update gives up are all **derived per service** rather than set by hand.
+There is nothing else to configure. The values below are **derived per service** rather than set by hand:
+
+| Derived | Service that can run a spare copy | Service that can't |
+| --- | --- | --- |
+| Extra instances during an update | 1 | 0 |
+| Instances allowed below `scale` | 0 | 1 |
+| Replacement counts as serving | on readiness pass; 5s after start if no probe | same |
+| Update declared stalled after | 600s without progress | same |
+
+They are derived rather than exposed because each has one right answer given what Rune already knows about the service, and because "extra" and "below" are a single coupled decision — as two independent settings they can be combined into an update that can never take a step. `updateStrategy: recreate` is the opt-out.
 
 Whether a service can run a spare copy at all is *detected*, not declared. A service updates one replica at a time — no spare, retire before create — if it has a per-replica `claimTemplate` volume, binds a `hostPort`, or runs on the process runtime, since in each case two copies of a replica would collide.
 

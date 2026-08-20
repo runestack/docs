@@ -69,7 +69,21 @@ service:
 
 `updateStrategy: recreate` restores the pre-rolling behaviour: every instance goes down before any replacement starts. Use it when a service genuinely cannot run two copies — an exclusive external lock, a single-writer migration, a licence-seat limit.
 
-That's the whole configuration surface. Everything else — how many spare copies, how far below scale an update may dip, how long a replacement must hold before it counts, when a stuck update gives up — Rune derives per service.
+That's the whole configuration surface. Everything else, Rune derives per service — but derived doesn't mean hidden, and it's worth knowing what to expect:
+
+| | Service that can run a spare copy | Service that can't |
+| --- | --- | --- |
+| Extra instances during an update | **1** — you'll briefly see `scale + 1` | **0** |
+| Instances below `scale` | **never** | **1** at a time |
+| Order | start the spare, wait until it serves, retire the oldest | retire one, start its replacement, wait |
+| A replacement counts as serving when | its readiness probe passes — or, with no probe, 5s after the container starts | same |
+| An update gives up after | 10 minutes without progress | same |
+
+So a `scale: 3` service with a readiness probe goes 3 → 4 → 3 → 4 → 3, never dropping below 3 serving instances, and finishes in a handful of reconcile passes. **Seeing four instances of a three-replica service mid-deploy is normal** — that's the spare, and it goes away when the update converges.
+
+A service that can't run a spare goes 3 → 2 → 3 instead, one replica at a time. It's slower and dips by one, which is unavoidable when only one copy of a replica can exist.
+
+None of these are settings. Two coupled knobs — "how many extra" and "how far below" — can be set to a combination where an update can never take a step, and every value above has one right answer given what Rune already knows about the service. If you need to opt out of rolling entirely, that's `updateStrategy: recreate`.
 
 ### Add a readiness probe
 
