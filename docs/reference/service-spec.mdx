@@ -92,6 +92,8 @@ service:
 | `image`        | string  | conditional | Required for container services.        |
 | `process`      | object  | conditional | Required for process services. See below.|
 | `scale`        | int     | yes      | Desired replicas. `0` to stop.             |
+| `updateStrategy` | string \| object | no | How instances are replaced when the spec changes: `rolling` *(default)* or `recreate`. See [`updateStrategy`](#updatestrategy). |
+| `drainSeconds` | int     | no       | Seconds an instance keeps serving in-flight work after leaving the load-balancer rotation, before `SIGTERM`. Default `5`; `0` is floored at `1`. Applies to **every** teardown, not just updates. |
 | `labels`       | map     | no       | Free-form key/value labels.                |
 | `command`      | string  | no       | Override the image's `ENTRYPOINT` (Kubernetes semantics — `command` → Entrypoint). Omit to keep the image's baked-in `ENTRYPOINT`. |
 | `args`         | []string | no      | Override the image's `CMD` (`args` → Cmd). Args without `command` keeps the image's `ENTRYPOINT` and just supplies positional arguments. |
@@ -392,6 +394,63 @@ initSteps:
 | `type` | string | `freshVolume` *(default)*, `fileMissing`, or `always`. |
 | `path` | string | Absolute path inside a parent volume. Required iff `type: fileMissing`. |
 | `volume` | string | Optional parent volume name to restrict the `fileMissing` check to. |
+
+### `updateStrategy`
+
+Accepts a bare string or a map:
+
+```yaml
+updateStrategy: recreate
+```
+
+```yaml
+updateStrategy:
+  type: recreate
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `type` | string | `rolling` *(default)* or `recreate`. |
+| `minServing` | int | Fewest replicas that must keep serving during an update. Omit for the default: the full `scale` when the service can run a spare copy, one less when it can't. |
+
+| `type` | Behaviour |
+| --- | --- |
+| `rolling` *(default)* | Start a replacement, wait until it's serving, retire an old instance, repeat. Old instances keep taking traffic throughout. |
+| `recreate` | Take every instance down before starting any replacement — the pre-rolling behaviour. Use when a service genuinely cannot run two copies: an exclusive external lock, a single-writer migration, a licence-seat limit, or a `scale: 1` worker that must never overlap with itself. |
+
+`minServing` trades availability for speed. The default never drops below `scale`, so replacements happen one at a time — three reconcile passes each (create, wait, retire), so a `scale: 7` service takes around twenty-one. With `minServing: 3` it retires up to four at once and converges in about five, with serving touching 3 and no lower. At `scale: 4`, `minServing: 2` converges in about four passes instead of twelve.
+
+Note the default direction of travel: a surge-capable service goes **up** before it comes down (4 → 5 → 4), because the spare is created before anything is retired. A service that cannot run a spare goes 4 → 3 → 4 instead.
+
+It is the one value here that isn't derived, because it isn't a fact about the service — whether 3 of 7 is acceptable depends on traffic and an SLO the spec says nothing about.
+
+Rejected at cast time:
+
+- `minServing` greater than `scale` — unsatisfiable.
+- `minServing` equal to `scale` on a service that can't run a spare copy — no room to create a replacement and no allowance to retire one, so an update could never start. The error names the responsible resource.
+
+There is no `maxSurge`: Rune runs at most one extra instance per service during an update, and that is not adjustable. On one to three boxes spare capacity is the scarce resource, so the knob that costs nothing — dipping, via `minServing` — is the one offered.
+
+There is nothing else to configure. The values below are **derived per service** rather than set by hand:
+
+| Derived | Service that can run a spare copy | Service that can't |
+| --- | --- | --- |
+| Extra instances during an update | 1 | 0 |
+| Instances allowed below `scale` | 0 | 1 |
+| Replacement counts as serving | on readiness pass; 5s after start if no probe | same |
+| Update declared stalled after | 600s without progress | same |
+
+They are derived rather than exposed because each has one right answer given what Rune already knows about the service, and because "extra" and "below" are a single coupled decision — as two independent settings they can be combined into an update that can never take a step. `updateStrategy: recreate` is the opt-out.
+
+Whether a service can run a spare copy at all is *detected*, not declared. A service updates one replica at a time — no spare, retire before create — if it has a per-replica `claimTemplate` volume, binds a `hostPort`, or runs on the process runtime, since in each case two copies of a replica would collide.
+
+:::warning Single-replica services now briefly run two copies
+A `scale: 1` service with no `claimTemplate` volume and no `hostPort` *can* run a spare, so during an update the old and new copy overlap for a few seconds. Before rolling updates that never happened.
+
+If your service must never overlap with itself — a queue consumer, a cron-style worker, a migration runner — set `updateStrategy: recreate`. `rune lint` flags exactly these services.
+:::
+
+See the [Scale & restart guide](/guides/scale-restart#rolling-updates) for how to watch an update and what to do when one stalls.
 
 ## Validation
 
