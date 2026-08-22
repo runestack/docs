@@ -35,7 +35,9 @@ Apply it with `rune cast` like any other resource:
 rune cast api.yaml
 ```
 
-The agent picks it up via the OrderedLog watch, compiles the rules, and the next packet to the API service's VIP is filtered against the new table. There is no restart, no reload, no settling period.
+The agent picks it up via the OrderedLog watch, compiles the rules, and the next connection to the API service's VIP is evaluated against them. There is no restart, no reload, no settling period.
+
+Enforcement lives in the **service proxy** — the process that accepts connections on each service VIP — not in a kernel packet filter. That is the single most important thing to understand about the current implementation, because it decides exactly what a policy can and cannot stop. See [the limits](#v1-limitations-to-know-about) below.
 
 ## Default-deny — opt in per service
 
@@ -64,20 +66,38 @@ service:
       - from: [{ service: api }]
 ```
 
-## Validate before you cast
+## Egress — restricting what a service may call
 
-Catch typos before you ship them:
+`egress:` is the mirror image: instead of who may reach this service, it says which services *this* one may reach.
 
-```bash
-$ rune lint api.service.yaml
-service:   default/api
-policy:    default/api
-default-deny ingress=true egress=false
-ingress rules:
-  [0] peers=[service=default/web cidr=10.0.0.0/8] ports=[http]
+```yaml
+service:
+  name: web
+  namespace: prod
+  networkPolicy:
+    egress:
+      - to:
+          - service: api                 # same namespace
+          - service: db
+            namespace: infra
+        ports: [postgres]                # a port name from the destination's spec
 ```
 
-`validate` is a pure-CLI compile check (CIDR parsing, port format, peer shape). It reads a raw `Service` document, not a cast file wrapper, so validate the inner service body or pipe it on stdin. It doesn't talk to the server, so you can run it in CI on every PR.
+The same default-deny rule applies per direction: the moment `web` has any `egress:` rule, it may only reach what those rules allow. Egress and ingress are evaluated together and both must pass — `web` being allowed to call `api` does not exempt it from `api`'s own ingress rules.
+
+Ports may be written as numbers (`5432`, `443/tcp`) or as **port names** taken from the destination service's spec — `postgres` above resolves to whichever port that service named `postgres`.
+
+Before relying on this, read the egress limit in the next section. It is narrower than it looks.
+
+## Validate before you cast
+
+`rune lint` checks your spec files for YAML and schema errors before you ship them, and needs no server, so it runs happily in CI:
+
+```bash
+rune lint api.yaml
+```
+
+It does **not** compile or display your network policy — there is no offline policy compile check today. To see how the agent actually reads a policy you have to cast it and then ask the server, which is the next section.
 
 ## Explain what's enforced
 
@@ -99,30 +119,48 @@ This is the same compiled form the in-process evaluator uses, rendered determini
 Every drop increments a Prometheus counter:
 
 ```text
-rune_policy_drops_total{service="api",namespace="default",policy="api-allow",reason="no_match"} 14
+rune_policy_drops_total{service="api",namespace="default",policy="api",direction="ingress",reason="no_matching_rule"} 14
 ```
+
+Read the labels carefully, because two of them mean different things:
+
+- `service` / `namespace` — the **destination**: who was being connected to.
+- `policy` — the service whose rules did the denying. For an ingress drop that is the destination itself; for an **egress** drop it is the *source* service, so this is the spec you should go and read.
+- `direction` — `ingress` or `egress`.
 
 Useful PromQL for "policy bites in the last 5 minutes":
 
 ```promql
-sum by (service, namespace, reason) (
+sum by (service, namespace, policy, direction, reason) (
   increase(rune_policy_drops_total[5m])
 )
 ```
 
-A non-zero rate after a deploy usually means a new caller wasn't accounted for in the policy. Add it to the `from:` list and re-cast.
+A non-zero rate after a deploy usually means a new caller wasn't accounted for. Add it to the `from:` (or `to:`) list and re-cast.
+
+One more counter is worth an alert:
+
+```text
+rune_policy_source_unidentified_total{service="api",namespace="default"}
+```
+
+This counts connections whose source the agent could not tie back to a service. Egress rules are **not** applied to those connections, so a sustained rise means egress has quietly stopped being enforced. A non-zero baseline is normal — the ingress controller and connections originating on the host have no instance identity.
 
 ## v1 limitations to know about
 
-The policy engine is shipped as **Phase 1**. There are two limits worth understanding before you treat it as a hard security boundary:
+The policy engine is shipped as **Phase 1**. Three limits are worth understanding before you treat it as a hard security boundary, and the first is the one people get wrong:
 
-1. **Service-name selectors are same-node only.**
-   `from: { service: web }` matches `web` pods scheduled on the *same node* as the target. Cross-node identity (tying a container IP back to its owning service across the cluster) requires the multi-node identity backbone that lands with Phase 2 and Raft.
+1. **Egress is containment between your own services — not an exfiltration boundary.**
+   Rules are enforced in the service proxy, so they only ever see a connection that is *addressed to another service's VIP*. A container calling the internet directly, or dialling another container's IP, never touches the proxy and is never filtered. Enforcement also needs the agent to recognise the *source*, which means it does not apply to `runtime: process` services, to connections arriving from another node, or to anything else the agent cannot tie to a service — and in those cases the connection is **allowed**, not denied.
+   *Until then:* treat `egress:` as "which of my services may talk to which", and use a firewall outside Rune if you need to stop a workload reaching the internet. Kernel-level filtering is tracked in [#194](https://github.com/runestack/rune/issues/194); the process-runtime gap in [#197](https://github.com/runestack/rune/issues/197). `rune get netpolicy` will tell you when a service's egress rules are not being enforced.
+
+2. **Service-name selectors are same-node only.**
+   `from: { service: web }` matches `web` instances scheduled on the *same node* as the target. Cross-node identity (tying a container IP back to its owning service across the cluster) requires the multi-node identity backbone that lands with Phase 2 and Raft.
    *Until then:* use CIDR selectors for cross-node matches, or run the talking and target services co-scheduled.
 
-2. **No L7 rules.** Policies match on source IP / source service / destination port. There is no path, header, or method matching. If you need that, terminate at the [ingress controller](/guides/expose-service) and apply policy at the application layer.
+3. **No L7 rules.** Policies match on source IP / source service / destination port. There is no path, header, or method matching. If you need that, terminate at the [ingress controller](/guides/expose-service) and apply policy at the application layer.
 
-These are documented in the package comment and tracked for Phase 2.
+A note on `cidr:` in an **egress** rule: it matches the destination service's VIP — the address your container actually dials — not an arbitrary internet address. `to: [{ cidr: 0.0.0.0/0 }]` therefore means "any service", not "anywhere".
 
 ## Common patterns
 
@@ -143,7 +181,7 @@ service:
         ports: [postgres]
 ```
 
-After casting, the database is unreachable from anything except `api` and `worker`. External CIDRs would need an explicit `cidr:` source.
+After casting, the database's VIP is unreachable from anything except `api` and `worker`. External CIDRs would need an explicit `cidr:` source. (A caller that already knows a Postgres container's own IP can still reach it directly — see the limits above.)
 
 ### "Office IPs plus other services"
 
@@ -171,9 +209,9 @@ There's no `enabled: false` switch. To remove enforcement, delete the `networkPo
 rune cast api.yaml
 ```
 
-The next packet evaluation runs without the rules, and `api` flips back to default-allow.
+The next connection is evaluated without the rules, and `api` flips back to default-allow.
 
 ## Reference
 
-- [`rune get netpolicy`](/reference/cli-network/#rune-get-netpolicy-service) — inspect a compiled policy. Use `rune lint` for offline validation.
+- [`rune get netpolicy`](/reference/cli-network/#rune-get-netpolicy-service) — inspect a compiled policy, and see whether it is being enforced. `rune lint` checks spec syntax offline, but does not compile policies.
 - [Networking concepts](/concepts/networking/#network-policy) — how the agent compiles and enforces rules.

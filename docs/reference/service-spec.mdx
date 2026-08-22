@@ -285,7 +285,7 @@ networkPolicy:
       ports: [http]
 ```
 
-Schema accepted; runtime enforcement is roadmap (RUNE-080).
+Enforced in the data plane proxy, for both ingress and egress. Two caveats: egress only constrains connections to another service's VIP (internet and direct container-IP traffic is not filtered), and a `cidr:` peer in an *egress* rule matches the destination service's VIP rather than an arbitrary address — so the `0.0.0.0/0` example above means "any service", not "anywhere". See [network policies](/guides/network-policy#v1-limitations-to-know-about).
 
 ### `affinity` / `autoscale`
 

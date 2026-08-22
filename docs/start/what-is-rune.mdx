@@ -24,8 +24,7 @@ That's it. No etcd. No kubelet. No CRDs.
 ## What Rune doesn't (yet)
 
 - **Multi-node clustering.** Single-node today. Raft-backed multi-node is in active development (Release 2).
-- **Network policy enforcement / ingress controllers.** Schema accepts them; runtime enforcement is roadmap.
-- **Persistent volume management.** No volume abstraction yet — bind mounts only.
+- **Kernel-level packet filtering for network policy.** Ingress and service-to-service egress rules *are* enforced, in the service proxy — see [network policies](/guides/network-policy). What is not enforced is traffic that never reaches the proxy: outbound connections to the internet or to raw container IPs.
 - **Autoscaling.** Manual `rune scale` only; metric-driven autoscaling is roadmap.
 - **Service mesh / mTLS between services.** Roadmap.
 
