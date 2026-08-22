@@ -392,7 +392,7 @@ initSteps:
 | Field | Type | Notes |
 | --- | --- | --- |
 | `type` | string | `freshVolume` *(default)*, `fileMissing`, or `always`. |
-| `path` | string | Absolute path inside a parent volume. Required iff `type: fileMissing`. |
+| `path` | string | Absolute path as the container sees it, under the `mountPath` of a volume the step mounts. Rejected at cast time if it falls outside every such volume. Required iff `type: fileMissing`. |
 | `volume` | string | Optional parent volume name to restrict the `fileMissing` check to. |
 
 ### `updateStrategy`
