@@ -21,11 +21,13 @@ rune restart api --timeout=15m
 
 Use after rotating a secret, updating a configmap, or anything else that requires a fresh process. Mounted secrets/configs do not hot-reload.
 
-:::caution[`-n` does not follow your context here]
+<Warning title="-n does not follow your context here">
+
 `restart`, `stop` and `scale` default to the `default` namespace, not the
 one your context selects — unlike `cast`, `get`, `describe` and `delete`.
 Pass `-n <ns>` explicitly, or you will target `default/<service>`.
-:::
+
+</Warning>
 
 ### Recovering instances stuck in create
 
