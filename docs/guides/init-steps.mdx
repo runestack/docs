@@ -86,6 +86,13 @@ artifacts and `freshVolume` is too coarse. Restrict the check to one
 mount with `runIf.volume`:
 
 ```yaml
+volumes:
+  - name: data
+    mountPath: /var/lib/postgresql/data
+    claimTemplate:
+      spec:
+        storageClassName: local
+        capacity: "10Gi"
 initSteps:
   - name: seed-schema
     image: postgres:16
@@ -95,6 +102,15 @@ initSteps:
       type: fileMissing
       volume: data
       path: /var/lib/postgresql/data/.seeded
+```
+
+`runIf.path` is the path **as the container sees it**, not a path
+relative to the volume root — so it has to sit under the `mountPath` of
+a volume the step mounts. Rune translates it to the host side for you.
+A path outside every mounted volume is rejected at `rune cast`:
+
+```
+initSteps[0] (seed-schema): runIf.path "/data/.seeded" is outside the mounted parent volume "data"
 ```
 
 ## 3. Retries and timeouts
