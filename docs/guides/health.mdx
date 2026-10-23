@@ -38,7 +38,7 @@ Tunables:
 | ---------------------- | ------- | ------------------------------------------------------------------ |
 | `initialDelaySeconds`  | `0`     | Wait this long after container start before first probe.           |
 | `intervalSeconds`      | `10`    | Time between probes.                                               |
-| `timeoutSeconds`       | `1`     | Per-probe timeout.                                                 |
+| `timeoutSeconds`       | `5`     | Per-probe timeout, for `http`, `tcp` and `exec` probes.            |
 | `failureThreshold`     | `3`     | Consecutive failures before marking unhealthy.                     |
 | `successThreshold`     | `1`     | Accepted but not yet honoured: one passing probe is always enough. |
 
@@ -70,7 +70,7 @@ rune health api --checks
 rune health instance api-instance-abc123 --checks
 ```
 
-Output includes the most recent probe result, last failure message, and consecutive counts.
+Output includes the most recent probe result, last failure message, and consecutive counts. A failing probe also logs a `Liveness check failed` / `Readiness check failed` warning on the server, with the failure under the `reason` field.
 
 ## When probes lie
 
@@ -101,7 +101,7 @@ health:
     initialDelaySeconds: 30
 ```
 
-Readiness uses `type`, `path`/`port`, `initialDelaySeconds` and `intervalSeconds` as described above, and runs independently of liveness — each probe has its own delay and interval. `failureThreshold` applies to liveness only; readiness never reads it. `successThreshold` is accepted but not yet honoured for either probe.
+Readiness uses `type`, `path`/`port`, `initialDelaySeconds`, `intervalSeconds` and `timeoutSeconds` as described above, and runs independently of liveness — each probe has its own delay and interval. `failureThreshold` applies to liveness only; readiness never reads it. `successThreshold` is accepted but not yet honoured for either probe.
 
 ### What readiness does
 
