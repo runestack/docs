@@ -29,7 +29,7 @@ health:
     intervalSeconds: 10
     timeoutSeconds: 2
     failureThreshold: 3
-    successThreshold: 1
+    successThreshold: 1      # accepted, not yet honoured
 ```
 
 Tunables:
@@ -40,7 +40,7 @@ Tunables:
 | `intervalSeconds`      | `10`    | Time between probes.                                               |
 | `timeoutSeconds`       | `1`     | Per-probe timeout.                                                 |
 | `failureThreshold`     | `3`     | Consecutive failures before marking unhealthy.                     |
-| `successThreshold`     | `1`     | Consecutive successes before marking healthy after a failure.      |
+| `successThreshold`     | `1`     | Accepted but not yet honoured: one passing probe is always enough. |
 
 ## TCP probe
 
