@@ -14,19 +14,23 @@ and [`terraform-hetzner-rune`](/guides/terraform-hetzner), and accepts
 almost identical inputs, so switching providers is mostly a module
 source swap.
 
-:::note[Two AWS paths]
+<Note title="Two AWS paths">
+
 This guide covers the **module** (`runestack/rune/aws`), the recommended
 path that mirrors the DO/Hetzner modules. The older single-file
 [Deploy on AWS EC2](/guides/terraform-ec2) example (build-from-source,
 ports 8080/8081) still exists for reference but is superseded by this
 module.
-:::
 
-:::caution[Pre-1.0]
+</Note>
+
+<Warning title="Pre-1.0">
+
 The module is at `v0.0.1` and tracks Rune's pre-1.0 development. Pin the
 module version (`version = "0.0.1"`) and the Rune version
 (`rune_version = "v0.0.1-dev.46"`) until v1.0.
-:::
+
+</Warning>
 
 ## What you need
 

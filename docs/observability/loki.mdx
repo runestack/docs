@@ -19,9 +19,11 @@ observability:
 | `loki.url` | — | **Required.** Loki's HTTP endpoint. |
 | `loki.tenant_id` | `""` | Sent as `X-Scope-OrgID` on every request when set. |
 
-:::note
+<Note>
+
 `retention_days` does not apply to this backend — retention is configured in Loki itself (compactor `retention_period`), not in Rune.
-:::
+
+</Note>
 
 ## Three ways to bring a Loki
 

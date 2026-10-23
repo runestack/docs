@@ -41,9 +41,11 @@ All variables:
 | `rune_version` | `""` | no | Install a specific release tag, e.g. `v0.1.0`. Empty = build from source |
 | `git_branch` | `master` | no | Branch to build from when `rune_version` is empty |
 
-:::tip[Pin a version in production]
+<Tip title="Pin a version in production">
+
 Set `rune_version = "v0.1.0"` to get a pre-built binary instead of building from source. The build-from-source path takes several minutes and requires Go to be installed at boot.
-:::
+
+</Tip>
 
 ## Apply
 

@@ -217,14 +217,16 @@ The `do-volume` driver provisions, attaches, snapshots and reclaims
 DO Block Storage volumes via the DigitalOcean API. End-to-end first-time
 setup is three steps.
 
-:::caution[Hostname must match the droplet name]
+<Warning title="Hostname must match the droplet name">
+
 Each node's OS hostname (`hostname` / `os.Hostname()`) must equal its
 DigitalOcean droplet name. The driver resolves Rune nodes to DO
 droplets via `/v2/droplets?name=<hostname>`; a mismatch surfaces as
 `no DO droplet matches hostname "<host>"` on the first Attach. New
 droplets get this for free; only break it by explicitly running
 `hostnamectl set-hostname` to something the DO console doesn't know.
-:::
+
+</Warning>
 
 ### Step 1 — Mint a scoped DO API token
 
@@ -258,11 +260,13 @@ rune create secret do-api-token \
   -n shared
 ```
 
-:::note
+<Note>
+
 The reference is re-resolved on every driver operation, detach
 included, so a rotation takes effect without remounting the volume or
 restarting `runed`.
-:::
+
+</Note>
 
 ### Step 3 — Create the StorageClass
 
@@ -362,7 +366,8 @@ reap the DO Volume when the Rune Volume row goes away. `retain` is
 the safer default for irreplaceable data — make sure it matches your
 intent before you delete the row.
 
-:::note[Use `retain` for production do-volume today]
+<Note title="Use retain for production do-volume today">
+
 `reclaimPolicy: delete` is supported but the unbind→detach→delete
 ordering is best-effort: Rune fires the agent-side Detach when the
 Volume row is deleted, but the DO `DELETE /v2/volumes/<id>` call
@@ -370,7 +375,8 @@ races with the Detach action's completion. A 409 "volume in use"
 response leaves the underlying DO Volume orphaned. Use `retain` and
 delete the DO Volume manually (`doctl compute volume delete <id>`)
 until the cleanup ordering is hardened.
-:::
+
+</Note>
 
 ### Surviving a droplet restart
 
@@ -432,7 +438,8 @@ Hetzner Cloud volumes via the Hetzner Cloud API. The shape mirrors
 `do-volume`: per-class API token, location-pinned volumes,
 offline-only expand.
 
-:::caution[Hostname must match the Hetzner server name]
+<Warning title="Hostname must match the Hetzner server name">
+
 Each node's OS hostname (`hostname` / `os.Hostname()`) must equal
 its Hetzner server name. The driver resolves Rune nodes to Hetzner
 servers via `GET /v1/servers?name=<hostname>`; a mismatch surfaces
@@ -443,16 +450,19 @@ module sets the server name to `rune-<environment>` and cloud-init
 brings the hostname up to match; only break this by running
 `hostnamectl set-hostname` to something the Hetzner Cloud Console
 doesn't know.
-:::
 
-:::note[No snapshots, offline expand only]
+</Warning>
+
+<Note title="No snapshots, offline expand only">
+
 Hetzner Cloud has **no volume-snapshot API** — the driver
 advertises `Capabilities.Snapshots = false`, so
 `rune snapshot create / restore` against an `hcloud-volume`
 class is rejected at cast time. `rune volume resize` works but
 requires the volume to be detached first (Rune surfaces this as
 `ErrOnlineExpandUnsupported`).
-:::
+
+</Note>
 
 ### Step 1 — Mint a Hetzner Cloud API token
 
@@ -602,21 +612,25 @@ with two AWS-specific twists:
   AZ, so the StorageClass names an `availabilityZone` (not just a
   region).
 
-:::caution[Node must be discoverable by hostname]
+<Warning title="Node must be discoverable by hostname">
+
 The driver resolves each Rune node to an EC2 instance by its OS
 hostname — matched against the instance's `private-dns-name` (the EC2
 default hostname, e.g. `ip-10-0-1-23`), an `i-…` instance ID, or the
 `Name` tag. A mismatch surfaces as `no EC2 instance matches node "<host>"`
 on the first Attach. The `terraform-aws-rune` module leaves the EC2
 default hostname in place, so this works out of the box.
-:::
 
-:::note[IMDSv2 hop limit]
+</Warning>
+
+<Note title="IMDSv2 hop limit">
+
 runed mints EBS API calls from the instance role through IMDS. The
 module sets `http_tokens = "required"` (IMDSv2) and a hop limit of 2;
 if you bring your own instance, make sure IMDS is reachable from the
 `runed` process.
-:::
+
+</Note>
 
 ### Step 1 — Grant the instance role EBS permissions
 
@@ -772,13 +786,15 @@ Compute Engine Persistent Disks via the Compute API. The shape mirrors
   names a `zone` (not just a region). The `project` is read from the
   metadata server on GCE, or set it explicitly on `parameters.project`.
 
-:::caution[Node must be discoverable by name]
+<Warning title="Node must be discoverable by name">
+
 The driver resolves each Rune node to a GCE instance by its OS hostname,
 which on GCE equals the instance name. A mismatch surfaces as
 `no GCE instance "<host>" in zone <zone>` on the first Attach. The
 `terraform-google-rune` module leaves the GCE default hostname in place,
 so this works out of the box.
-:::
+
+</Warning>
 
 ### Step 1 — Grant the service account disk permissions
 

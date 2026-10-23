@@ -87,11 +87,13 @@ docker:
 `runed` reads its config at startup, so changes here require a restart.
 Prefer the `rune admin registry` route once the cluster is running.
 
-:::caution[No `password-file` field]
+<Warning title="No password-file field">
+
 The runefile schema does **not** support `password-file:` — `password`
 must be inline (use `${ENV}` expansion to keep the literal token out of
 the file), or sourced from a Rune Secret via `auth.fromSecret: <name>`.
-:::
+
+</Warning>
 
 ## 2b. Reuse an existing `docker login`
 
@@ -205,7 +207,8 @@ docker:
         type: none
 ```
 
-:::note[No automatic anonymous retry]
+<Note title="No automatic anonymous retry">
+
 Rune does not silently retry a rejected pull without credentials. A
 public image at the same reference could stand in for the intended
 private one, so the downgrade has to be declared — either by scoping the
@@ -213,7 +216,8 @@ pattern, by `type: none`, or by `imagePullAnonymous` on the service. A
 host-only pattern claims every image on that host, public repositories
 included: if the credential expires, those pulls fail with a hard
 `denied` rather than falling back to anonymous.
-:::
+
+</Note>
 
 ### Per-service opt-out: `imagePullAnonymous`
 
@@ -261,11 +265,13 @@ service cannot supply its own — scope the pattern instead, and use
 [`imagePullAnonymous`](/reference/service-spec#imagepullanonymous) for
 the one per-service control there is.
 
-:::caution
+<Warning>
+
 `rune cast` accepts `registry:` and `imageRegistry:` keys on a service
 spec. Nothing reads them. They validate, so a spec carrying them looks
 fine and pulls exactly as if they were absent.
-:::
+
+</Warning>
 
 ## Troubleshooting
 

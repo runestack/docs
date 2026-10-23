@@ -43,9 +43,11 @@ Extract structured fields from log lines, then filter on them:
 - `| json` — extracts **top-level scalar** fields; nested objects and arrays are skipped.
 - Label filters after a parser: string ops `=`, `!=`, `=~`, `!~`; numeric ops `>`, `>=`, `<`, `<=`, `==`.
 
-:::note
+<Note>
+
 Parser stages run on **embedded and Loki** (Core tier). The ClickHouse backend does not lower them to SQL — use its raw SQL mode (`JSONExtractString` & friends) instead.
-:::
+
+</Note>
 
 ## Range aggregations
 

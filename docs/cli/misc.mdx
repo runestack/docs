@@ -44,11 +44,13 @@ rune status -w                      # re-render every 2s (Ctrl+C to exit)
 rune status -o json                 # structured output for scripts/dashboards
 ```
 
-:::note
+<Note>
+
 A bare `rune status` is the **whole-cluster** view. `-A` /
 `--all-namespaces` selects the same thing explicitly; use `-n <ns>` to
 focus a single namespace.
-:::
+
+</Note>
 
 ### Default output (global)
 

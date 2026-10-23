@@ -55,11 +55,13 @@ rune release status my-app-prod
 rune release get my-app-prod -o yaml
 ```
 
-:::note
+<Note>
+
 The owned set is authoritative, which lays the groundwork for **drift** reporting
 (resources deleted out of band, modified, or unhealthy). That comparison isn't
 surfaced yet — today `status` shows the recorded owned set, references, and status.
-:::
+
+</Note>
 
 ## `release history`
 
@@ -92,12 +94,14 @@ update   service/prod/api
 prune    configmap/prod/old-settings
 ```
 
-:::note
+<Note>
+
 `diff` plans against the release's *recorded* owned set against live state. To
 preview a re-render from changed source or values, use
 [`rune cast --dry-run`](/cli/cast#plan-dry-run), which renders the source first
 and shows the full 3-way plan.
-:::
+
+</Note>
 
 ## `release rollback`
 
@@ -117,11 +121,13 @@ rune release rollback my-app-prod --to 3     # to a specific revision
 | `--yes`           | false     | Skip the confirm prompt for plans that prune or adopt.  |
 | `-n, --namespace` | `default` | Namespace.                                              |
 
-:::caution
+<Warning>
+
 Rollback only works for **reproducible** sources (`tgz`, `github`, `url`). A
 revision whose source was a local directory can't be re-rendered and fails with a
 clear error — re-cast from the runeset source instead.
-:::
+
+</Warning>
 
 ## `release delete`
 
@@ -142,11 +148,13 @@ rune release uninstall my-app-prod --purge --yes
 | `--purge`         | false     | Remove the release record entirely (forget the tombstone). |
 | `-n, --namespace` | `default` | Namespace.                                                 |
 
-:::caution
+<Warning>
+
 Delete is destructive and refuses to run without `--yes`. Referenced shared kinds
 (`StorageClass`, `Namespace`) are **never** deleted, even when `--create-namespace`
 created them — see [shared resources](/concepts/releases#shared-resources).
-:::
+
+</Warning>
 
 ## See also
 

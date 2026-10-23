@@ -162,7 +162,7 @@ rune version
 
 **Service workload containers keep running** — they're independent Docker containers, not in runed's data path. Their TCP listeners stay up; whatever was talking to them via container IPs continues unaffected.
 
-True zero-downtime upgrades (and a story for ingress that survives `runed` restart) require multi-node Raft, on the roadmap as RUNE-025.
+True zero-downtime upgrades (and a story for ingress that survives `runed` restart) require multi-node Raft, which is planned but not yet implemented.
 
 ## Terraform-managed deployments
 

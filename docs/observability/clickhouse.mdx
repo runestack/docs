@@ -109,9 +109,11 @@ The storage policy itself is **server-side ClickHouse configuration** — Rune h
 
 Then in the runefile: `storage_policy: runesight_tiered`, `s3_volume: s3` (the volume name), `hot_days: 7`. Volume order matters — `hot` first. Any S3-compatible endpoint works (MinIO, R2, Spaces, GCS interop). The [reference runeset](https://github.com/runestack/rune-examples/tree/main/clickhouse) wires this XML in via a single value, so tiering works out of the box when you provide bucket + credentials.
 
-:::caution
+<Warning>
+
 Changing `storage_policy` on an **existing** table is an `ALTER` the operator performs; `auto_migrate` applies the policy at table creation. Plan tiering before first ingest, or be ready to `ALTER TABLE ... MODIFY TTL` yourself.
-:::
+
+</Warning>
 
 ## What Advanced tier unlocks
 
