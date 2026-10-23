@@ -56,7 +56,7 @@ sudo tar -czf rune-backup-$(date +%F).tgz -C /var/lib rune
 sudo systemctl start runed
 ```
 
-For online backup, use BadgerDB's snapshot tooling or copy while accepting that some recent writes may be missed. Multi-node with Raft snapshots is roadmap (RUNE-029).
+For online backup, use BadgerDB's snapshot tooling or copy while accepting that some recent writes may be missed. Multi-node with Raft snapshots is planned, not yet implemented.
 
 ## Logs
 
