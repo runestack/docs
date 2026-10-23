@@ -196,9 +196,11 @@ You're now an authenticated admin on a fresh server. Save the printed command â€
 | `module.rune.digitalocean_firewall` | Ingress: 22, 80, 443, 7861, 7863. Tighten with `ssh_allowed_cidrs` later. |
 | `module.rune.null_resource.bootstrap` | One-shot SSH + `rune admin bootstrap`. |
 
-:::caution[Let's Encrypt rate limits]
+<Warning title="Let's Encrypt rate limits">
+
 LE allows **5 certs per exact domain per 7 days**. If you destroy + recreate the droplet repeatedly while iterating, ACME will start returning `429 rateLimited`. Either use a sub-domain you can rotate, or stage on `acme_directory = "https://acme-staging-v02.api.letsencrypt.org/directory"` while iterating.
-:::
+
+</Warning>
 
 ---
 

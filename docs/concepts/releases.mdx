@@ -7,11 +7,13 @@ A **release** is the stateful record of a `rune cast`. Where a runeset is the
 *package* (templates + values), a release is the *installation* — the source of
 truth for what that cast actually put on the cluster, at which revision.
 
-:::note
+<Note>
+
 Releases are not opt-in. Every `rune cast` produces a tracked release — there is
 no fire-and-forget "unmanaged" path. A loose `service.yaml` is treated as an
 [inline runeset](#inline-releases) and gets a release too.
-:::
+
+</Note>
 
 ## Why a release object
 
@@ -94,11 +96,13 @@ Pruning runs **only after** creates and updates apply cleanly — never on a fai
 upgrade. Pruned resources go through Rune's normal deletion + finalizer path in
 reverse dependency order (services → secrets → configmaps → volumes).
 
-:::note
+<Note>
+
 Honoring per-volume **reclaim policy** in the prune path (`retain` → release
 instead of destroy) is in progress. Today, to retain volume data on teardown, use
 `rune release delete --keep-volumes`, which skips volumes entirely.
-:::
+
+</Note>
 
 ### Failure
 

@@ -222,19 +222,23 @@ spec:
       # securityContext omitted → inherits the service-level block
 ```
 
-:::caution[The field is `seccompProfile.type`, not `seccomp`]
+<Warning title="The field is seccompProfile.type, not seccomp">
+
 A common mistake is writing `securityContext: { seccomp: unconfined }`.
 There is no `seccomp` field — the schema is
 `securityContext.seccompProfile.type`. The validator rejects unknown
 fields here at `rune cast` time with a "did you mean" hint.
-:::
 
-:::note[`type` values are case-insensitive]
+</Warning>
+
+<Note title="type values are case-insensitive">
+
 The `type` values accept the Kubernetes PascalCase aliases
 (`Unconfined`, `RuntimeDefault`, `Localhost`) alongside the lowercase
 forms (`unconfined`, `default`, `localhost`). PascalCase is the
 canonical form — it matches the Kubernetes docs.
-:::
+
+</Note>
 
 `securityContext` can sit on the service (applied to the main
 container) **and** on each init step. The fields:

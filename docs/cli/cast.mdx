@@ -26,12 +26,14 @@ rune cast ./runeset --render --set=key=value
 rune cast ./runeset --render --values=values.yaml
 ```
 
-:::note
+<Note>
+
 **Every cast is a tracked [release](/concepts/releases).** There is no
 fire-and-forget path. A loose `service.yaml` is treated as an *inline runeset* and
 gets a release named after the file (with a warning); pin it with `--release`.
 Operate releases afterward with [`rune release`](/cli/release).
-:::
+
+</Note>
 
 ## The cast pipeline
 
@@ -77,10 +79,12 @@ automatically.
 | `-f, --values <file>` | —            | Extra values file (repeatable; last wins).                   |
 | `-o, --output`        | —            | `json` — emit the structured plan + result.                  |
 
-:::note
+<Note>
+
 `--release`, `--render`, `--set`, and `--values` are **universal** — they apply to
 loose castfiles (inline runesets), not just packaged runesets.
-:::
+
+</Note>
 
 ## Plan and dry-run
 

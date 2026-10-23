@@ -444,11 +444,13 @@ They are derived rather than exposed because each has one right answer given wha
 
 Whether a service can run a spare copy at all is *detected*, not declared. A service updates one replica at a time — no spare, retire before create — if it has a per-replica `claimTemplate` volume, binds a `hostPort`, or runs on the process runtime, since in each case two copies of a replica would collide.
 
-:::warning Single-replica services now briefly run two copies
+<Warning title="Single-replica services now briefly run two copies">
+
 A `scale: 1` service with no `claimTemplate` volume and no `hostPort` *can* run a spare, so during an update the old and new copy overlap for a few seconds. Before rolling updates that never happened.
 
 If your service must never overlap with itself — a queue consumer, a cron-style worker, a migration runner — set `updateStrategy: recreate`. `rune lint` flags exactly these services.
-:::
+
+</Warning>
 
 See the [Scale & restart guide](/guides/scale-restart#rolling-updates) for how to watch an update and what to do when one stalls.
 

@@ -181,9 +181,11 @@ Both fields are independent and optional; either alone is useful, together they'
 
 Inbound connections are accepted only from the listed CIDRs, matched against the **real TCP peer** (not a header). An empty/absent list means no restriction (never deny-all); a connection from outside the list gets `403`. Entries must be CIDRs — a bare IP is rejected at `cast`, so use `203.0.113.4/32` for a single host.
 
-:::caution
+<Warning>
+
 `allowCidrs` is only meaningful when the ingress is the **direct TCP terminator**. If you put an L4 load balancer in front of the node, the peer the ingress sees is the LB, not the client — so the allowlist would match the wrong address. (PROXY-protocol support to recover the real client IP behind an LB is not yet available.)
-:::
+
+</Warning>
 
 ### `clientCert` — inbound mTLS
 
