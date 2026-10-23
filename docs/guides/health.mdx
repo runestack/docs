@@ -101,7 +101,7 @@ health:
     initialDelaySeconds: 30
 ```
 
-Readiness uses `type`, `path`/`port`, `initialDelaySeconds` and `intervalSeconds` as described above, and runs independently of liveness — each probe has its own delay and interval. `failureThreshold` applies to liveness only; readiness never reads it. `successThreshold` is accepted but not yet honoured for either probe.
+Readiness uses `type`, `path`/`port`, `initialDelaySeconds` and `intervalSeconds` as described above, and runs independently of liveness — each probe has its own delay and interval. `failureThreshold` applies to liveness only; readiness never reads it.
 
 ### What readiness does
 
