@@ -40,7 +40,7 @@ Tunables:
 | `intervalSeconds`      | `10`    | Time between probes.                                               |
 | `timeoutSeconds`       | `1`     | Per-probe timeout.                                                 |
 | `failureThreshold`     | `3`     | Consecutive failures before marking unhealthy.                     |
-| `successThreshold`     | `1`     | Consecutive successes before marking healthy after a failure.      |
+| `successThreshold`     | `1`     | Accepted but not yet honoured: one passing probe is always enough. |
 
 ## TCP probe
 
@@ -83,7 +83,7 @@ The two failure modes:
 
 A service can define two probes under `health`, and they answer different questions:
 
-- **`liveness`** — "is this process still working?" Repeated failures restart the instance (after `failureThreshold` consecutive failures, default `3`, with restart backoff).
+- **`liveness`** — "is this process still working?" Repeated failures restart the instance (after `failureThreshold` consecutive failures, default `3`, with restart backoff), unless the service sets `restartPolicy: never`.
 - **`readiness`** — "is this instance ready to take traffic yet?" It decides when a new instance becomes `Running`.
 
 ```yaml
@@ -101,13 +101,13 @@ health:
     initialDelaySeconds: 30
 ```
 
-Both take the same fields as the probes above and run independently — each has its own `initialDelaySeconds` and `intervalSeconds`.
+Readiness uses `type`, `path`/`port`, `initialDelaySeconds` and `intervalSeconds` as described above, and runs independently of liveness — each probe has its own delay and interval. `failureThreshold` applies to liveness only; readiness never reads it. `successThreshold` is accepted but not yet honoured for either probe.
 
 ### What readiness does
 
 - **Without a readiness probe**, an instance is `Running` as soon as its container starts. If the app needs 30 seconds to boot, it shows `Running` and is routed to for those 30 seconds.
 - **With one**, a new instance stays `Starting` ("Waiting for readiness probe") and receives no traffic until the first readiness probe passes. Then it is promoted to `Running` and added to the service's endpoints.
-- **Updates** are gated on it. With a readiness probe, a replacement counts as ready when the app is serving. Without one, Rune waits a flat 5 seconds per replacement, and `rune lint` warns (`update-needs-readiness`) for services that expose ports.
+- **Updates** are gated on it. With a readiness probe, a replacement counts as ready when the app is serving. Without one, Rune waits a flat 5 seconds per replacement, and `rune lint` warns (`update-needs-readiness`) for services that expose ports, unless the service sets `updateStrategy: recreate`.
 - **Dependencies** use it. A service waits for each dependency to have at least one `Running` instance; if the dependency defines a readiness probe, that instance's probe must also be passing.
 
 ### What it doesn't do yet
