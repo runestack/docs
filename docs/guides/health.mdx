@@ -81,6 +81,39 @@ The two failure modes:
 
 ## Liveness vs. readiness
 
-Today Rune has a single probe per service (`liveness`). Readiness — "ready to serve traffic but not yet probed-as-healthy" — is on the roadmap as part of multi-node ingress (RUNE-063).
+A service can define two probes under `health`, and they answer different questions:
 
-For now, your liveness probe is your readiness probe. Treat it as both.
+- **`liveness`** — "is this process still working?" Repeated failures restart the instance (after `failureThreshold` consecutive failures, default `3`, with restart backoff).
+- **`readiness`** — "is this instance ready to take traffic yet?" It decides when a new instance becomes `Running`.
+
+```yaml
+health:
+  readiness:
+    type: http
+    path: /ready
+    port: 8080
+    initialDelaySeconds: 2
+    intervalSeconds: 5
+  liveness:
+    type: http
+    path: /healthz
+    port: 8080
+    initialDelaySeconds: 30
+```
+
+Both take the same fields as the probes above and run independently — each has its own `initialDelaySeconds` and `intervalSeconds`.
+
+### What readiness does
+
+- **Without a readiness probe**, an instance is `Running` as soon as its container starts. If the app needs 30 seconds to boot, it shows `Running` and is routed to for those 30 seconds.
+- **With one**, a new instance stays `Starting` ("Waiting for readiness probe") and receives no traffic until the first readiness probe passes. Then it is promoted to `Running` and added to the service's endpoints.
+- **Updates** are gated on it. With a readiness probe, a replacement counts as ready when the app is serving. Without one, Rune waits a flat 5 seconds per replacement, and `rune lint` warns (`update-needs-readiness`) for services that expose ports.
+- **Dependencies** use it. A service waits for each dependency to have at least one `Running` instance; if the dependency defines a readiness probe, that instance's probe must also be passing.
+
+### What it doesn't do yet
+
+Readiness gates the move to `Running`; it does not take an instance back out. If a readiness probe starts failing on an instance that is already `Running`, Rune logs the failure and dependency checks see it, but the instance stays `Running` and stays in the endpoint set. Only a failing **liveness** probe takes an instance out, by restarting it; the replacement starts in `Starting` again.
+
+### Choosing between them
+
+Point readiness at "can I serve a request right now?" (dependencies reachable, caches warm) and liveness at "is the process wedged?" (a cheap check). A liveness probe that checks external dependencies turns a database outage into a restart loop for every instance.
