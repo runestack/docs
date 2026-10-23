@@ -205,7 +205,7 @@ The control **fails closed** so a misconfiguration can't quietly leave the origi
 - **DNS not propagated yet.** The ACME provider must reach your node. If `dig +short api.example.com` doesn't return your edge node's IP from a public DNS server, the challenge will fail. Wait, then the orchestrator will retry on its own.
 - **Port 80 blocked upstream.** HTTP-01 needs port 80 specifically. Cloud firewalls and security groups must allow inbound 80 *and* 443. (If only 443 is allowed, switch to manual TLS.)
 - **`acme.directory` left at default in CI.** Tests should point at a Pebble URL — Let's Encrypt's production endpoint has rate limits that you will hit.
-- **Multiple edge nodes.** Phase 1 ships single-node ingress. Multi-node leader election lands with Phase 2; for now run one edge node and front it with your cloud's L4 load balancer if you need HA.
+- **Multiple edge nodes.** Ingress is single-node today; multi-node leader election is planned, not yet implemented. For now run one edge node and front it with your cloud's L4 load balancer if you need HA.
 
 ## Reference
 
