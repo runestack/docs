@@ -86,6 +86,27 @@ rune admin policy attach team-alpha --to-user alice
 rune admin policy detach readwrite --from-user alice
 ```
 
+## Referencing another namespace
+
+A service can name resources in other namespaces: secrets and configmaps in env templates and `envFrom`, expose TLS and client-CA secrets, volume claims (`ns/name`), and volume parameters such as `secret:` values and `rune.io/restoreFromSnapshot`. The server resolves those without your identity, so it checks that **you** may read them before accepting the service. In the referenced namespace you need:
+
+| Reference | Verb |
+| --- | --- |
+| a secret | `secrets:reveal` |
+| a configmap | `configmaps:get` |
+| a volume claim | `volumes:get` |
+| a snapshot restore | `snapshots:get` |
+
+References into the service's own namespace need nothing extra. The same check applies to direct service, volume and snapshot-restore calls and to `rune cast`. A denial reads `permission denied: <subject> is not allowed to "reveal" secrets in namespace "<ns>"`.
+
+The built-in `readwrite` and `cast` roles don't hold `secrets:reveal`, so a cast that reads another namespace's secret needs an admin token or a policy that grants `reveal` there. Running services are not re-checked: one that already references another namespace keeps working until its next update (`rune restart` and `rune scale` don't count).
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148. Until then only the service's own namespace was checked, so a token pinned to one namespace could read another namespace's secrets into a container it controls.
+
+</Note>
+
 ## Known weak spots (be aware)
 
 These are real and tracked. Don't let them surprise you in an audit.

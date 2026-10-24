@@ -32,10 +32,6 @@ server:
 auth:
   enabled: true
   allow_remote_admin: false
-  tls:
-    enabled: true
-    cert-file: /etc/rune/tls/server.crt
-    key-file:  /etc/rune/tls/server.key
 
 crypto:
   kek:
@@ -44,10 +40,10 @@ crypto:
     env-var: RUNE_MASTER_KEY
     generate-if-missing: true
 
-storage:
-  secret-limits:
-    max-keys-per-secret: 64
-    max-value-size: 65536
+secret:
+  limits:
+    max_object_bytes: 1048576
+    max_key_name_length: 256
 
 runner:
   docker:
@@ -83,15 +79,40 @@ docker:
 | `log-level`  | `info`           | `debug`, `info`, `warn`, `error`.           |
 | `log-format` | `text`           | `text` or `json`.                           |
 
+#### `server.tls`
+
+TLS for the gRPC listener and the dashboard.
+
+| Field                | Default | Notes                                                                 |
+| -------------------- | ------- | --------------------------------------------------------------------- |
+| `tls.enabled`        | `false` | Serve gRPC and the dashboard over TLS.                                |
+| `tls.cert_file`      | —       | Your certificate. Set together with `key_file`.                       |
+| `tls.key_file`       | —       | Your private key.                                                     |
+| `tls.hosts`          | —       | Extra names and addresses for the self-signed certificate.            |
+| `require_tls`        | `false` | With TLS off, bind gRPC to loopback only. Without it, `runed` warns when gRPC serves plaintext on a non-loopback address. |
+
+With `enabled: true` and neither file set, `runed` generates a self-signed P-256 certificate in `<data_dir>/tls/`, valid for loopback, the hostname, the host's interface addresses and `hosts`. The key persists across restarts, and the certificate is re-issued under the same key when it nears expiry or `hosts` changes, so a pinned fingerprint keeps working. The SPKI fingerprint is logged at startup. Renewal is checked only at startup.
+
+If TLS is enabled but the certificate can't be loaded (a missing, unreadable or mismatched file), `runed` refuses to start; it never falls back to plaintext.
+
+<Warning title="The CLI can't connect over TLS yet">
+
+Don't enable `server.tls` on a server you manage with `rune` until the CLI supports it.
+
+</Warning>
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148. Until then `[server.tls]` was parsed and never read, so gRPC was always plaintext.
+
+</Note>
+
 ### `auth`
 
 | Field                | Default | Notes                                                   |
 | -------------------- | ------- | ------------------------------------------------------- |
 | `enabled`            | `true`  | Set to `false` only for local dev.                      |
 | `allow_remote_admin` | `false` | If true, `admin/*` works from non-localhost clients.    |
-| `tls.enabled`        | `false` | **Recommend `true` in production.**                     |
-| `tls.cert-file`      | —       | Server cert.                                            |
-| `tls.key-file`       | —       | Server key.                                             |
 
 ### `ui`
 
