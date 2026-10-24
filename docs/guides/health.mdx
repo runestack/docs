@@ -42,6 +42,12 @@ Tunables:
 | `failureThreshold`     | `3`     | Consecutive failures before marking unhealthy.                     |
 | `successThreshold`     | `1`     | Accepted but not yet honoured: one passing probe is always enough. |
 
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147. Until then only `exec` probes honour `timeoutSeconds`; `http` and `tcp` always wait 5 seconds.
+
+</Note>
+
 ## TCP probe
 
 ```yaml
@@ -71,6 +77,12 @@ rune health instance api-instance-abc123 --checks
 ```
 
 Output includes the most recent probe result, last failure message, and consecutive counts. A failing probe also logs a `Liveness check failed` / `Readiness check failed` warning on the server, with the failure under the `reason` field.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147. Until then the reason is dropped from JSON logs.
+
+</Note>
 
 ## When probes lie
 
