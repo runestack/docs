@@ -3,6 +3,12 @@ title: rune upgrade
 lede: Upgrade Rune itself — the connected server, then this CLI — from one command.
 ---
 
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147.
+
+</Note>
+
 `rune upgrade` updates Rune, not your services (to update a service, [cast](/cli/cast) it). It upgrades the server you are connected to, waits for it to come back healthy, and only then replaces the CLI's own binary — so a failed server upgrade never leaves a newer CLI talking to an older server.
 
 ```sh
