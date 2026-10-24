@@ -9,7 +9,14 @@ This page is the operational counterpart to the [runefile reference](/reference/
 
 `runed` reads the runefile at startup and treats two mistakes differently:
 
-- **A value of the wrong type** (for example `encryption = "on"` where a table is expected) stops startup: `runed` logs `Runefile does not decode`, names the file and the problem, and exits with status 1.
+- **A value of the wrong type** stops startup. For example, a scalar where the config expects a table:
+
+  ```yaml
+  secret:
+    encryption: "on"   # expected a table (kek, ...)
+  ```
+
+  `runed` logs `Runefile does not decode`, names the file and the problem, and exits with status 1. A runefile that doesn't parse at all fails earlier, the same way (exit 1, `Failed to read runefile`).
 - **A key it doesn't recognise**, usually a typo, does not stop startup. `runed` logs one ERROR listing every unknown key, and the setting you meant stays at its default. Search the log for `Runefile keys are not recognised`.
 
 Unknown keys are tolerated on purpose: after a `rune upgrade` rollback, an older `runed` must still start on a runefile written for a newer one. A [few keys](/reference/runefile) are read outside the main config (such as `debug`, `pretty`, `docker.registries[].auth.from_secret`) and are not reported.
