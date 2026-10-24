@@ -60,7 +60,15 @@ rune exec api --timeout=30s -- python long.py
 - A service-name argument picks any healthy instance.
 - An instance ID targets that exact instance.
 - Stdin/stdout are forwarded full-duplex when a TTY is allocated.
-- Exit code is forwarded — `rune exec` exits with the same status as the inner command.
+- Exit code is forwarded — `rune exec` exits with the same status as the inner command, or `128 + n` if it was killed by signal `n`, without printing an error of its own.
+- In an interactive session, Ctrl-D and `exit` go to the remote shell, and its exit ends the session. If the exit code can't be determined, the command fails with an error rather than reporting `0`.
+- A dropped connection (for example `runed` restarting) ends the session with an error, not a clean exit.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147. Until then `rune exec` can report `0` for a command that failed, and Ctrl-D ends the session on the client side.
+
+</Note>
 
 ## Permissions
 

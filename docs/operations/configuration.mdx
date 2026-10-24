@@ -5,6 +5,21 @@ lede: Tuning runed for real workloads — addresses, storage limits, runners, re
 
 This page is the operational counterpart to the [runefile reference](/reference/runefile). Same fields, more "why."
 
+## Runefile errors and typos
+
+`runed` reads the runefile at startup and treats two mistakes differently:
+
+- **A value of the wrong type** (for example `encryption = "on"` where a table is expected) stops startup: `runed` logs `Runefile does not decode`, names the file and the problem, and exits with status 1.
+- **A key it doesn't recognise**, usually a typo, does not stop startup. `runed` logs one ERROR listing every unknown key, and the setting you meant stays at its default. Search the log for `Runefile keys are not recognised`.
+
+Unknown keys are tolerated on purpose: after a `rune upgrade` rollback, an older `runed` must still start on a runefile written for a newer one. A [few keys](/reference/runefile) are read outside the main config (such as `debug`, `pretty`, `docker.registries[].auth.from_secret`) and are not reported.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147. Until then a wrong-typed value can crash `runed` and unknown keys are ignored silently.
+
+</Note>
+
 ## Addresses and exposure
 
 Default config binds to all interfaces:
