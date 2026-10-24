@@ -215,8 +215,10 @@ must allow-list the root in the runefile:
 ```toml
 # /etc/rune/runefile.toml
 [storage]
-hostPathAllowlist = ["/mnt/rune"]
 allowCreateMissing = false
+
+[storage.drivers.local-host]
+hostPathAllowlist = ["/mnt/rune"]
 ```
 
 Then declare the volume with the host path on `parameters`:

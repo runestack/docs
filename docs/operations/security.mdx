@@ -7,7 +7,7 @@ Rune ships with sensible defaults but a few important things are off by default.
 
 ## Hardening checklist
 
-- [ ] TLS enabled on `:7863` and `:7861`.
+- [ ] gRPC and HTTP ports not reachable from untrusted networks (the CLI can't use `server.tls` yet).
 - [ ] KEK loaded from env (or vaulted credential), not generated.
 - [ ] Bootstrap token rotated to a non-`root` admin token; root token revoked.
 - [ ] No service or user has the `root` policy attached for day-to-day use.
@@ -19,23 +19,7 @@ Rune ships with sensible defaults but a few important things are off by default.
 
 ## TLS
 
-Generate (or obtain) a server cert + key, then:
-
-```yaml
-auth:
-  tls:
-    enabled: true
-    cert-file: /etc/rune/tls/server.crt
-    key-file:  /etc/rune/tls/server.key
-```
-
-Restart `runed`. Update CLI contexts to point at the new TLS-enabled server:
-
-```sh
-rune context set prod \
-  --server runed.example.com:7863 \
-  --tls-ca /etc/rune/tls/ca.crt
-```
+`runed` can serve gRPC and the dashboard over TLS with `server.tls` (your own certificate, or a self-signed one it generates); see the [runefile reference](/reference/runefile#server-tls). The `rune` CLI can't connect to a TLS server yet, so until it can, don't enable it on a server you manage with `rune`. Keep the gRPC port on loopback or a private network and reach it over an SSH tunnel; without TLS, bearer tokens cross the wire in clear.
 
 mTLS (client certs) is roadmap (RUNE-028). For now, bearer tokens over TLS are the model.
 
@@ -129,9 +113,9 @@ If any of these matter for your environment, deploy `runed` behind a TLS-termina
 A per-RPC audit trail is roadmap (RUNE-089). Today, `runed` logs every RPC at debug level — enable that for a poor-man's audit:
 
 ```yaml
-server:
-  log-level: debug
-  log-format: json
+log:
+  level: debug
+  format: json
 ```
 
 Ship to a tamper-resistant collector if you need durability.

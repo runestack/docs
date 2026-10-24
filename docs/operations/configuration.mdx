@@ -33,16 +33,16 @@ Default config binds to all interfaces:
 
 ```yaml
 server:
-  grpc-addr: ":7863"
-  http-addr: ":7861"
+  grpc_address: ":7863"
+  http_address: ":7861"
 ```
 
 For a single-host setup with no remote API consumers, lock to localhost and let the CLI tunnel via SSH:
 
 ```yaml
 server:
-  grpc-addr: "127.0.0.1:7863"
-  http-addr: "127.0.0.1:7861"
+  grpc_address: "127.0.0.1:7863"
+  http_address: "127.0.0.1:7861"
 ```
 
 Then:
@@ -52,27 +52,17 @@ ssh -L 7863:localhost:7863 host
 rune login local --server localhost:7863 --token-file ./tok
 ```
 
-For remote API consumers, **enable TLS**:
-
-```yaml
-auth:
-  tls:
-    enabled: true
-    cert-file: /etc/rune/tls/server.crt
-    key-file:  /etc/rune/tls/server.key
-```
-
-Without TLS, every bearer token crosses the wire in plaintext.
+Without TLS, every bearer token crosses the wire in plaintext, so don't expose the gRPC port to an untrusted network. `runed` can serve gRPC over TLS (`server.tls`, see the [runefile reference](/reference/runefile#server-tls)), but the `rune` CLI can't connect over it yet; until it can, keep the port on loopback and use the SSH tunnel above.
 
 ## Auth posture
 
 ```yaml
 auth:
-  enabled: true
   allow_remote_admin: false
 ```
 
-- Set `enabled: false` only on a single-developer laptop. It disables every bearer-token check.
+Authentication is always on: every request needs a bearer token, and there is no runefile switch to turn that off.
+
 - `allow_remote_admin: true` removes the localhost gate on `admin/*` RPCs. Don't enable on a public network without TLS plus an aggressive firewall.
 
 ## Storage limits
@@ -99,17 +89,16 @@ On `dev`; ships after v0.0.1-dev.148. Until then the snake_case keys above were 
 ## KEK source
 
 ```yaml
-crypto:
-  kek:
-    source: file              # file | env | generated
-    file-path: /var/lib/rune/kek
-    env-var: RUNE_MASTER_KEY
-    generate-if-missing: true
+secret:
+  encryption:
+    kek:
+      source: file              # file | env | generated
+      file: /var/lib/rune/kek.b64
 ```
 
 In order of operational preference:
 
-1. **`source: env`** with `env-var: RUNE_MASTER_KEY` — load from a secret manager (Vault, AWS Secrets Manager, systemd credential) at boot.
+1. **`source: env`**, reading the `RUNE_MASTER_KEY` environment variable (the name is fixed) — load from a secret manager (Vault, AWS Secrets Manager, systemd credential) at boot.
 2. **`source: file`** — KEK on disk with mode `0600`. Easiest. Back it up.
 3. **`source: generated`** — only for ephemeral test setups. Dies with the process.
 
@@ -117,16 +106,7 @@ Always back up the KEK separately from the database. Lose the KEK, lose all secr
 
 ## Runners
 
-```yaml
-runner:
-  docker:
-    enabled: true
-    socket: /var/run/docker.sock
-  process:
-    enabled: true
-```
-
-Disable the process runner if you're running in a hardened environment where native processes shouldn't be allowed. Disable Docker if you're running on a host without it.
+`runed` starts both the Docker runner and the process runner when it can, and each service picks one with its `runtime`. There is no runefile switch to disable either. On a host without Docker, container services fail with a clear error and process services keep working. Docker tuning keys are under [`docker`](/reference/runefile#docker).
 
 ## Registries
 
@@ -166,9 +146,9 @@ Registry walkthrough.
 ## Logging
 
 ```yaml
-server:
-  log-level: info        # debug | info | warn | error
-  log-format: json       # text | json
+log:
+  level: info        # debug | info | warn | error
+  format: json       # text | json
 ```
 
 For production, use `json` and ship to your log collector. For local debugging, `text` is easier on the eyes.
@@ -181,7 +161,7 @@ Probably docker pull latency. Pre-pull images on the host or check registry netw
 
 ### "Secrets feel risky."
 
-- Move `crypto.kek.source` from `file` to `env` and load via systemd `LoadCredential`.
+- Move `secret.encryption.kek.source` from `file` to `env` and load via systemd `LoadCredential`.
 - Tighten `secret.limits` so accidental large writes are caught.
 - Restrict the `secret` resource in policies — only on-call gets `get` for `*` namespace.
 
