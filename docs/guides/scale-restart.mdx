@@ -54,6 +54,14 @@ Changing a service's spec — a new image, new env, a rotated secret — no long
 
 **The default behaviour, in one paragraph.** Rune starts one replacement, waits until it's serving, retires the oldest instance, and repeats until every replica runs the new spec. Old instances keep taking traffic the whole time. Each one gets `drainSeconds` (default 5) to finish in-flight requests after it stops receiving new connections. Services that can't run two copies of a replica update one at a time instead. Want the old stop-everything behaviour? `updateStrategy: recreate`.
 
+`rune cast` updates a service in place, so all of this applies to casts. Which edits replace instances at all (and which only change a live setting) is listed under [what replaces instances](/reference/service-spec#what-replaces-instances).
+
+<Note title="Unreleased">
+
+Casts updating in place is on `dev`; ships after v0.0.1-dev.147.
+
+</Note>
+
 ### The two knobs
 
 ```yaml

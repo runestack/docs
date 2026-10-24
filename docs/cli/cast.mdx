@@ -70,9 +70,10 @@ automatically.
 | `--detach`            | false        | Return once accepted; don't wait for rollout. Create/update-only. |
 | `--yes`               | false        | Skip the confirm prompt for plans that prune or adopt.        |
 | `--adopt`             | false        | Take over resources that are unmanaged or owned by another release. |
-| `--timeout <dur>`     | `5m`         | Rollout wait timeout for the **whole release**.               |
+| `--timeout <dur>`     | `15m`        | Rollout wait timeout for the **whole release**.               |
 | `-r, --recursive`     | false        | Recurse into directories.                                     |
-| `--force`             | false        | Force generation increment even with no diff.                |
+| `--atomic`            | false        | Roll back this cast's changes if it fails. A verify timeout also triggers rollback. See [Updating running services](#updating-running-services). |
+| `--force`             | false        | Accepted but has no effect today. See [Updating running services](#updating-running-services). |
 | `--tag <name>`        | —            | Tag this deployment for later reference.                      |
 | `--render`            | false        | Print rendered YAML and exit (works for inline casts too).    |
 | `--set k=v`           | —            | Override a value (repeatable).                                |
@@ -112,6 +113,20 @@ pre-release resources under management on first cast):
 rune cast ./my-app --release=my-app-prod --adopt
 ```
 
+## Updating running services
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147.
+
+</Note>
+
+Casting a changed service updates it in place: it keeps its identity, its generation counters and any virtual IP it has been given. Only a change to something an instance is built from (the image, env, ports, mounts, probes, security context and so on) replaces instances, and they are replaced under the service's [`updateStrategy`](/guides/scale-restart#rolling-updates), not all at once. Edits to scale, networking, ingress and similar settings apply without replacing anything. The full split is in [what replaces instances](/reference/service-spec#what-replaces-instances).
+
+- **A service being deleted is refused.** Casting onto a service that is still tearing down fails with `service/<namespace>/<name> is being deleted; cast again once teardown finishes`, rather than writing a spec that would be deleted with it.
+- **`--atomic` rolls back more than it changed.** The rollback puts the previous spec back and replaces instances that are older than it. Instances the failed cast never touched count as older, so a failure after replacing one of six instances rolls all six. The rollback is budgeted like any update, so availability holds, but expect more churn than the failure caused ([rune#263](https://github.com/runestack/rune/issues/263)).
+- **`--force` does nothing yet.** The flag is parsed but never sent ([rune#260](https://github.com/runestack/rune/issues/260)). To roll a service whose image tag moved but whose spec did not, run [`rune restart`](/cli/restart-stop) on it (`imagePull` defaults to `always`, so the replacements pull the new image).
+
 ## Detach
 
 `--detach` returns as soon as the cast is accepted instead of waiting for rollout.
@@ -121,8 +136,7 @@ or inspect it first with `rune release diff`.
 
 ## Behavior
 
-- **Idempotent.** Re-casting the same spec into the same release is a no-op plan
-  (unless `--force`).
+- **Idempotent.** Re-casting the same spec into the same release is a no-op plan.
 - **Aggregate timeout.** `--timeout` bounds the whole release rollout, not each
   service.
 - **Deterministic apply.** Resources apply in a stable order, then prune runs last.
