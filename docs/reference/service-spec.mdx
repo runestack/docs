@@ -454,6 +454,22 @@ If your service must never overlap with itself — a queue consumer, a cron-styl
 
 See the [Scale & restart guide](/guides/scale-restart#rolling-updates) for how to watch an update and what to do when one stalls.
 
+## What replaces instances
+
+An edit to a service does one of three things, depending on the field.
+
+**Replaces running instances**, rolled under [`updateStrategy`](/guides/scale-restart#rolling-updates). These are the fields an instance is built from:
+
+`image`, `command`, `args`, `env`, `envFrom`, `runtime`, `process`, `ports` (including `hostPort`), `resources` (including `gpu`), `secretMounts`, `configmapMounts`, `volumes` (the mounts themselves), `initSteps`, `securityContext`, and the probes under `health`.
+
+Probes are in this list because the health monitor reads them once, when it starts watching an instance; an edited probe would otherwise reach only new instances. The exception is `health.liveness.failureThreshold`, which is read on every failure and applies immediately.
+
+**Applies immediately, replaces nothing.** The service's generation moves and controllers pick the change up from the live service: `scale`, `updateStrategy`, `drainSeconds`, `restartPolicy`, `expose` (except its port, below), `dependencies`, `networkPolicy`, `discovery`, `health.liveness.failureThreshold`, and the `registry` / `imageRegistry` credentials. A runeset that renders a short-lived registry token therefore no longer rolls the fleet on every cast.
+
+**Recorded now, reaches existing instances at their next replacement.** `labels`, `imagePull`, `imagePullAnonymous` and the `expose` port are copied onto an instance when it is created, and a `claimTemplate` is read only for a replica that has no volume yet. Editing one doesn't replace anything: with a mutable image tag, switching `imagePull` to `always` re-pulls only at the next roll. `affinity` and `autoscale` are accepted but nothing reads them yet.
+
+Contents of a secret or configmap are not part of the spec. After rotating one, [`rune restart`](/cli/restart-stop) the services that mount it.
+
 ## Validation
 
 Run `rune lint` before applying — it catches schema errors, undefined references, and dependency cycles.
