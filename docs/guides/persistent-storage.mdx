@@ -215,7 +215,14 @@ volume:
 
 The cloud drivers (`do-volume`, `hcloud-volume`, `aws-ebs` and `gce-pd`) attach a block device and format it with `mkfs` the first time it is used. Rune formats **only when the disk provably holds nothing**: the device is probed directly (not through the udev database, which can be empty just after a hot-attach), and its first and last megabyte must read as zeros. A disk with a filesystem is mounted as it is.
 
-Anything else is refused and the mount fails, with an error that names the device and what it holds. That includes a disk with a partition table but no filesystem, a damaged filesystem, and data the probe can't identify. Rune won't guess; if you do want the disk reused, wipe it by hand first (for example `wipefs -a <device>`, which erases whatever is on it) and the next attach formats it.
+Anything else is refused and the mount fails, with an error that names the device and the reason. Rune refuses:
+
+- a disk that holds a LUKS, LVM, RAID, ZFS or swap layer rather than a filesystem;
+- a disk with a partition table but no filesystem;
+- a disk with data it can't identify, or with a damaged filesystem (for example a failed superblock checksum);
+- a device that is too small or can't be read, since a disk can briefly report size 0 right after attach.
+
+Rune won't guess. If the disk really is unused, clear it by hand and the next attach formats it. That is irreversible: confirm the device, and that it holds nothing you need, first.
 
 <Note title="Unreleased">
 
