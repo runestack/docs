@@ -21,9 +21,9 @@ This page is the operational counterpart to the [runefile reference](/reference/
 
 Unknown keys are tolerated on purpose: after a `rune upgrade` rollback, an older `runed` must still start on a runefile written for a newer one. A [few keys](/reference/runefile) are read outside the main config (such as `debug`, `pretty`, `docker.registries[].auth.from_secret`) and are not reported.
 
-<Note title="Unreleased">
+<Note title="Since v0.0.1-dev.148">
 
-On `dev`; ships after v0.0.1-dev.147. Until then a wrong-typed value can crash `runed` and unknown keys are ignored silently.
+Since v0.0.1-dev.148. Before that, a wrong-typed value can crash `runed` and unknown keys are ignored silently.
 
 </Note>
 
