@@ -172,7 +172,7 @@ health:
     intervalSeconds: 10
     timeoutSeconds: 2
     failureThreshold: 3
-    successThreshold: 1     # accepted, not yet honoured
+    successThreshold: 1     # readiness only; must be 1 on liveness
 ```
 
 See [Health checks](/guides/health).
