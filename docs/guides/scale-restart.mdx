@@ -151,11 +151,15 @@ Without one, Rune advances the update when the container *starts*, not when your
       port: 8080
 ```
 
-`rune lint` warns when an exposed service is missing one.
+`rune lint` warns when an exposed service is missing one (stateful services are excluded: they don't update through this gate).
 
 ### Services that can't run two copies
 
-Rune detects these — you don't declare it. A service updates one replica at a time if it has a per-replica `claimTemplate` volume, binds a `hostPort`, or runs on the process runtime. At `scale: 1` that means a brief gap on every update, which is unavoidable when only one copy can exist at a time.
+Rune detects these — you don't declare it. A service updates one replica at a time if it mounts a writable `claim:` volume (one without `readOnly: true`), binds a `hostPort`, or runs on the process runtime. At `scale: 1` that means a brief gap on every update, which is unavoidable when only one copy can exist at a time.
+
+A writable `claim:` volume counts whatever its `accessMode`, so a `ReadWriteMany` volume also updates one replica at a time: slower, but never two writers.
+
+Services with a per-replica `claimTemplate` volume (stateful services) don't use the rolling planner at all: every replica is replaced together, so expect the service to be down for the length of an update. `rune lint` says so (`update-recreates-stateful`).
 
 ### Single-replica workers: read this before upgrading
 

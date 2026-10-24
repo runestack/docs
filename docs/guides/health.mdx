@@ -107,7 +107,7 @@ Readiness uses `type`, `path`/`port`, `initialDelaySeconds`, `intervalSeconds` a
 
 - **Without a readiness probe**, an instance is `Running` as soon as its container starts. If the app needs 30 seconds to boot, it shows `Running` and is routed to for those 30 seconds.
 - **With one**, a new instance stays `Starting` ("Waiting for readiness probe") and receives no traffic until the first readiness probe passes. Then it is promoted to `Running` and added to the service's endpoints.
-- **Updates** are gated on it. With a readiness probe, a replacement counts as ready when the app is serving. Without one, Rune waits a flat 5 seconds per replacement, and `rune lint` warns (`update-needs-readiness`) for services that expose ports, unless the service sets `updateStrategy: recreate`.
+- **Updates** are gated on it. With a readiness probe, a replacement counts as ready when the app is serving. Without one, Rune waits a flat 5 seconds per replacement, and `rune lint` warns (`update-needs-readiness`) for services that expose ports, unless the service sets `updateStrategy: recreate` or is stateful (`claimTemplate` volumes).
 - **Dependencies** use it. A service waits for each dependency to have at least one `Running` instance; if the dependency defines a readiness probe, that instance's probe must also be passing.
 
 ### What it doesn't do yet
