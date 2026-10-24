@@ -172,6 +172,7 @@
             "pages": [
               { "href": "/cli/cast", "label": "rune cast" },
               { "href": "/cli/release", "label": "rune release" },
+              { "href": "/cli/upgrade", "label": "rune upgrade" },
               { "href": "/cli/get", "label": "rune get" },
               { "href": "/cli/scale", "label": "rune scale" },
               { "href": "/cli/logs", "label": "rune logs" },

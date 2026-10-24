@@ -9,7 +9,8 @@ Rune ships single binaries — upgrades are mostly "swap and restart." This page
 
 | Scenario | Path | Notes |
 | --- | --- | --- |
-| Routine `runed` version bump on an existing host | [`scripts/upgrade-server.sh`](https://github.com/runestack/rune/blob/main/scripts/upgrade-server.sh) | Swaps binaries, re-applies `cap_net_bind_service`, restarts, rolls back on failure. **Doesn't** touch the systemd unit, runefile, or data dir. |
+| Routine `runed` + CLI bump on a systemd host that already has the upgrade helper units | [`rune upgrade`](/cli/upgrade) | In-band: verifies the digest, swaps, restarts, rolls back on failure, then updates your CLI. Needs an admin token. |
+| `runed` bump on a host without the helper units, or when `rune upgrade` can't reach the server | [`scripts/upgrade-server.sh`](https://github.com/runestack/rune/blob/main/scripts/upgrade-server.sh) | Swaps binaries, re-applies `cap_net_bind_service`, restarts, rolls back on failure. **Doesn't** touch the systemd unit, runefile, or data dir. |
 | First-time install, or you want the systemd unit refreshed to current | [`scripts/install-server.sh`](https://github.com/runestack/rune/blob/main/scripts/install-server.sh) | Greenfield path. Re-running it on an existing host *will* rewrite the unit and re-`setcap` — useful when the on-disk unit has drifted behind the installer template. |
 | Provisioned via `terraform-digitalocean-rune` / `terraform-hetzner-rune` (or similar) | `upgrade-server.sh` over SSH, **not** `terraform apply` with a bumped `rune_version` | See the [Terraform-managed deployments](#terraform-managed-deployments) section. |
 | Just the CLI on a developer machine | [`scripts/install-cli.sh`](https://github.com/runestack/rune/blob/main/scripts/install-cli.sh) | Doesn't touch `runed`. |

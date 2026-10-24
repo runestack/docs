@@ -1,0 +1,55 @@
+---
+title: rune upgrade
+lede: Upgrade Rune itself — the connected server, then this CLI — from one command.
+---
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148.
+
+</Note>
+
+`rune upgrade` updates Rune, not your services (to update a service, [cast](/cli/cast) it). It upgrades the server you are connected to, waits for it to come back healthy, and only then replaces the CLI's own binary — so a failed server upgrade never leaves a newer CLI talking to an older server.
+
+```sh
+rune upgrade                  # newest release, server then CLI
+rune upgrade v0.0.1-dev.147   # a specific release
+rune upgrade --client         # this CLI only
+rune upgrade --server         # the connected server only
+```
+
+| Flag           | Default | Notes                                                         |
+| -------------- | ------- | ------------------------------------------------------------- |
+| `--client`     | `false` | Upgrade only this CLI. Mutually exclusive with `--server`.    |
+| `--server`     | `false` | Upgrade only the connected server. Fails if none is reachable. |
+| `-y, --yes`    | `false` | Skip confirmation prompts, including the downgrade prompt.    |
+
+With no version, the target is the newest release whose assets are fully uploaded. A version that is not a release (for example a service name) is rejected.
+
+## What happens
+
+1. The CLI resolves the target and its checksums, then asks the server to upgrade itself.
+2. `runed` downloads the tarball, verifies its digest, and hands it to a root-owned systemd unit, which re-verifies it against the release's `checksums.txt`, swaps the binaries and restarts.
+3. The server is checked for the new version, readiness and stability before the upgrade counts as done. If any check fails, the previous binaries are restored.
+4. The CLI watches through the restart, then replaces itself.
+
+The connection drops while `runed` restarts. Ctrl-C is safe: the upgrade finishes or rolls back on the host either way.
+
+<Warning title="Traffic pauses during the restart">
+
+Ingress and service-to-service traffic pause while the server restarts — typically about 15 seconds, up to a few minutes if the upgrade rolls back. Container instances keep running; process-mode services restart with the server.
+
+</Warning>
+
+## Requirements
+
+- **A Linux server running under systemd.** On any other server `rune upgrade` skips the server half and upgrades the CLI only.
+- **An admin token.** Without one the server half is skipped and the CLI is still upgraded.
+- **The upgrade helper units on the host.** Hosts installed before `rune upgrade` existed don't have them. The CLI detects this and prints a one-time command to run on the host (`upgrade-server.sh --refresh-unit`); after that, upgrades are in-band. See [Upgrades](/operations/upgrades).
+- **Write access to the CLI binary.** If it was installed by root, run `sudo rune upgrade --client`.
+
+With no reachable server context, `rune upgrade` upgrades the CLI only.
+
+## Downgrades
+
+Passing a version older than the running one is a downgrade and asks for confirmation (skipped with `--yes`). The server host also enforces a root-owned version floor, which can refuse a downgrade the CLI allowed.
