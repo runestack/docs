@@ -115,6 +115,12 @@ rune cast ./my-app --release=my-app-prod --adopt
 
 ## Updating running services
 
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147.
+
+</Note>
+
 Casting a changed service updates it in place: it keeps its identity, its generation counters and any virtual IP it has been given. Only a change to something an instance is built from (the image, env, ports, mounts, probes, security context and so on) replaces instances, and they are replaced under the service's [`updateStrategy`](/guides/scale-restart#rolling-updates), not all at once. Edits to scale, networking, ingress and similar settings apply without replacing anything. The full split is in [what replaces instances](/reference/service-spec#what-replaces-instances).
 
 - **A service being deleted is refused.** Casting onto a service that is still tearing down fails with `service/<namespace>/<name> is being deleted; cast again once teardown finishes`, rather than writing a spec that would be deleted with it.

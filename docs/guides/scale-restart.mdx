@@ -56,6 +56,12 @@ Changing a service's spec — a new image, new env, a rotated secret — no long
 
 `rune cast` updates a service in place, so all of this applies to casts. Which edits replace instances at all (and which only change a live setting) is listed under [what replaces instances](/reference/service-spec#what-replaces-instances).
 
+<Note title="Unreleased">
+
+Casts updating in place is on `dev`; ships after v0.0.1-dev.147.
+
+</Note>
+
 ### The two knobs
 
 ```yaml
