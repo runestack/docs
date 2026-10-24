@@ -124,14 +124,14 @@ Readiness uses `type`, `path`/`port`, `initialDelaySeconds`, `intervalSeconds` a
 
 ### When readiness fails
 
-Once an instance is `Running`, a readiness probe that fails `failureThreshold` times in a row (default `3`) **withdraws** it from traffic. The instance is not restarted and its status stays `Running`; it is marked not ready, a `NotReady` event is recorded, and it leaves the service's endpoints. After `successThreshold` consecutive passes (default `1`) it is restored and a `Ready` event is recorded.
+Once an instance is `Running`, a readiness probe that fails `failureThreshold` times in a row (default `3`) **withdraws** it from traffic. The instance is not restarted and its status stays `Running`; it is marked not ready, a `NotReady` event is recorded, and it stays in the service's endpoint set marked unhealthy, so it gets no traffic. After `successThreshold` consecutive passes (default `1`) it is restored and a `Ready` event is recorded.
 
 - `rune get instances` shows the state in a `READY` column: `yes`, `no`, or `-` for an instance that isn't `Running`. `rune get services` counts only ready instances in its `READY N/M`.
 - There is no fail-open. If every replica is not ready, the service has no healthy endpoints until one recovers.
-- During a rolling update a not-ready instance doesn't count as serving, and the minimum-ready window restarts when it is ready again. A dependency outage therefore can't retire every replica at once: replacements still go through the update budget.
+- During a rolling update a not-ready instance doesn't count as serving, and the minimum-ready window restarts when it is ready again. A dependency outage therefore can't retire every replica at once: outdated not-ready instances are retired at most one at a time (or as many as the update's allowed dip, set by `minServing`), paced by replacements becoming ready.
 - Instances without a readiness probe are always treated as ready.
 
-Only a failing **liveness** probe restarts an instance. `successThreshold` doesn't apply there: one pass clears liveness failures, and a liveness probe that sets `successThreshold` above `1` is rejected with `invalid liveness probe: successThreshold must be 1; it applies to readiness only`.
+Only a failing **liveness** probe restarts an instance. `successThreshold` doesn't apply there: one pass clears liveness failures, and a liveness probe that sets `successThreshold` above `1` is rejected with `invalid health check: invalid liveness probe: successThreshold must be 1; it applies to readiness only`.
 
 <Note title="Unreleased">
 
