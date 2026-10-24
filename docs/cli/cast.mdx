@@ -102,6 +102,24 @@ already-installed release; use `--dry-run` when you're casting from changed sour
 or values. For purely static, offline validation (schema, templates, cycles) use
 [`rune lint`](/cli/lint).
 
+## Permissions
+
+A cast needs the same verb on each resource that the direct API call would, checked in **that resource's namespace** (which can differ from the release's): `create` for a new resource, `update` for a changed or adopted one, `delete` for a pruned one. A cast that fails the check is denied before anything is written, with no pending revision. Every cast, not only `--dry-run`, also needs `get` on each resource it creates, updates, adopts or prunes, because the CLI plans before it applies (resources the release only references are skipped).
+
+The built-in `cast` role (the recommended CI scope) can create and update services, configmaps, secrets and volumes, but cannot delete anything. A cast with that token that would **prune** a resource, including one dropped from the castfile, is denied before anything is applied:
+
+```text
+permission denied: <subject> is not allowed to "delete" <kind> in namespace "<ns>"
+```
+
+`<kind>` is `services`, `secrets`, `configmaps` or `volumes`; together with the namespace it tells you which pruned resource tripped it. Either grant the token `delete` on that kind, or keep it as it is and remove the resource once with an admin token (`rune delete service <name> -n prod`), then re-cast. Adding `--adopt` doesn't get around it: adopting counts as an update, and pruning the adopted resource still needs `delete`. A hand-written narrow policy needs the per-kind verbs, volumes and `get` included.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147. Until then a cast token only needs `releases:create` and can adopt then prune resources it could not delete directly.
+
+</Note>
+
 ## Adoption
 
 A cast that would overwrite a resource **not** owned by this release fails with an
@@ -123,6 +141,7 @@ On `dev`; ships after v0.0.1-dev.147.
 
 Casting a changed service updates it in place: it keeps its identity, its generation counters and any virtual IP it has been given. Only a change to something an instance is built from (the image, env, ports, mounts, probes, security context and so on) replaces instances, and they are replaced under the service's [`updateStrategy`](/guides/scale-restart#rolling-updates), not all at once. Edits to scale, networking, ingress and similar settings apply without replacing anything. The full split is in [what replaces instances](/reference/service-spec#what-replaces-instances).
 
+- **Notes after the apply.** Some edits move the service's generation but change nothing that is already running: labels, `imagePull` and `imagePullAnonymous` (copied onto an instance when it is created), and a `claimTemplate` change (existing volumes are kept as they are, so a new size or class reaches only new replicas). `rune cast` prints a note for each after the release summary, and `-o json` includes them per change. They appear after the apply only, not on `--dry-run` or at the confirm prompt, and a failed or denied cast prints none.
 - **A service being deleted is refused.** Casting onto a service that is still tearing down fails with `service/<namespace>/<name> is being deleted; cast again once teardown finishes`, rather than writing a spec that would be deleted with it.
 - **`--atomic` rolls back more than it changed.** The rollback puts the previous spec back and replaces instances that are older than it. Instances the failed cast never touched count as older, so a failure after replacing one of six instances rolls all six. The rollback is budgeted like any update, so availability holds, but expect more churn than the failure caused ([rune#263](https://github.com/runestack/rune/issues/263)).
 - **`--force` does nothing yet.** The flag is parsed but never sent ([rune#260](https://github.com/runestack/rune/issues/260)). To roll a service whose image tag moved but whose spec did not, run [`rune restart`](/cli/restart-stop) on it (`imagePull` defaults to `always`, so the replacements pull the new image).
