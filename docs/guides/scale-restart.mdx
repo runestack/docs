@@ -56,9 +56,9 @@ Changing a service's spec — a new image, new env, a rotated secret — no long
 
 `rune cast` updates a service in place, so all of this applies to casts. Which edits replace instances at all (and which only change a live setting) is listed under [what replaces instances](/reference/service-spec#what-replaces-instances).
 
-<Note title="Unreleased">
+<Note title="Since v0.0.1-dev.148">
 
-Casts updating in place is on `dev`; ships after v0.0.1-dev.147.
+Casts updating in place: since v0.0.1-dev.148.
 
 </Note>
 
@@ -167,9 +167,9 @@ Rune detects these — you don't declare it. A service updates one replica at a 
 
 A writable `claim:` volume counts whatever its `accessMode`, so a `ReadWriteMany` volume also updates one replica at a time: slower, but never two writers.
 
-<Note title="Unreleased">
+<Note title="Since v0.0.1-dev.148">
 
-On `dev`; ships after v0.0.1-dev.147. Until then a writable `claim:` volume still gets a surge copy, and stateful services still see the `update-needs-readiness` lint.
+Since v0.0.1-dev.148. Before that, a writable `claim:` volume still gets a surge copy, and stateful services still see the `update-needs-readiness` lint.
 
 </Note>
 

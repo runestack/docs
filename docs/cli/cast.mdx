@@ -114,9 +114,9 @@ permission denied: <subject> is not allowed to "delete" <kind> in namespace "<ns
 
 `<kind>` is `services`, `secrets`, `configmaps` or `volumes`; together with the namespace it tells you which pruned resource tripped it. Either grant the token `delete` on that kind, or keep it as it is and remove the resource once with an admin token (`rune delete service <name> -n prod`), then re-cast. Adding `--adopt` doesn't get around it: adopting counts as an update, and pruning the adopted resource still needs `delete`. A hand-written narrow policy needs the per-kind verbs, volumes and `get` included.
 
-<Note title="Unreleased">
+<Note title="Since v0.0.1-dev.148">
 
-On `dev`; ships after v0.0.1-dev.147. Until then a cast token only needs `releases:create` and can adopt then prune resources it could not delete directly.
+Since v0.0.1-dev.148. Before that, a cast token only needs `releases:create` and can adopt then prune resources it could not delete directly.
 
 </Note>
 
@@ -133,9 +133,9 @@ rune cast ./my-app --release=my-app-prod --adopt
 
 ## Updating running services
 
-<Note title="Unreleased">
+<Note title="Since v0.0.1-dev.148">
 
-On `dev`; ships after v0.0.1-dev.147.
+Since v0.0.1-dev.148.
 
 </Note>
 
