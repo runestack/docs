@@ -211,6 +211,18 @@ volume:
 `allowCreateMissing = true` in the runefile (which is the default in
 `runed --dev-mode`).
 
+## When a cloud disk gets formatted
+
+The cloud drivers (`do-volume`, `hcloud-volume`, `aws-ebs` and `gce-pd`) attach a block device and format it with `mkfs` the first time it is used. Rune formats **only when the disk provably holds nothing**: the device is probed directly (not through the udev database, which can be empty just after a hot-attach), and its first and last megabyte must read as zeros. A disk with a filesystem is mounted as it is.
+
+Anything else is refused and the mount fails, with an error that names the device and what it holds. That includes a disk with a partition table but no filesystem, a damaged filesystem, and data the probe can't identify. Rune won't guess; if you do want the disk reused, wipe it by hand first (for example `wipefs -a <device>`, which erases whatever is on it) and the next attach formats it.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147. Until then a failed or empty probe (for example right after attach) could format over an existing filesystem.
+
+</Note>
+
 ## Using `do-volume` for DigitalOcean Block Storage
 
 The `do-volume` driver provisions, attaches, snapshots and reclaims
