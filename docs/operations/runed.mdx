@@ -126,6 +126,7 @@ Returns 200 when the orchestrator is reconciling. Returns 503 if the store is un
 | Disk fills                        | Reconciler logs errors; new writes fail. Free disk.     |
 | Docker daemon down                | Container ops fail. Process services keep running.      |
 | KEK file deleted/corrupt          | Server refuses to start. Restore from backup.           |
+| Runefile value of the wrong type  | Server exits 1 naming the file. Fix the value. See [Runefile errors](/operations/configuration#runefile-errors-and-typos). |
 | Bootstrap token lost              | Recover via local-only `rune admin bootstrap` (only works on a server with no live tokens — otherwise: restore from backup). |
 
 ## See also
