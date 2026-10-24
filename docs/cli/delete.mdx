@@ -74,8 +74,13 @@ This skips whatever cleanup is left and removes the record on the next reconcile
 
 It refuses two cases:
 
-- A service that isn't being deleted: `service <ns>/<name> is not being deleted; run `rune delete service <name> -n <ns>` first`.
-- A service that is still removing its instances: `service <ns>/<name> is still removing its instances; wait for that to finish, then retry`. Instance cleanup never gets stuck, and abandoning it would leave containers nothing reaps.
+- A service that isn't being deleted. The message ends with the command to run first:
+
+  ```text
+  service default/api is not being deleted; run `rune delete service api -n default` first
+  ```
+
+- A service that is still removing its instances (`service default/api is still removing its instances; wait for that to finish, then retry`). Instance cleanup never gets stuck, and abandoning it would leave containers nothing reaps.
 
 What the skipped cleanup would have removed is left for you, and the command warns about it. In particular, volumes the service owned stay in place, with their data. A later cast of a service with the same name binds them again; if you don't want that, delete them first with `rune delete volume <name>`.
 
