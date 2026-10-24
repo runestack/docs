@@ -159,6 +159,12 @@ Rune detects these — you don't declare it. A service updates one replica at a 
 
 A writable `claim:` volume counts whatever its `accessMode`, so a `ReadWriteMany` volume also updates one replica at a time: slower, but never two writers.
 
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.147. Until then a writable `claim:` volume still gets a surge copy, and stateful services still see the `update-needs-readiness` lint.
+
+</Note>
+
 Services with a per-replica `claimTemplate` volume (stateful services) don't use the rolling planner at all: every replica is replaced together, so expect the service to be down for the length of an update. `rune lint` says so (`update-recreates-stateful`).
 
 ### Single-replica workers: read this before upgrading
