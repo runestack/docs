@@ -29,7 +29,7 @@ health:
     intervalSeconds: 10
     timeoutSeconds: 2
     failureThreshold: 3
-    successThreshold: 1      # accepted, not yet honoured
+    successThreshold: 1      # must be 1 on liveness; see below
 ```
 
 Tunables:
@@ -39,8 +39,8 @@ Tunables:
 | `initialDelaySeconds`  | `0`     | Wait this long after container start before first probe.           |
 | `intervalSeconds`      | `10`    | Time between probes.                                               |
 | `timeoutSeconds`       | `5`     | Per-probe timeout, for `http`, `tcp` and `exec` probes.            |
-| `failureThreshold`     | `3`     | Consecutive failures before marking unhealthy.                     |
-| `successThreshold`     | `1`     | Accepted but not yet honoured: one passing probe is always enough. |
+| `failureThreshold`     | `3`     | Consecutive failures before acting: liveness restarts the instance, readiness withdraws it from traffic. |
+| `successThreshold`     | `1`     | Readiness only: consecutive passes before a withdrawn instance is restored to traffic. Must be `1` on a liveness probe. |
 
 <Note title="Since v0.0.1-dev.148">
 
@@ -113,7 +113,7 @@ health:
     initialDelaySeconds: 30
 ```
 
-Readiness uses `type`, `path`/`port`, `initialDelaySeconds`, `intervalSeconds` and `timeoutSeconds` as described above, and runs independently of liveness — each probe has its own delay and interval. `failureThreshold` applies to liveness only; readiness never reads it. `successThreshold` is accepted but not yet honoured for either probe.
+Readiness uses `type`, `path`/`port`, `initialDelaySeconds`, `intervalSeconds` and `timeoutSeconds` as described above, and runs independently of liveness — each probe has its own delay and interval. `failureThreshold` applies to both probes; `successThreshold` to readiness only.
 
 ### What readiness does
 
@@ -122,9 +122,22 @@ Readiness uses `type`, `path`/`port`, `initialDelaySeconds`, `intervalSeconds` a
 - **Updates** are gated on it. With a readiness probe, a replacement counts as ready when the app is serving. Without one, Rune waits a flat 5 seconds per replacement, and `rune lint` warns (`update-needs-readiness`) for services that expose ports, unless the service sets `updateStrategy: recreate` or is stateful (`claimTemplate` volumes).
 - **Dependencies** use it. A service waits for each dependency to have at least one `Running` instance; if the dependency defines a readiness probe, that instance's probe must also be passing.
 
-### What it doesn't do yet
+### When readiness fails
 
-Readiness gates the move to `Running`; it does not take an instance back out. If a readiness probe starts failing on an instance that is already `Running`, Rune logs the failure and dependency checks see it, but the instance stays `Running` and stays in the endpoint set. Only a failing **liveness** probe takes an instance out, by restarting it; the replacement starts in `Starting` again.
+Once an instance is `Running`, a readiness probe that fails `failureThreshold` times in a row (default `3`) **withdraws** it from traffic. The instance is not restarted and its status stays `Running`; it is marked not ready, a `NotReady` event is recorded, and it leaves the service's endpoints. After `successThreshold` consecutive passes (default `1`) it is restored and a `Ready` event is recorded.
+
+- `rune get instances` shows the state in a `READY` column: `yes`, `no`, or `-` for an instance that isn't `Running`. `rune get services` counts only ready instances in its `READY N/M`.
+- There is no fail-open. If every replica is not ready, the service has no healthy endpoints until one recovers.
+- During a rolling update a not-ready instance doesn't count as serving, and the minimum-ready window restarts when it is ready again. A dependency outage therefore can't retire every replica at once: replacements still go through the update budget.
+- Instances without a readiness probe are always treated as ready.
+
+Only a failing **liveness** probe restarts an instance. `successThreshold` doesn't apply there: one pass clears liveness failures, and a liveness probe that sets `successThreshold` above `1` is rejected with `invalid liveness probe: successThreshold must be 1; it applies to readiness only`.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148. Until then a failing readiness probe only gates the move to `Running`, `successThreshold` is ignored, and `rune get instances` has no `READY` column.
+
+</Note>
 
 ### Choosing between them
 
