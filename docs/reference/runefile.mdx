@@ -78,6 +78,7 @@ docker:
 | `data-dir`   | OS-specific      | BadgerDB + state. Persist across restarts.  |
 | `log-level`  | `info`           | `debug`, `info`, `warn`, `error`.           |
 | `log-format` | `text`           | `text` or `json`.                           |
+| `require_tls` | `false`         | With TLS off, bind gRPC to loopback only. Without it, `runed` warns when gRPC serves plaintext on a non-loopback address. Flag: `--grpc-require-tls`. |
 
 #### `server.tls`
 
@@ -89,7 +90,6 @@ TLS for the gRPC listener and the dashboard.
 | `tls.cert_file`      | —       | Your certificate. Set together with `key_file`.                       |
 | `tls.key_file`       | —       | Your private key.                                                     |
 | `tls.hosts`          | —       | Extra names and addresses for the self-signed certificate.            |
-| `require_tls`        | `false` | With TLS off, bind gRPC to loopback only. Without it, `runed` warns when gRPC serves plaintext on a non-loopback address. |
 
 With `enabled: true` and neither file set, `runed` generates a self-signed P-256 certificate in `<data_dir>/tls/`, valid for loopback, the hostname, the host's interface addresses and `hosts`. The key persists across restarts, and the certificate is re-issued under the same key when it nears expiry or `hosts` changes, so a pinned fingerprint keeps working. The SPKI fingerprint is logged at startup. Renewal is checked only at startup.
 
@@ -387,6 +387,7 @@ Anything in the runefile can be overridden via `runed` flags:
 | `--http-addr`    | `server.http-addr`       |
 | `--log-level`    | `server.log-level`       |
 | `--log-format`   | `server.log-format`      |
+| `--grpc-require-tls` | `server.require_tls` |
 | `--debug`        | shorthand for `--log-level=debug` |
 | `--pretty`       | shorthand for `--log-format=text` |
 | `--cluster-cidr` | `networking.cluster_cidr`         |

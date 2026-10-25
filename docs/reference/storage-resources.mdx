@@ -430,7 +430,7 @@ service:
 | Field           | Type     | Required    | Notes                                                                 |
 | --------------- | -------- | ----------- | --------------------------------------------------------------------- |
 | `name`          | string   | yes         | Mount identifier. Unique within the service.                          |
-| `mountPath`     | string   | yes         | Absolute path inside the container/process. Blocklist: `/`, `/etc`, `/proc`, `/sys`, `/var/run/docker.sock`. |
+| `mountPath`     | string   | yes         | Absolute path inside the container/process. Blocklist: `/proc`, `/sys`, `/dev` and the Docker and containerd sockets (paths inside them are refused too). |
 | `readOnly`      | bool     | no          | Mount read-only. Default `false`.                                     |
 | `subPath`       | string   | no          | Mount a sub-directory of the volume.                                  |
 | `claim`         | object   | conditional | Exactly one of `claim` or `claimTemplate`.                            |

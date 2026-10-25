@@ -196,8 +196,8 @@ Driver `Provision` requests carry topology labels for placement-aware backends:
 
 ## Security defaults
 
-- **Bind-mount blocklist** — `mountPath` cannot be `/`, `/etc`, `/proc`,
-  `/sys`, or `/var/run/docker.sock`. Cast-time lint.
+- **Bind-mount blocklist** — `mountPath` cannot be `/proc`, `/sys`, `/dev`
+  or a Docker/containerd socket (nor inside one). Cast-time check.
 - **Host path allowlist** — `local-host` rejects any `hostPath` not under a
   prefix in `runefile.[storage].hostPathAllowlist`.
 - **`createIfMissing` is opt-in** — `local-host` will not create a missing
