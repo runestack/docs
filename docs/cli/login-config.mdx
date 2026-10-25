@@ -66,16 +66,13 @@ rune context delete <name>     # remove
 rune context set prod \
   --server runed.example.com:7863 \
   --token-file /etc/rune/prod.token \
-  --namespace prod \
-  --tls-ca /etc/rune/ca.crt \
-  --tls-cert /etc/rune/client.crt \
-  --tls-key /etc/rune/client.key
+  --default-namespace prod
 ```
 
 Update one field on an existing context:
 
 ```sh
-rune context set dev --namespace=staging
+rune context set dev --default-namespace=staging
 ```
 
 ### Aliases

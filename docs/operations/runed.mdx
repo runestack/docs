@@ -44,7 +44,7 @@ sudo journalctl -u runed -f
 `--data-dir` (default `/var/lib/rune`) holds:
 
 - BadgerDB state (services, instances, secrets ciphertexts, tokens, policies).
-- The KEK file, if `crypto.kek.source: file`.
+- The KEK file, if `secret.encryption.kek.source: file` (default `<data_dir>/kek.b64`).
 - Per-resource version history.
 
 **Back this up.** Loss = loss of every service spec, secret, user, and policy.

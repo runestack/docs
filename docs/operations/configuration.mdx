@@ -54,6 +54,12 @@ rune login local --server localhost:7863 --token-file ./tok
 
 Without TLS, every bearer token crosses the wire in plaintext, so don't expose the gRPC port to an untrusted network. `runed` can serve gRPC over TLS (`server.tls`, see the [runefile reference](/reference/runefile#server-tls)), but the `rune` CLI can't connect over it yet; until it can, keep the port on loopback and use the SSH tunnel above.
 
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148.
+
+</Note>
+
 ## Auth posture
 
 ```yaml

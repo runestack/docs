@@ -21,6 +21,12 @@ Rune ships with sensible defaults but a few important things are off by default.
 
 `runed` can serve gRPC and the dashboard over TLS with `server.tls` (your own certificate, or a self-signed one it generates); see the [runefile reference](/reference/runefile#server-tls). The `rune` CLI can't connect to a TLS server yet, so until it can, don't enable it on a server you manage with `rune`. Keep the gRPC port on loopback or a private network and reach it over an SSH tunnel; without TLS, bearer tokens cross the wire in clear.
 
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148.
+
+</Note>
+
 mTLS (client certs) is roadmap (RUNE-028). For now, bearer tokens over TLS are the model.
 
 ## KEK lifecycle
@@ -30,8 +36,8 @@ mTLS (client certs) is roadmap (RUNE-028). For now, bearer tokens over TLS are t
 The KEK file is the master key for every secret. Back it up to a separate, equally-protected location (e.g., a sealed Vault entry):
 
 ```sh
-sudo cat /var/lib/rune/kek | base64 -d | wc -c   # should be 32
-sudo cp /var/lib/rune/kek /secure/offsite/kek.$(date +%F)
+sudo cat /var/lib/rune/kek.b64 | base64 -d | wc -c   # should be 32 (default path: <data_dir>/kek.b64)
+sudo cp /var/lib/rune/kek.b64 /secure/offsite/kek.$(date +%F)
 ```
 
 Store with mode `0600`, owner restricted.

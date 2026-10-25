@@ -67,7 +67,7 @@ docker:
 | `http_address` | `:7861`          | REST gateway + [web dashboard](/guides/dashboard) listen address. |
 | `require_tls`  | `false`          | With TLS off, bind gRPC to loopback only. Without it, `runed` warns when gRPC serves plaintext on a non-loopback address. Flag: `--grpc-require-tls`. |
 
-#### Server TLS
+### Server TLS
 
 TLS for the gRPC listener and the dashboard.
 
@@ -108,6 +108,9 @@ On `dev`; ships after v0.0.1-dev.148. Until then `[server.tls]` was parsed and n
 | Field                | Default | Notes                                                   |
 | -------------------- | ------- | ------------------------------------------------------- |
 | `allow_remote_admin` | `false` | If true, `admin/*` works from non-localhost clients.    |
+| `session_access_ttl`  | `15m`   | Lifetime of a dashboard session's access token.         |
+| `session_refresh_ttl` | `30d`   | Idle window after which a dashboard session must sign in again (sliding). |
+| `session_grace_window` | `30s`  | Grace for concurrent refreshes of the same session.     |
 
 ### `ui`
 
@@ -132,6 +135,7 @@ Secret encryption and size limits.
 | `encryption.kek.file`          | `<data_dir>/kek.b64` | Used when `source: file`.                   |
 | `limits.max_object_bytes`      | `1048576` | Cap on a whole secret, in bytes.                       |
 | `limits.max_key_name_length`   | `256`   | Cap on a key name.                                       |
+| `encryption.kek.passphrase.{enabled,env}` | — | Accepted but **not honoured**: the KEK is never wrapped with a passphrase. Don't rely on it. |
 
 With `source: env` the key is read from the `RUNE_MASTER_KEY` environment variable; the variable name is fixed. The KEK is 32 bytes, base64-encoded on disk or in the variable. See [Configuration](/operations/configuration#kek-source) for the trade-offs and [Security](/operations/security#kek-lifecycle) for backup and rotation.
 
@@ -161,13 +165,12 @@ reference](/reference/storage-resources).
 | `defaultStorageClass` | `local`                  | Cluster default class. Empty string disables the default — `claimTemplate` without `storageClassName` becomes a cast-time error. |
 | `drivers.local.localVolumeRoot`      | `/var/lib/rune/volumes` | Root for the `local` driver's managed directory tree. |
 | `drivers.local-host.hostPathAllowlist` | `[]`                  | Allowed prefixes for `local-host` `hostPath`. Empty list denies all hostPath usage. `runed --dev-mode` overlays `["~/.rune/volumes"]`. |
-| `allowCreateMissing`  | `false`                  | When `true`, honour `local-host` `parameters.createIfMissing: "true"`. `runed --dev-mode` overlays `true`. |
+| `drivers.local-host.allowCreateMissing` | `false` | When `true`, the `local-host` driver creates a missing `hostPath` directory instead of failing. `runed --dev-mode` overlays `true`. (The top-level `storage.allowCreateMissing` is accepted but nothing reads it.) |
 | `preserveOnDelete`    | `false`                  | (`local` driver only.) When `true`, converts `reclaimPolicy: delete` to `retain` — directories survive cascade.  |
 
 ```toml
 [storage]
 defaultStorageClass = "local"
-allowCreateMissing = false
 preserveOnDelete = false
 
 [storage.drivers.local]
@@ -175,6 +178,7 @@ localVolumeRoot = "/var/lib/rune/volumes"
 
 [storage.drivers.local-host]
 hostPathAllowlist = ["/mnt/rune", "/var/lib/rune-volumes"]
+allowCreateMissing = false
 ```
 
 #### `storage.drivers`
@@ -193,7 +197,7 @@ no runefile knobs (its API token is sourced from
 # someKnob = "value"
 ```
 
-### `docker`
+### Docker
 
 | Field                         | Default | Notes                                                              |
 | ----------------------------- | ------- | ------------------------------------------------------------------ |
