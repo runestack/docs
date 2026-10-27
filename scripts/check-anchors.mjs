@@ -56,9 +56,10 @@ for (const [from, { links }] of pages) {
   }
 }
 
-if (errors.length) {
-  console.error(`${errors.length} broken internal link(s):`);
-  for (const e of [...new Set(errors)].sort()) console.error("  " + e);
+const unique = [...new Set(errors)].sort();
+if (unique.length) {
+  console.error(`${unique.length} broken internal link(s):`);
+  for (const e of unique) console.error("  " + e);
   console.error(
     '\nA heading only gets an id when it is an h2/h3 made of plain text. For an h4, or a heading ' +
       'with `code` or **bold** in it, put <span id="your-id"></span> on its own line just above it, ' +
