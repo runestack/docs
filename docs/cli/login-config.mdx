@@ -32,6 +32,8 @@ If you omit `<context-name>`, it defaults to `default`.
 
 The legacy `--namespace` flag on `rune login` is a deprecated alias for `--default-namespace`; it still works for one release but emits a warning. The rename disambiguates it from the per-operation `--namespace` flag used everywhere else (`cast`, `get`, `delete`).
 
+<span id="token-stdin-for-ci"></span>
+
 ### `--token-stdin` for CI
 
 For automation (GitHub Actions, GitLab CI, etc.) prefer piping the token over stdin so it never lands on the process argv — invisible to `/proc`, `ps`, shell history, or naive log capture:

@@ -11,6 +11,8 @@ For the conceptual picture, see [Concepts: Networking](/concepts/networking). Fo
 
 Inspect ingress + TLS certificate state. Read-only — these commands never mutate cluster state.
 
+<span id="rune-get-ingresses"></span>
+
 ### `rune get ingresses`
 
 List every service whose `spec.expose.host` is set, with its TLS mode, certificate state, and time-to-expiry.
@@ -84,6 +86,8 @@ When a request is failing, `Last error` and `Next retry` populate. The orchestra
 
 Inspect compiled `ServiceNetworkPolicy` rules attached to a service. Read-only.
 
+<span id="rune-get-netpolicy-service"></span>
+
 ### `rune get netpolicy <service>`
 
 Render the compiled rule table for a service the way the in-process evaluator sees it.
@@ -101,7 +105,7 @@ ingress rules:
   [0] peers=[service=default/web service=jobs/worker cidr=10.0.0.0/8] ports=[http]
 ```
 
-`service ... no policy (open)` means the service has no `networkPolicy` block yet. As soon as one is present, the relevant direction flips to default-deny. See [default-deny semantics](/guides/network-policy/#default-deny--opt-in-per-service).
+`service ... no policy (open)` means the service has no `networkPolicy` block yet. As soon as one is present, the relevant direction flips to default-deny. See [default-deny semantics](/guides/network-policy/#default-deny-opt-in-per-service).
 
 ### Validating a policy file
 

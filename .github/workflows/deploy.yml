@@ -30,6 +30,7 @@ jobs:
       - run: npx markline export
         env:
           MARKLINE_AI_KEY: ${{ secrets.MARKLINE_AI_KEY }}
+      - run: node scripts/check-anchors.mjs out
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

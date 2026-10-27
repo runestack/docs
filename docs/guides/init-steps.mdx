@@ -19,7 +19,7 @@ An init step:
   re-format your database.
 
 If you want the operational view first, see
-[concepts → service lifecycle](/concepts/service) for where
+[concepts → service lifecycle](/concepts/services) for where
 `Initializing` slots between `Pending` and `Running`.
 
 ## 1. The minimal shape
@@ -63,6 +63,8 @@ $ rune cast examples/init/tigerbeetle.yaml
 
 The full example lives at
 [examples/init/tigerbeetle.yaml](https://github.com/runestack/rune/blob/main/examples/init/tigerbeetle.yaml).
+
+<span id="2-when-does-a-step-run-runif"></span>
 
 ## 2. When does a step run?  `runIf`
 
@@ -315,5 +317,5 @@ Anything not listed here is copied from the parent verbatim.
   primitives `freshVolume` keys off.
 - [Logs and exec](/guides/logs-exec) — `--init-step` integrates with
   the same surface.
-- [Service spec reference](/reference/service) — the full
+- [Service spec reference](/reference/service-spec) — the full
   `initSteps[]` field schema.

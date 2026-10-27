@@ -22,6 +22,7 @@ landing locally, run `npm run export` and serve `out/` (see below).
 npm run build      # production server bundle  (markline build)
 npm run start      # serve the built bundle
 npm run export     # static HTML  ->  out/   (markline export)
+npm run check      # export, then fail on any internal link or #anchor that doesn't resolve
 ```
 
 In the **static export** (`out/`), the landing is the site root — `out/index.html`
