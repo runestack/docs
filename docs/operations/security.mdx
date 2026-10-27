@@ -94,12 +94,12 @@ A service can name resources in other namespaces: secrets and configmaps in env 
 | --- | --- |
 | a secret | `secrets:reveal` |
 | a configmap | `configmaps:get` |
-| a volume claim | `volumes:get` |
-| a snapshot restore | `snapshots:get` |
+| a volume claim | `volumes:reveal` |
+| a snapshot restore | `snapshots:reveal` |
 
 References into the service's own namespace need nothing extra. The same check applies to direct service, volume and snapshot-restore calls and to `rune cast`. A denial reads `permission denied: <subject> is not allowed to "reveal" secrets in namespace "<ns>"`.
 
-The built-in `readwrite` and `cast` roles don't hold `secrets:reveal`, so a cast that reads another namespace's secret needs an admin token or a policy that grants `reveal` there. The `cast` role has no `snapshots` verbs at all, so a cross-namespace snapshot restore needs a custom policy. Running services are not re-checked: one that already references another namespace keeps working until its next update (`rune restart` and `rune scale` don't count).
+A cross-namespace volume claim or snapshot restore exposes the whole volume's data, so it needs a `reveal` verb too. Only the `admin` and `root` roles hold the `reveal` verbs; `readwrite`, `readonly` and `cast` hold none, so a cast that reads another namespace's secret, volume or snapshot needs an admin token or a policy that grants `reveal` there. The `cast` role has no `snapshots` verbs at all, so a cross-namespace snapshot restore needs a custom policy. Running services are not re-checked: one that already references another namespace keeps working until its next update (`rune restart` and `rune scale` don't count).
 
 <Note title="Unreleased">
 

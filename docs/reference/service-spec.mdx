@@ -245,7 +245,7 @@ volumes:
 | `mountPath`     | Absolute path. Blocklist: `/proc`, `/sys`, `/dev` and the Docker and containerd sockets (paths inside them are refused too). |
 | `readOnly`      | Optional. Default `false`.                                         |
 | `subPath`       | Optional. Mount a sub-directory of the volume.                     |
-| `claim`         | `name` of an existing Volume. Cross-namespace as `ns/name`; that needs `volumes:get` in the other namespace. |
+| `claim`         | `name` of an existing Volume. Cross-namespace as `ns/name`; that needs `volumes:reveal` in the other namespace. |
 | `claimTemplate` | `storageClassName` (optional, falls back to default class), `size`, `accessMode`. |
 
 Full schema in [Storage resources](/reference/storage-resources) and the

@@ -194,6 +194,19 @@ On `dev`; ships after v0.0.1-dev.148. Until then volumes mounted at `/var/lib/ru
 
 </Note>
 
+## Local volumes stay inside their own paths
+
+The `local` driver only mounts, snapshots, measures and deletes a volume's own directory, `<localVolumeRoot>/<namespace>/<name>`, resolved through symlinks. A handle that points anywhere else (another volume, another namespace, the snapshot store, or a symlink out of the root) is refused. The same applies to snapshot restore and delete, which accept only the snapshot's own directory. A `subPath` is bound only if it resolves to somewhere inside the volume.
+
+- **A volume created under an earlier `localVolumeRoot`** is refused at mount. The error says to move its directory under the current root or set `localVolumeRoot` back.
+- **`local-host`** re-checks `hostPathAllowlist` on every mount, not just when the volume is created, so a volume whose path you remove from the allowlist stops mounting.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148. Until then the drivers trusted a volume's stored path as given, and `local-host` checked the allowlist only when the volume was created.
+
+</Note>
+
 ## Using `local-host` for pre-existing host paths
 
 `local-host` binds an arbitrary pre-existing host directory. The operator
