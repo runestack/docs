@@ -23,7 +23,7 @@ A request is allowed if **any rule** in **any of the subject's policies** matche
    namespace             └──────────────┘
 ```
 
-If auth is disabled (`auth.enabled: false` in the runefile) the whole chain is bypassed. Don't run that way in production.
+Authentication is always on; there is no runefile switch to bypass this chain.
 
 ## Policy schema
 

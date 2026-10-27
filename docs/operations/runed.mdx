@@ -44,7 +44,7 @@ sudo journalctl -u runed -f
 `--data-dir` (default `/var/lib/rune`) holds:
 
 - BadgerDB state (services, instances, secrets ciphertexts, tokens, policies).
-- The KEK file, if `crypto.kek.source: file`.
+- The KEK file, if `secret.encryption.kek.source: file` (default `<data_dir>/kek.b64`).
 - Per-resource version history.
 
 **Back this up.** Loss = loss of every service spec, secret, user, and policy.
@@ -68,7 +68,7 @@ journalctl -u runed --since "1 hour ago"
 journalctl -u runed -p err  # errors only
 ```
 
-Configure verbosity in the runefile (`server.log-level`) or with `--log-level`. Use `--log-format=json` if you ship logs to a structured collector.
+Configure verbosity in the runefile (`log.level`) or with `--log-level`. Use `--log-format=json` if you ship logs to a structured collector.
 
 ## Signals
 
@@ -84,16 +84,16 @@ Graceful shutdown waits for in-flight RPCs (with a timeout) and writes any pendi
 
 ```yaml
 server:
-  grpc-addr: ":7863"   # bind all interfaces
-  http-addr: ":7861"
+  grpc_address: ":7863"   # bind all interfaces
+  http_address: ":7861"
 ```
 
-In production, bind to a private interface and front-door with TLS. To restrict to localhost:
+In production, bind to a private interface. To restrict to localhost:
 
 ```yaml
 server:
-  grpc-addr: "127.0.0.1:7863"
-  http-addr: "127.0.0.1:7861"
+  grpc_address: "127.0.0.1:7863"
+  http_address: "127.0.0.1:7861"
 ```
 
 ## Resource sizing

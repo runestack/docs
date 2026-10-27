@@ -10,47 +10,37 @@ The two formats are equivalent; pick whichever your tooling prefers. TOML is rec
 ## Minimal example
 
 ```yaml
-server:
-  grpc-addr: ":7863"
-  http-addr: ":7861"
-  data-dir: /var/lib/rune
+data_dir: /var/lib/rune
 
-auth:
-  enabled: true
+server:
+  grpc_address: ":7863"
+  http_address: ":7861"
 ```
 
 ## Full example
 
 ```yaml
+data_dir: /var/lib/rune
+
 server:
-  grpc-addr: ":7863"
-  http-addr: ":7861"
-  data-dir: /var/lib/rune
-  log-level: info
-  log-format: json
+  grpc_address: ":7863"
+  http_address: ":7861"
+
+log:
+  level: info
+  format: json
 
 auth:
-  enabled: true
   allow_remote_admin: false
 
-crypto:
-  kek:
-    source: file              # file | env | generated
-    file-path: /var/lib/rune/kek
-    env-var: RUNE_MASTER_KEY
-    generate-if-missing: true
-
 secret:
+  encryption:
+    kek:
+      source: file              # file | env | generated
+      file: /var/lib/rune/kek.b64
   limits:
     max_object_bytes: 1048576
     max_key_name_length: 256
-
-runner:
-  docker:
-    enabled: true
-    socket: /var/run/docker.sock
-  process:
-    enabled: true
 
 docker:
     registries:
@@ -71,16 +61,13 @@ docker:
 
 ### `server`
 
-| Field        | Default          | Notes                                       |
-| ------------ | ---------------- | ------------------------------------------- |
-| `grpc-addr`  | `:7863`          | gRPC listen address.                        |
-| `http-addr`  | `:7861`          | REST gateway + [web dashboard](/guides/dashboard) listen address. |
-| `data-dir`   | OS-specific      | BadgerDB + state. Persist across restarts.  |
-| `log-level`  | `info`           | `debug`, `info`, `warn`, `error`.           |
-| `log-format` | `text`           | `text` or `json`.                           |
-| `require_tls` | `false`         | With TLS off, bind gRPC to loopback only. Without it, `runed` warns when gRPC serves plaintext on a non-loopback address. Flag: `--grpc-require-tls`. |
+| Field          | Default          | Notes                                       |
+| -------------- | ---------------- | ------------------------------------------- |
+| `grpc_address` | `:7863`          | gRPC listen address.                        |
+| `http_address` | `:7861`          | REST gateway + [web dashboard](/guides/dashboard) listen address. |
+| `require_tls`  | `false`          | With TLS off, bind gRPC to loopback only. Without it, `runed` warns when gRPC serves plaintext on a non-loopback address. Flag: `--grpc-require-tls`. |
 
-#### `server.tls`
+### Server TLS
 
 TLS for the gRPC listener and the dashboard.
 
@@ -107,16 +94,27 @@ On `dev`; ships after v0.0.1-dev.148. Until then `[server.tls]` was parsed and n
 
 </Note>
 
+### Top level and `log`
+
+| Field        | Default          | Notes                                       |
+| ------------ | ---------------- | ------------------------------------------- |
+| `data_dir`   | OS-specific      | BadgerDB + state. A top-level key, not under `server`. Persist across restarts. |
+| `log.level`  | `info`           | `debug`, `info`, `warn`, `error`.           |
+| `log.format` | `text`           | `text` or `json`.                           |
+| `debug`, `pretty` | `false`     | Shorthand for `--debug` / `--pretty` (see [flag overrides](#cli-flag-overrides)). |
+
 ### `auth`
 
 | Field                | Default | Notes                                                   |
 | -------------------- | ------- | ------------------------------------------------------- |
-| `enabled`            | `true`  | Set to `false` only for local dev.                      |
 | `allow_remote_admin` | `false` | If true, `admin/*` works from non-localhost clients.    |
+| `session_access_ttl`  | `15m`   | Lifetime of a dashboard session's access token.         |
+| `session_refresh_ttl` | `30d`   | Idle window after which a dashboard session must sign in again (sliding). |
+| `session_grace_window` | `30s`  | Grace for concurrent refreshes of the same session.     |
 
 ### `ui`
 
-The embedded [web dashboard](/guides/dashboard), served on `server.http-addr`.
+The embedded [web dashboard](/guides/dashboard), served on `server.http_address`.
 
 | Field             | Default | Notes                                                                                     |
 | ----------------- | ------- | ----------------------------------------------------------------------------------------- |
@@ -126,25 +124,35 @@ The embedded [web dashboard](/guides/dashboard), served on `server.http-addr`.
 | `handoff_ttl`     | `60s`   | Lifetime of a handoff code.                                                               |
 | `require_tls`     | `true`  | Without TLS, bind the HTTP listener to loopback only — no plaintext on a public address.  |
 
-### `crypto.kek`
+### `secret`
 
-How `runed` loads the Key Encryption Key for secrets.
+Secret encryption and size limits.
 
-| Field                 | Notes                                                          |
-| --------------------- | -------------------------------------------------------------- |
-| `source`              | `file`, `env`, or `generated`.                                 |
-| `file-path`           | Used when `source: file`.                                      |
-| `env-var`             | Used when `source: env` (e.g. `RUNE_MASTER_KEY`).              |
-| `generate-if-missing` | If true, create a new KEK and persist (mode `0600`).           |
+| Field                          | Default | Notes                                                    |
+| ------------------------------ | ------- | -------------------------------------------------------- |
+| `encryption.enabled`           | `true`  | Encrypt secrets at rest.                                 |
+| `encryption.kek.source`        | `file`  | How `runed` loads the Key Encryption Key: `file`, `env` or `generated`. |
+| `encryption.kek.file`          | `<data_dir>/kek.b64` | Used when `source: file`.                   |
+| `limits.max_object_bytes`      | `1048576` | Cap on a whole secret, in bytes.                       |
+| `limits.max_key_name_length`   | `256`   | Cap on a key name.                                       |
+| `encryption.kek.passphrase.{enabled,env}` | — | Accepted but **not honoured**: the KEK is never wrapped with a passphrase. Don't rely on it. |
 
-The KEK is 32 bytes, base64-encoded when stored on disk or passed via env.
+With `source: env` the key is read from the `RUNE_MASTER_KEY` environment variable; the variable name is fixed. The KEK is 32 bytes, base64-encoded on disk or in the variable. See [Configuration](/operations/configuration#kek-source) for the trade-offs and [Security](/operations/security#kek-lifecycle) for backup and rotation.
 
-### `storage.secret-limits`
+### `config`
 
-| Field                  | Default    | Notes                                  |
-| ---------------------- | ---------- | -------------------------------------- |
-| `max-keys-per-secret`  | `64`       | Per-secret key count cap.              |
-| `max-value-size`       | `65536`    | Per-value size cap (bytes).            |
+| Field                          | Default   | Notes                                |
+| ------------------------------ | --------- | ------------------------------------ |
+| `limits.max_object_bytes`      | `1048576` | Cap on a whole configmap, in bytes.  |
+| `limits.max_key_name_length`   | `256`     | Cap on a key name.                   |
+
+Limits are enforced when an object is created or updated; an existing object over a lowered limit stays readable and is rejected on its next write.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148. Until then the `limits` keys above were ignored and the defaults always applied; only the run-together `maxobjectbytes` / `maxkeynamelength` spellings took effect.
+
+</Note>
 
 ### `storage` (volumes)
 
@@ -155,20 +163,22 @@ reference](/reference/storage-resources).
 | Field                 | Default                  | Notes                                                                          |
 | --------------------- | ------------------------ | ------------------------------------------------------------------------------ |
 | `defaultStorageClass` | `local`                  | Cluster default class. Empty string disables the default — `claimTemplate` without `storageClassName` becomes a cast-time error. |
-| `localVolumeRoot`     | `/var/lib/rune/volumes`  | Root for the `local` driver's managed directory tree.                          |
-| `hostPathAllowlist`   | `[]`                     | Allowed prefixes for `local-host` `hostPath`. Empty list denies all hostPath usage. `runed --dev-mode` overlays `["~/.rune/volumes"]`. |
-| `allowCreateMissing`  | `false`                  | When `true`, honour `local-host` `parameters.createIfMissing: "true"`. `runed --dev-mode` overlays `true`. |
+| `drivers.local.localVolumeRoot`      | `/var/lib/rune/volumes` | Root for the `local` driver's managed directory tree. |
+| `drivers.local-host.hostPathAllowlist` | `[]`                  | Allowed prefixes for `local-host` `hostPath`. Empty list denies all hostPath usage. `runed --dev-mode` overlays `["~/.rune/volumes"]`. |
+| `drivers.local-host.allowCreateMissing` | `false` | When `true`, the `local-host` driver creates a missing `hostPath` directory instead of failing. `runed --dev-mode` overlays `true`. (The top-level `storage.allowCreateMissing` is accepted but nothing reads it.) |
 | `preserveOnDelete`    | `false`                  | (`local` driver only.) When `true`, converts `reclaimPolicy: delete` to `retain` — directories survive cascade.  |
 
 ```toml
 [storage]
 defaultStorageClass = "local"
+preserveOnDelete = false
+
+[storage.drivers.local]
 localVolumeRoot = "/var/lib/rune/volumes"
+
+[storage.drivers.local-host]
 hostPathAllowlist = ["/mnt/rune", "/var/lib/rune-volumes"]
 allowCreateMissing = false
-
-[storage.local]
-preserveOnDelete = false
 ```
 
 #### `storage.drivers`
@@ -187,13 +197,19 @@ no runefile knobs (its API token is sourced from
 # someKnob = "value"
 ```
 
-### `runner`
+### Docker
 
-| Section      | Field      | Notes                                       |
-| ------------ | ---------- | ------------------------------------------- |
-| `docker`     | `enabled`  | Set `false` to disable container support.   |
-| `docker`     | `socket`   | Docker daemon socket. Default OS-specific.  |
-| `process`    | `enabled`  | Set `false` to disable process runner.      |
+| Field                         | Default | Notes                                                              |
+| ----------------------------- | ------- | ------------------------------------------------------------------ |
+| `api_version`                 | —       | Docker API version to use. Empty means negotiate with the daemon.  |
+| `fallback_api_version`        | `1.43`  | Used when negotiation fails.                                       |
+| `negotiation_timeout_seconds` | `3`     | How long to wait for version negotiation.                          |
+| `log_max_size`                | `10m`   | Container log rotation size; empty disables rotation.              |
+| `log_max_file`                | `3`     | Rotated log files to keep; `0` or less omits the limit.            |
+| `registries[]`                | —       | Registry credentials; see below.                                   |
+| `disable_ambient_registry_auth` | `false` | Skip the ambient credentials described below.                    |
+
+`runed` starts both the Docker and the process runner when it can; a service chooses with its `runtime`. There is no runefile switch to turn one off. The mount permission modes `secret_dir_mode`, `secret_file_mode`, `config_dir_mode` and `config_file_mode` are also accepted (integers).
 
 ### docker.registries[]
 
@@ -382,11 +398,11 @@ Anything in the runefile can be overridden via `runed` flags:
 | Flag             | Overrides                |
 | ---------------- | ------------------------ |
 | `--config`       | path to this file        |
-| `--data-dir`     | `server.data-dir`        |
-| `--grpc-addr`    | `server.grpc-addr`       |
-| `--http-addr`    | `server.http-addr`       |
-| `--log-level`    | `server.log-level`       |
-| `--log-format`   | `server.log-format`      |
+| `--data-dir`     | `data_dir`               |
+| `--grpc-addr`    | `server.grpc_address`    |
+| `--http-addr`    | `server.http_address`    |
+| `--log-level`    | `log.level`              |
+| `--log-format`   | `log.format`             |
 | `--grpc-require-tls` | `server.require_tls` |
 | `--debug`        | shorthand for `--log-level=debug` |
 | `--pretty`       | shorthand for `--log-format=text` |

@@ -214,7 +214,7 @@ must allow-list the root in the runefile:
 
 ```toml
 # /etc/rune/runefile.toml
-[storage]
+[storage.drivers.local-host]
 hostPathAllowlist = ["/mnt/rune"]
 allowCreateMissing = false
 ```
@@ -232,9 +232,9 @@ volume:
     hostPath: /mnt/rune/shared-cache
 ```
 
-`createIfMissing: "true"` on `parameters` is honoured **only** when
-`allowCreateMissing = true` in the runefile (which is the default in
-`runed --dev-mode`).
+A `hostPath` that doesn't exist is created only when
+`allowCreateMissing = true` under `[storage.drivers.local-host]` (which is the
+default in `runed --dev-mode`); otherwise the volume fails with "does not exist".
 
 ## When a cloud disk gets formatted
 

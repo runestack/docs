@@ -200,8 +200,9 @@ Driver `Provision` requests carry topology labels for placement-aware backends:
   or a Docker/containerd socket (nor inside one). Cast-time check.
 - **Host path allowlist** — `local-host` rejects any `hostPath` not under a
   prefix in `runefile.[storage].hostPathAllowlist`.
-- **`createIfMissing` is opt-in** — `local-host` will not create a missing
-  host directory unless `runefile.[storage].allowCreateMissing = true`.
+- **Creating a missing host directory is opt-in** — `local-host` will not
+  create a missing `hostPath` unless
+  `runefile.[storage.drivers.local-host].allowCreateMissing = true`.
   `runed --dev-mode` overlays both knobs to a developer-friendly default
   (`~/.rune/volumes` allowlist, `allowCreateMissing = true`).
 - **Default-class invariant** — exactly one `StorageClass` may carry
