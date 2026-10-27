@@ -251,6 +251,8 @@ volumes:
 Full schema in [Storage resources](/reference/storage-resources) and the
 [storage concept](/concepts/storage).
 
+<span id="expose"></span>
+
 ### `expose`
 
 ```yaml
@@ -394,6 +396,8 @@ initSteps:
 | `type` | string | `freshVolume` *(default)*, `fileMissing`, or `always`. |
 | `path` | string | Absolute path as the container sees it, under the `mountPath` of a volume the step mounts. Rejected at cast time if it falls outside every such volume. Required iff `type: fileMissing`. |
 | `volume` | string | Optional parent volume name to restrict the `fileMissing` check to. |
+
+<span id="updatestrategy"></span>
 
 ### `updateStrategy`
 

@@ -5,7 +5,8 @@
     "dev": "markline dev",
     "build": "markline build",
     "start": "markline start",
-    "export": "markline export"
+    "export": "markline export",
+    "check": "markline export && node scripts/check-anchors.mjs out"
   },
   "dependencies": {
     "@markline/markline": "^0.1.4"

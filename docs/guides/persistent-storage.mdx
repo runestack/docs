@@ -426,7 +426,7 @@ story `do-volume` exists for. The supported recovery path when
 1. Fresh droplet boots; the reserved IP reattaches automatically.
 2. New `runed` comes up with the same `node-role` + the same node
    hostname (the latter is what the driver matches against
-   `/v2/droplets?name=…` — see the [hostname caveat](#step-3--create-the-storageclass)
+   `/v2/droplets?name=…` — see the [hostname caveat](#step-3-create-the-storageclass)
    earlier on this page).
 3. Agent's volumes Subsystem walks every Volume row whose
    `BoundNode` matches this node. For each, it calls `Driver.Attach`
@@ -449,6 +449,8 @@ Caveats:
 - Hostname collisions inside one DO account will surface as "no DO
   droplet matches hostname …" on the first Attach attempt — make
   sure the new droplet's hostname is unique.
+
+<span id="using-hcloud-volume-for-hetzner-cloud-block-storage"></span>
 
 ## Using `hcloud-volume` for Hetzner Cloud Block Storage
 
@@ -612,6 +614,8 @@ Caveats:
 - Server-name collisions inside one Hetzner project surface as
   "no Hetzner server matches hostname …" on the first Attach
   attempt — keep server names unique.
+
+<span id="using-aws-ebs-for-amazon-ebs"></span>
 
 ## Using `aws-ebs` for Amazon EBS
 
@@ -787,6 +791,8 @@ Caveats:
 - The Volume row's `namespace`/`name` must persist across the rebuild
   (BoundNode lookups key on them). Re-`cast` the same YAML if you're
   seeding from a fresh state store.
+
+<span id="using-gce-pd-for-google-persistent-disks"></span>
 
 ## Using `gce-pd` for Google Persistent Disks
 

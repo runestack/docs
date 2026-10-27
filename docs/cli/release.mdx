@@ -78,6 +78,8 @@ REVISION  STATUS      RESOURCES  UPDATED
 3         deployed    7          1h ago
 ```
 
+<span id="release-diff"></span>
+
 ## `release diff`
 
 A dry-run reconcile: what a re-cast would **create / update / prune / adopt /
@@ -98,7 +100,7 @@ prune    configmap/prod/old-settings
 
 `diff` plans against the release's *recorded* owned set against live state. To
 preview a re-render from changed source or values, use
-[`rune cast --dry-run`](/cli/cast#plan-dry-run), which renders the source first
+[`rune cast --dry-run`](/cli/cast#plan-and-dry-run), which renders the source first
 and shows the full 3-way plan.
 
 </Note>

@@ -45,6 +45,8 @@ storageClass:
 `TopologySelector` is a list of `matchLabels` and/or `matchExpressions`
 (operators: `In`, `NotIn`, `Exists`, `DoesNotExist`).
 
+<span id="secret-references-in-parameters"></span>
+
 ### Secret references in `parameters`
 
 Any value in a StorageClass or Volume `parameters` map may be a
@@ -67,6 +69,8 @@ storageClass:
 Form: `secret:<name>[.<namespace>.rune]/<key>`. Values without the
 `secret:` prefix pass through verbatim. A missing secret or key fails
 the operation with `InvalidParameters`.
+
+<span id="shorthand-vs-fqdn--important-for-storageclass"></span>
 
 #### Shorthand vs FQDN — important for StorageClass
 
@@ -162,6 +166,8 @@ that still costs a provider API call, so it needs a working credential.
 | `hostPath`         | **Required.** Absolute path; must sit under `runefile.[storage].hostPathAllowlist`.    |
 | `createIfMissing`  | `"true"` to create the directory if missing. Honoured only when `[storage] allowCreateMissing = true`. |
 
+<span id="do-volume"></span>
+
 #### `do-volume`
 
 | Key                  | Notes                                                                  |
@@ -175,6 +181,8 @@ Unlike the other cloud drivers, `do-volume` can re-attach a volume the
 provider already reattached without calling the API at all, so a node
 restart does not need a valid token — see
 [Surviving a droplet restart](/guides/persistent-storage#surviving-a-droplet-restart).
+
+<span id="required-digitalocean-token-scopes"></span>
 
 ##### Required DigitalOcean token scopes
 
@@ -195,6 +203,8 @@ The driver does **not** call `/v2/regions`, `/v2/sizes`, or update
 the volume metadata, so `regions:read`, `sizes:read`, and
 `block_storage:update` are not needed despite what the DO console's
 default scope hints sometimes suggest.
+
+<span id="region-pinning"></span>
 
 ##### Region pinning
 
@@ -249,6 +259,8 @@ Capabilities:
 - `BlockDevice: true` — the driver formats the volume on first
   mount and exposes the underlying block device at
   `/dev/disk/by-id/scsi-0HC_Volume_<id>`.
+
+<span id="aws-ebs"></span>
 
 #### `aws-ebs`
 
@@ -313,6 +325,8 @@ hostname, tried in order: an `i-…` instance ID, the `private-dns-name`
 (EC2 default hostname, matched exactly and as `<name>.*`), then the
 `Name` tag. An ambiguous match (two instances) is an error — keep
 hostnames / Name tags unique.
+
+<span id="gce-pd"></span>
 
 #### `gce-pd`
 
