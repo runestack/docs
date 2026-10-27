@@ -182,6 +182,31 @@ service:
 rune exec pg-verify ls /var/lib/postgresql/data
 ```
 
+## Where volumes mount on the host
+
+Cloud-backed volumes are mounted on the host under `/var/lib/rune/mounts/<namespace>/<volume-id>/`. The namespace is part of the path, so the same service cast into two namespaces gets two separate disks instead of one mounted over the other. After an upgrade, a volume that is already mounted keeps its existing path while its own disk is the one mounted there.
+
+If an unmount fails, the disk is not detached: Rune keeps it attached, retries every 30 seconds, and warns (at most every 10 minutes) with the reason. Mount names in a castfile must be DNS-1123 labels (lowercase letters, digits and `-`).
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148. Until then volumes mounted at `/var/lib/rune/mounts/<volume-id>/` regardless of namespace, so two namespaces could clash.
+
+</Note>
+
+## Local volumes stay inside their own paths
+
+The `local` driver only mounts, snapshots, measures and deletes a volume's own directory, `<localVolumeRoot>/<namespace>/<name>`, resolved through symlinks. A handle that points anywhere else (another volume, another namespace, the snapshot store, or a symlink out of the root) is refused. The same applies to snapshot restore and delete, which accept only the snapshot's own directory. A `subPath` is bound only if it resolves to somewhere inside the volume.
+
+- **A volume created under an earlier `localVolumeRoot`** is refused at mount. The error says to move its directory under the current root or set `localVolumeRoot` back.
+- **`local-host`** re-checks `hostPathAllowlist` on every mount, not just when the volume is created, so a volume whose path you remove from the allowlist stops mounting.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148. Until then the drivers trusted a volume's stored path as given, and `local-host` checked the allowlist only when the volume was created.
+
+</Note>
+
 ## Using `local-host` for pre-existing host paths
 
 `local-host` binds an arbitrary pre-existing host directory. The operator
@@ -434,7 +459,7 @@ story `do-volume` exists for. The supported recovery path when
 4. `EnsureFormatted` is a no-op — `lsblk` reports the existing
    `ext4`, mkfs is skipped.
 5. The mount target is recreated under
-   `/var/lib/rune/mounts/<volume-id>/` and services come up against
+   `/var/lib/rune/mounts/<namespace>/<volume-id>/` and services come up against
    the existing data.
 
 Caveats:
@@ -603,7 +628,7 @@ same as DigitalOcean's:
 4. `EnsureFormatted` is a no-op — `lsblk` reports the existing
    filesystem.
 5. The mount target is recreated under
-   `/var/lib/rune/mounts/<volume-id>/` and services come up
+   `/var/lib/rune/mounts/<namespace>/<volume-id>/` and services come up
    against the existing data.
 
 Caveats:

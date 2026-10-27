@@ -112,7 +112,7 @@ The built-in `cast` role (the recommended CI scope) can create and update servic
 permission denied: <subject> is not allowed to "delete" <kind> in namespace "<ns>"
 ```
 
-`<kind>` is `services`, `secrets`, `configmaps` or `volumes`; together with the namespace it tells you which pruned resource tripped it. Either grant the token `delete` on that kind, or keep it as it is and remove the resource once with an admin token (`rune delete service <name> -n prod`), then re-cast. Adding `--adopt` doesn't get around it: adopting counts as an update, and pruning the adopted resource still needs `delete`. A hand-written narrow policy needs the per-kind verbs, volumes and `get` included.
+`<kind>` is `services`, `secrets`, `configmaps` or `volumes`; together with the namespace it tells you which pruned resource tripped it. Either grant the token `delete` on that kind, or keep it as it is and remove the resource once with an admin token (`rune delete service <name> -n prod`), then re-cast. Adding `--adopt` doesn't get around it: adopting counts as an update, and pruning the adopted resource still needs `delete`. A hand-written narrow policy needs the per-kind verbs, volumes and `get` included. Resources that a service references in *other* namespaces need read verbs there too; see [Referencing another namespace](/operations/security#referencing-another-namespace).
 
 <Note title="Since v0.0.1-dev.148">
 

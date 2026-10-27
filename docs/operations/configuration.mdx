@@ -78,13 +78,23 @@ auth:
 ## Storage limits
 
 ```yaml
-storage:
-  secret-limits:
-    max-keys-per-secret: 64
-    max-value-size: 65536    # bytes
+secret:
+  limits:
+    max_object_bytes: 1048576     # default 1 MiB
+    max_key_name_length: 256      # default 256
+config:
+  limits:
+    max_object_bytes: 1048576
+    max_key_name_length: 256
 ```
 
-These cap pathological secret writes — useful when handing tokens to less-trusted CI bots. Tune up only if you actually need bigger payloads (e.g., larger TLS certs).
+These cap the size of a whole secret or configmap and the length of its key names — useful when handing tokens to less-trusted CI bots. Tune up only if you actually need bigger payloads (e.g., larger TLS certs). Limits are enforced when an object is created or updated; an existing object over a lowered limit stays readable and is rejected on its next write.
+
+<Note title="Unreleased">
+
+On `dev`; ships after v0.0.1-dev.148. Until then the snake_case keys above were ignored (the 1 MiB and 256 defaults always applied), and only the run-together `maxobjectbytes` / `maxkeynamelength` spellings took effect.
+
+</Note>
 
 ## KEK source
 
@@ -172,7 +182,7 @@ Probably docker pull latency. Pre-pull images on the host or check registry netw
 ### "Secrets feel risky."
 
 - Move `crypto.kek.source` from `file` to `env` and load via systemd `LoadCredential`.
-- Tighten `storage.secret-limits` so accidental large writes are caught.
+- Tighten `secret.limits` so accidental large writes are caught.
 - Restrict the `secret` resource in policies — only on-call gets `get` for `*` namespace.
 
 ### "I want minimal blast radius for the gRPC port."
