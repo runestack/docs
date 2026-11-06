@@ -1,0 +1,7 @@
+/* Loaded through theme.font.url. Chips for the home page "Runs on" row. */
+.rune-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+.rune-chips span {
+  padding: 6px 12px; border: 1px solid var(--line-2, rgb(128 128 128 / .3)); border-radius: 8px;
+  background: var(--panel, transparent); color: var(--ink-2, inherit);
+  font-family: var(--mono, ui-monospace, monospace); font-size: 13px; line-height: 1.3;
+}
